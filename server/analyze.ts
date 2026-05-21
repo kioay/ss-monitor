@@ -225,25 +225,27 @@ function assessRisk(content: string, sentimentProfile: SentimentProfile, metrics
     (metrics.likes || 0) * 0.2 +
     (metrics.shares || 0) * 0.4;
 
-  const reasons: string[] = [];
-  reasons.push(...illegalRisk.reasons);
+  const primaryReasons: string[] = [];
+  primaryReasons.push(...illegalRisk.reasons);
   const audienceDefused = sentimentProfile.audienceMentions >= 3 && sentimentProfile.audienceScore > 0.12 && sentimentScore > -0.35;
   const skillDefused = sentimentProfile.skillShowcase && sentimentProfile.audienceScore > -0.15 && sentimentScore > -0.35;
-  if (sentimentScore < -0.35 && !audienceDefused && !skillDefused) reasons.push("负面表达集中");
-  if (engagement > 800) reasons.push("互动量较高");
+  if (sentimentScore < -0.35 && !audienceDefused && !skillDefused) primaryReasons.push("负面表达集中");
   if (/(外挂|封号|倒闭|破游戏|没救|白氪|BUG|bug|炸服|闪退)/.test(content)) {
-    if (!illegalRisk.reasons.length && !audienceDefused && !skillDefused) reasons.push("命中敏感风险词");
+    if (!illegalRisk.reasons.length && !audienceDefused && !skillDefused) primaryReasons.push("命中敏感风险词");
   }
   if (/(水军|诈骗|未成年|退款|投诉)/.test(content)) {
-    reasons.push("命中治理类风险词");
+    primaryReasons.push("命中治理类风险词");
   }
 
   let level: RiskLevel = "low";
-  if (illegalRisk.level === "high" || reasons.length >= 2 || (sentimentScore < -0.45 && engagement > 250)) {
+  if (illegalRisk.level === "high" || primaryReasons.length >= 2 || (sentimentScore < -0.45 && engagement > 250)) {
     level = "high";
-  } else if (illegalRisk.level === "medium" || reasons.length === 1 || sentimentScore < -0.25) {
+  } else if (illegalRisk.level === "medium" || primaryReasons.length === 1 || sentimentScore < -0.25) {
     level = "medium";
   }
+
+  const reasons = [...primaryReasons];
+  if (level !== "low" && engagement > 800) reasons.push("互动量较高");
 
   return { level, reasons: uniq(reasons).slice(0, 4) };
 }
