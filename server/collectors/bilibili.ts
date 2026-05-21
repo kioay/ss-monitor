@@ -120,7 +120,7 @@ export async function collectBilibili(game: GameConfig, cutoff: Date) {
     .sort((a, b) => b.pubdate - a.pubdate)
     .slice(0, runtimeConfig.maxVideosPerGame);
 
-  const deepSet = new Set(candidates.slice(0, runtimeConfig.maxVideosToDeepParsePerGame).map((item) => item.bvid));
+  const deepSet = makeDeepParseSet(candidates);
   const settled = await Promise.allSettled(
     candidates.map((item) => buildBiliMonitorItem(game, item, deepSet.has(item.bvid)))
   );
@@ -249,11 +249,38 @@ async function fetchVideoDetail(bvid: string) {
 }
 
 async function fetchComments(aid: number) {
+  try {
+    return await fetchWbiComments(aid);
+  } catch {
+    return fetchLegacyComments(aid);
+  }
+}
+
+async function fetchWbiComments(aid: number) {
+  const url = await signedWbiUrl("https://api.bilibili.com/x/v2/reply/wbi/main", {
+    type: 1,
+    oid: aid,
+    mode: 3,
+    next: 0,
+    ps: 20
+  });
+  const data = await fetchJson<BiliReplyResponse>(url, {
+    referer: `https://www.bilibili.com/video/av${aid}/`,
+    cookie: sourceCookie("bilibili")
+  });
+  return flattenReplies(data);
+}
+
+async function fetchLegacyComments(aid: number) {
   const url = `https://api.bilibili.com/x/v2/reply?type=1&oid=${aid}&sort=2&pn=1&ps=20`;
   const data = await fetchJson<BiliReplyResponse>(url, {
     referer: `https://www.bilibili.com/video/av${aid}/`,
     cookie: sourceCookie("bilibili")
   });
+  return flattenReplies(data);
+}
+
+function flattenReplies(data: BiliReplyResponse) {
   const comments: string[] = [];
   for (const reply of data.data?.replies || []) {
     const message = stripHtml(reply.content?.message || "");
@@ -342,6 +369,21 @@ function splitTags(tagText: string) {
       .map((tag) => stripHtml(tag))
       .filter(Boolean)
   ).slice(0, 12);
+}
+
+function makeDeepParseSet(candidates: BiliSearchItem[]) {
+  const deepSet = new Set(candidates.slice(0, runtimeConfig.maxVideosToDeepParsePerGame).map((item) => item.bvid));
+  const maxDeep = Math.min(candidates.length, runtimeConfig.maxVideosToDeepParsePerGame + 6);
+  for (const item of candidates) {
+    if (deepSet.size >= maxDeep) break;
+    if (needsAudienceContext(item)) deepSet.add(item.bvid);
+  }
+  return deepSet;
+}
+
+function needsAudienceContext(item: BiliSearchItem) {
+  const text = `${stripHtml(item.title)} ${stripHtml(item.description || item.desc || "")} ${item.tag || ""}`;
+  return /(难受|骂|外挂|封号|破游戏|BUG|bug|卡顿|崩溃|氪|削弱|匹配|单排|四排|五排|巅王|战队车|技术|操作|身法|教学|教程|击杀|高光|视角)/.test(text);
 }
 
 function isRelevantVideo(gameId: GameConfig["id"], item: BiliSearchItem) {
