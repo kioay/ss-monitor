@@ -383,7 +383,7 @@ function makeDeepParseSet(candidates: BiliSearchItem[]) {
 
 function needsAudienceContext(item: BiliSearchItem) {
   const text = `${stripHtml(item.title)} ${stripHtml(item.description || item.desc || "")} ${item.tag || ""}`;
-  return /(难受|骂|外挂|封号|破游戏|BUG|bug|卡顿|崩溃|氪|削弱|匹配|单排|四排|五排|巅王|战队车|技术|操作|身法|教学|教程|击杀|高光|视角)/.test(text);
+  return /(难受|骂|外挂|外卦|开挂|封号|作弊|科技|辅助|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|穿墙|无后座|无后坐|DMA|驱动|过检测|免封|QQ群|群号|加群|进群|售卖|卡密|代理|破游戏|BUG|bug|卡顿|崩溃|氪|削弱|匹配|单排|四排|五排|巅王|战队车|技术|操作|身法|教学|教程|击杀|高光|视角)/.test(text);
 }
 
 function isRelevantVideo(gameId: GameConfig["id"], item: BiliSearchItem) {

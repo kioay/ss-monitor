@@ -65,6 +65,31 @@ const skillShowcaseWords = [
   "钻石"
 ];
 
+const illegalBehaviorRules = [
+  {
+    reason: "疑似外挂宣传引流",
+    level: "high" as const,
+    pattern:
+      /(外挂|外卦|科技|辅助|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|DMA|驱动|过检测|免封).{0,24}(QQ群|群号|加群|进群|q群|qq|QQ|企鹅|微信|VX|vx|私信|主页|购买|售卖|卡密|代理|月卡|周卡|日卡|接单|体验群|交流群)|(QQ群|群号|加群|进群|q群|qq|QQ|企鹅|微信|VX|vx|私信|主页|购买|售卖|卡密|代理|月卡|周卡|日卡|接单|体验群|交流群).{0,24}(外挂|外卦|科技|辅助|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|DMA|驱动|过检测|免封)/
+  },
+  {
+    reason: "疑似外挂演示内容",
+    level: "high" as const,
+    pattern:
+      /(外挂|外卦|科技|辅助|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|DMA|驱动|过检测|免封).{0,18}(演示|展示|实测|测试|效果|教程|教学|视频|录屏|第一视角)|(演示|展示|实测|测试|效果|教程|教学|视频|录屏|第一视角).{0,18}(外挂|外卦|科技|辅助|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|DMA|驱动|过检测|免封)/
+  },
+  {
+    reason: "命中外挂/脚本高危词",
+    level: "high" as const,
+    pattern: /(内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|穿墙|无后座|无后坐|DMA|驱动挂|过检测|免封|辅助售卖|外挂售卖|科技售卖)/
+  },
+  {
+    reason: "命中外挂治理线索",
+    level: "medium" as const,
+    pattern: /(外挂|外卦|开挂|挂狗|科技|辅助|作弊|封号|封禁|举报|锁头|透视|宏)/
+  }
+];
+
 export function analyzeItem(input: AnalyzeInput) {
   const content = input.contentParts
     .map((part) => part.text)
@@ -191,6 +216,7 @@ function extractKeywords(content: string, topics: string[]) {
 
 function assessRisk(content: string, sentimentProfile: SentimentProfile, metrics: MonitorItem["metrics"]) {
   const sentimentScore = sentimentProfile.score;
+  const illegalRisk = detectIllegalBehavior(content);
   const engagement =
     (metrics.views || 0) * 0.002 +
     (metrics.replies || 0) * 2 +
@@ -200,25 +226,26 @@ function assessRisk(content: string, sentimentProfile: SentimentProfile, metrics
     (metrics.shares || 0) * 0.4;
 
   const reasons: string[] = [];
+  reasons.push(...illegalRisk.reasons);
   const audienceDefused = sentimentProfile.audienceMentions >= 3 && sentimentProfile.audienceScore > 0.12 && sentimentScore > -0.35;
   const skillDefused = sentimentProfile.skillShowcase && sentimentProfile.audienceScore > -0.15 && sentimentScore > -0.35;
   if (sentimentScore < -0.35 && !audienceDefused && !skillDefused) reasons.push("负面表达集中");
   if (engagement > 800) reasons.push("互动量较高");
   if (/(外挂|封号|倒闭|破游戏|没救|白氪|BUG|bug|炸服|闪退)/.test(content)) {
-    if (!audienceDefused && !skillDefused) reasons.push("命中敏感风险词");
+    if (!illegalRisk.reasons.length && !audienceDefused && !skillDefused) reasons.push("命中敏感风险词");
   }
   if (/(水军|诈骗|未成年|退款|投诉)/.test(content)) {
     reasons.push("命中治理类风险词");
   }
 
   let level: RiskLevel = "low";
-  if (reasons.length >= 2 || (sentimentScore < -0.45 && engagement > 250)) {
+  if (illegalRisk.level === "high" || reasons.length >= 2 || (sentimentScore < -0.45 && engagement > 250)) {
     level = "high";
-  } else if (reasons.length === 1 || sentimentScore < -0.25) {
+  } else if (illegalRisk.level === "medium" || reasons.length === 1 || sentimentScore < -0.25) {
     level = "medium";
   }
 
-  return { level, reasons };
+  return { level, reasons: uniq(reasons).slice(0, 4) };
 }
 
 function summarizeContent(title: string, parts: ContentPart[], topics: string[], sentiment: Sentiment, sentimentProfile: SentimentProfile) {
@@ -228,7 +255,7 @@ function summarizeContent(title: string, parts: ContentPart[], topics: string[],
       title,
       ...parts.filter((part) => part.type === "description" || part.type === "tag").map((part) => part.text),
       ...comments.slice(0, 5).map((part) => part.text)
-    ],
+    ].map(maskContactInfo),
     220
   );
   const topicText = topics.length ? `主题集中在${topics.slice(0, 3).join("、")}` : "主题暂不集中";
@@ -261,4 +288,24 @@ function partWeight(type: ContentPart["type"]) {
 
 function isSkillShowcase(content: string) {
   return skillShowcaseWords.some((word) => content.includes(word));
+}
+
+function detectIllegalBehavior(content: string) {
+  const reasons: string[] = [];
+  let level: RiskLevel = "low";
+
+  for (const rule of illegalBehaviorRules) {
+    if (!rule.pattern.test(content)) continue;
+    reasons.push(rule.reason);
+    if (rule.level === "high") level = "high";
+    else if (level !== "high") level = "medium";
+  }
+
+  return { level, reasons };
+}
+
+function maskContactInfo(text: string) {
+  return text
+    .replace(/(QQ群|群号|QQ|qq|q群|企鹅|微信|VX|vx)[:：\s-]*[A-Za-z0-9_-]{5,16}/g, "$1[已隐藏]")
+    .replace(/(加群|进群|私信|联系|购买|售卖|卡密|代理).{0,8}(\d{5,12})/g, "$1[已隐藏]");
 }

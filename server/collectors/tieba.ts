@@ -79,7 +79,7 @@ export async function collectTieba(game: GameConfig, cutoff: Date) {
   const candidates = Array.from(byTid.values())
     .sort((a, b) => (b.latestAt?.getTime() || 0) - (a.latestAt?.getTime() || 0))
     .slice(0, runtimeConfig.maxTiebaThreadsPerBar);
-  const deepSet = new Set(candidates.slice(0, runtimeConfig.maxTiebaThreadsToDeepParse).map((candidate) => candidate.tid));
+  const deepSet = makeDeepParseSet(candidates);
 
   const settled = await Promise.allSettled(candidates.map((candidate) => buildTiebaMonitorItem(game, candidate, deepSet.has(candidate.tid))));
   const items: MonitorItem[] = [];
@@ -250,6 +250,21 @@ async function buildTiebaMonitorItem(game: GameConfig, candidate: TiebaThreadCan
     parsedContentCount: contentParts.reduce((sum, part) => sum + (part.count || 1), 0),
     ...analysis
   };
+}
+
+function makeDeepParseSet(candidates: TiebaThreadCandidate[]) {
+  const deepSet = new Set(candidates.slice(0, runtimeConfig.maxTiebaThreadsToDeepParse).map((candidate) => candidate.tid));
+  const maxDeep = Math.min(candidates.length, runtimeConfig.maxTiebaThreadsToDeepParse + 8);
+  for (const candidate of candidates) {
+    if (deepSet.size >= maxDeep) break;
+    if (needsPostContext(candidate)) deepSet.add(candidate.tid);
+  }
+  return deepSet;
+}
+
+function needsPostContext(candidate: TiebaThreadCandidate) {
+  const text = `${candidate.title} ${candidate.abstractText}`;
+  return /(外挂|外卦|开挂|封号|作弊|科技|辅助|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|穿墙|无后座|无后坐|DMA|驱动|过检测|免封|QQ群|群号|加群|进群|售卖|卡密|代理|举报|水军|诈骗|退款|投诉)/.test(text);
 }
 
 async function fetchThreadPosts(tid: string, url: string) {

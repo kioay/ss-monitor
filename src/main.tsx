@@ -88,7 +88,7 @@ function App() {
       if (risk !== "all" && item.riskLevel !== risk) return false;
       if (sentiment !== "all" && item.sentiment !== sentiment) return false;
       if (!keyword) return true;
-      return `${item.title} ${item.summary} ${item.author} ${item.keywords.join(" ")}`
+      return `${item.title} ${item.summary} ${item.author} ${item.keywords.join(" ")} ${item.riskReasons.join(" ")}`
         .toLowerCase()
         .includes(keyword);
     });
@@ -257,6 +257,7 @@ function App() {
                 <span>{riskText(alert.riskLevel)}</span>
                 <strong>{alert.title}</strong>
                 <small>{alert.gameName} · {formatAgo(alert.publishedAt)}</small>
+                {alert.reasons.length ? <small className="alert-reasons">{alert.reasons.slice(0, 2).join(" / ")}</small> : null}
               </a>
             ))
           ) : (
@@ -388,6 +389,9 @@ function MonitorCard({ item }: { item: MonitorItem }) {
           <span className={`sentiment-pill ${item.sentiment}`}>{sentimentText(item.sentiment)}</span>
           {item.topics.slice(0, 4).map((topic) => (
             <span key={topic}>{topic}</span>
+          ))}
+          {item.riskReasons.slice(0, 3).map((reason) => (
+            <span className="risk-reason" key={reason}>{reason}</span>
           ))}
           {item.keywords.slice(0, 4).map((keyword) => (
             <span key={keyword}>{keyword}</span>

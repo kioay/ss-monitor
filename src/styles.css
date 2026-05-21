@@ -550,6 +550,11 @@ button.metric:focus-visible {
   color: #65726b;
 }
 
+.alert-item .alert-reasons {
+  color: #8b2f20;
+  font-weight: 650;
+}
+
 .feed-toolbar p {
   color: #65726b;
   margin-top: 4px;
@@ -653,6 +658,12 @@ button.metric:focus-visible {
 .pill-row .risk-pill.low {
   background: #e1f3ea;
   color: #1e6f55;
+}
+
+.pill-row .risk-reason {
+  background: #ffe3dc;
+  color: #8b2f20;
+  font-weight: 650;
 }
 
 .pill-row .sentiment-pill.negative {
