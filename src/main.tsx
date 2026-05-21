@@ -220,7 +220,8 @@ function App() {
               <span><i className="negative" />负面</span>
               <span><i className="neutral" />中性</span>
               <span><i className="positive" />正面</span>
-              <small>柱高=该时段总声量</small>
+              <span><i className="total-line" />总声量折线</span>
+              <small>柱子=情绪构成</small>
             </div>
           </div>
           <TrendChart data={data?.trends || []} />
@@ -348,25 +349,38 @@ function UpdatePolicyBadge({ policy }: { policy: MonitorResponse["updatePolicy"]
 function TrendChart({ data }: { data: TrendPoint[] }) {
   const max = Math.max(1, ...data.map((point) => point.total));
   if (!data.length) return <div className="chart-box empty-chart">暂无趋势数据</div>;
+  const plotStyle = { "--trend-count": data.length } as React.CSSProperties;
+  const linePoints = data
+    .map((point, index) => {
+      const x = data.length === 1 ? 50 : ((index + 0.5) / data.length) * 100;
+      const y = 100 - (point.total / max) * 100;
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    })
+    .join(" ");
 
   return (
     <div className="chart-box trend-chart">
-      {data.map((point) => {
-        const positive = Math.max(4, (point.positive / max) * 100);
-        const neutral = Math.max(4, (point.neutral / max) * 100);
-        const negative = Math.max(4, (point.negative / max) * 100);
-        const tooltip = `${point.bucket}: 总声量 ${point.total} 条，负面 ${point.negative}，中性 ${point.neutral}，正面 ${point.positive}`;
-        return (
-          <div className="trend-column" key={point.bucket}>
-            <div className="trend-stack" title={tooltip} aria-label={tooltip}>
-              {point.negative ? <i className="negative" style={{ height: `${negative}%` }} /> : null}
-              {point.neutral ? <i className="neutral" style={{ height: `${neutral}%` }} /> : null}
-              {point.positive ? <i className="positive" style={{ height: `${positive}%` }} /> : null}
+      <div className="trend-plot" style={plotStyle}>
+        <svg className="trend-line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          <polyline className="trend-line-path" points={linePoints} />
+        </svg>
+        {data.map((point) => {
+          const positive = Math.max(4, (point.positive / max) * 100);
+          const neutral = Math.max(4, (point.neutral / max) * 100);
+          const negative = Math.max(4, (point.negative / max) * 100);
+          const tooltip = `${point.bucket}: 总声量 ${point.total} 条，负面 ${point.negative}，中性 ${point.neutral}，正面 ${point.positive}`;
+          return (
+            <div className="trend-column" key={point.bucket}>
+              <div className="trend-stack" title={tooltip} aria-label={tooltip}>
+                {point.negative ? <i className="negative" style={{ height: `${negative}%` }} /> : null}
+                {point.neutral ? <i className="neutral" style={{ height: `${neutral}%` }} /> : null}
+                {point.positive ? <i className="positive" style={{ height: `${positive}%` }} /> : null}
+              </div>
+              <span>{point.bucket.replace(" ", "\n")}</span>
             </div>
-            <span>{point.bucket.replace(" ", "\n")}</span>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
