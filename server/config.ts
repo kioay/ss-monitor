@@ -1,0 +1,121 @@
+import "dotenv/config";
+import type { GameConfig, GameId } from "../src/shared";
+
+export const games: GameConfig[] = [
+  {
+    id: "ss1",
+    name: "生死狙击1",
+    shortName: "SS1",
+    bilibiliKeywords: ["生死狙击", "生死狙击1", "4399生死狙击", "生死狙击页游"],
+    tiebaBars: ["生死狙击"]
+  },
+  {
+    id: "ss2",
+    name: "生死狙击2",
+    shortName: "SS2",
+    bilibiliKeywords: ["生死狙击2", "生死狙击2热油"],
+    tiebaBars: ["生死狙击2"]
+  }
+];
+
+export const gameById = new Map<GameId, GameConfig>(games.map((game) => [game.id, game]));
+
+export const runtimeConfig = {
+  port: Number(process.env.PORT || 8787),
+  host: process.env.HOST || "127.0.0.1",
+  dayUpdateSeconds: Math.max(60, Number(process.env.DAY_UPDATE_INTERVAL_MINUTES || 60) * 60),
+  nightUpdateSeconds: Math.max(60, Number(process.env.NIGHT_UPDATE_INTERVAL_MINUTES || 240) * 60),
+  nightStartHour: clampHour(Number(process.env.NIGHT_START_HOUR || 0)),
+  nightEndHour: clampHour(Number(process.env.NIGHT_END_HOUR || 8)),
+  defaultWindowHours: Math.max(1, Number(process.env.DEFAULT_WINDOW_HOURS || 72)),
+  bilibiliCookie: process.env.BILIBILI_COOKIE || "",
+  baiduCookie: process.env.BAIDU_COOKIE || "",
+  maxVideosPerGame: 18,
+  maxVideosToDeepParsePerGame: 8,
+  maxTiebaThreadsPerBar: 30,
+  maxTiebaThreadsToDeepParse: 8
+};
+
+export function getUpdatePolicy(now = new Date(), baseTime = now) {
+  const isNight = isNightHour(now.getHours());
+  const intervalSeconds = isNight ? runtimeConfig.nightUpdateSeconds : runtimeConfig.dayUpdateSeconds;
+  const nextUpdateAt = new Date(baseTime.getTime() + intervalSeconds * 1000);
+  return {
+    mode: isNight ? "night" as const : "day" as const,
+    intervalSeconds,
+    nextUpdateAt: nextUpdateAt.toISOString(),
+    nightStartHour: runtimeConfig.nightStartHour,
+    nightEndHour: runtimeConfig.nightEndHour,
+    label: `${isNight ? "夜间" : "日间"}每 ${formatInterval(intervalSeconds)}更新`
+  };
+}
+
+function isNightHour(hour: number) {
+  const start = runtimeConfig.nightStartHour;
+  const end = runtimeConfig.nightEndHour;
+  if (start === end) return false;
+  if (start < end) return hour >= start && hour < end;
+  return hour >= start || hour < end;
+}
+
+function clampHour(value: number) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(23, Math.trunc(value)));
+}
+
+function formatInterval(seconds: number) {
+  const minutes = Math.round(seconds / 60);
+  if (minutes % 60 === 0) return `${minutes / 60} 小时`;
+  return `${minutes} 分钟`;
+}
+
+export const topicLexicon: Record<string, string[]> = {
+  更新活动: ["更新", "新版本", "版本", "前瞻", "爆料", "联动", "活动", "官宣", "赛季", "塔菲"],
+  氪金付费: ["氪", "充值", "付费", "抽", "金皮", "红皮", "皮肤", "礼包", "白氪", "微氪"],
+  外挂公平: ["外挂", "宏", "脚本", "科技", "封号", "作弊", "锁头", "透视", "水军"],
+  BUG体验: ["bug", "BUG", "卡顿", "掉帧", "闪退", "崩溃", "炸服", "延迟", "掉线"],
+  匹配平衡: ["匹配", "战力", "平衡", "削弱", "加强", "伤害", "单排", "四排", "巅峰"],
+  模式玩法: ["变异", "追击", "冒险", "PVE", "pve", "PVP", "pvp", "刀战", "身法", "教程", "攻略"],
+  社区情绪: ["倒闭", "有救", "难受", "骂", "破游戏", "退坑", "凉", "神人", "喷"]
+};
+
+export const positiveWords = [
+  "好玩",
+  "期待",
+  "喜欢",
+  "支持",
+  "爽",
+  "强",
+  "不错",
+  "良心",
+  "舒服",
+  "热度",
+  "回归",
+  "可以",
+  "666",
+  "厉害",
+  "香"
+];
+
+export const negativeWords = [
+  "垃圾",
+  "破游戏",
+  "难受",
+  "倒闭",
+  "退坑",
+  "外挂",
+  "封号",
+  "bug",
+  "BUG",
+  "卡顿",
+  "崩溃",
+  "闪退",
+  "氪",
+  "白氪",
+  "骂",
+  "恶心",
+  "烂",
+  "削弱",
+  "有救吗",
+  "没救"
+];

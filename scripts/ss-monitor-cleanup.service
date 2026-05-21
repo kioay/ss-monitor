@@ -1,0 +1,10 @@
+[Unit]
+Description=Clean old SS Monitor deployment artifacts
+
+[Service]
+Type=oneshot
+Environment=APP_ROOT=/opt/ss-monitor
+Environment=KEEP_RELEASES=2
+Environment=JOURNAL_MAX_SIZE=100M
+Environment=JOURNAL_MAX_AGE=7d
+ExecStart=/opt/ss-monitor/current/scripts/cleanup-server.sh
