@@ -20,6 +20,18 @@ const api = {
   monitor: "/api/monitor"
 };
 
+type TrendSeries = "negative" | "neutral" | "positive" | "total";
+type TrendSeriesVisibility = Record<TrendSeries, boolean>;
+
+const defaultTrendSeriesVisibility: TrendSeriesVisibility = {
+  negative: true,
+  neutral: true,
+  positive: true,
+  total: true
+};
+
+const trendSeriesOrder: TrendSeries[] = ["negative", "neutral", "positive", "total"];
+
 function App() {
   const [config, setConfig] = React.useState<{
     games: GameConfig[];
@@ -35,6 +47,9 @@ function App() {
   const [data, setData] = React.useState<MonitorResponse>();
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
+  const [trendSeries, setTrendSeries] = React.useState<TrendSeriesVisibility>(defaultTrendSeriesVisibility);
+  const [isControlFloating, setControlFloating] = React.useState(false);
+  const controlSentinelRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     fetch(api.config)
@@ -80,6 +95,25 @@ function App() {
     const timer = window.setTimeout(() => load(false), delayMs);
     return () => window.clearTimeout(timer);
   }, [data?.updatePolicy.nextUpdateAt, load]);
+
+  React.useEffect(() => {
+    const target = controlSentinelRef.current;
+    if (!target || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(([entry]) => setControlFloating(!entry.isIntersecting), {
+      rootMargin: "-1px 0px 0px 0px",
+      threshold: 0
+    });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, []);
+
+  const toggleTrendSeries = React.useCallback((series: TrendSeries) => {
+    setTrendSeries((current) => {
+      const activeCount = Object.values(current).filter(Boolean).length;
+      if (current[series] && activeCount === 1) return current;
+      return { ...current, [series]: !current[series] };
+    });
+  }, []);
 
   const filteredItems = React.useMemo(() => {
     const keyword = query.trim().toLowerCase();
@@ -138,7 +172,8 @@ function App() {
         </div>
       </section>
 
-      <section className="control-band">
+      <div className="control-sentinel" ref={controlSentinelRef} aria-hidden="true" />
+      <section className={`control-band ${isControlFloating ? "is-floating" : ""}`}>
         <div className="segmented">
           {gameOptions.map((option) => (
             <button
@@ -216,15 +251,15 @@ function App() {
               <Waves size={18} />
               <h2>声量趋势</h2>
             </div>
-            <div className="chart-legend" aria-label="声量趋势颜色说明">
-              <span><i className="negative" />负面</span>
-              <span><i className="neutral" />中性</span>
-              <span><i className="positive" />正面</span>
-              <span><i className="total-line" />总声量折线</span>
+            <div className="chart-legend" aria-label="声量趋势筛选">
+              <TrendLegendButton series="negative" label="负面" active={trendSeries.negative} onToggle={toggleTrendSeries} />
+              <TrendLegendButton series="neutral" label="中性" active={trendSeries.neutral} onToggle={toggleTrendSeries} />
+              <TrendLegendButton series="positive" label="正面" active={trendSeries.positive} onToggle={toggleTrendSeries} />
+              <TrendLegendButton series="total" label="总声量折线" active={trendSeries.total} onToggle={toggleTrendSeries} />
               <small>柱子=情绪构成</small>
             </div>
           </div>
-          <TrendChart data={data?.trends || []} />
+          <TrendChart data={data?.trends || []} visibleSeries={trendSeries} />
         </div>
 
         <div className="topic-area">
@@ -346,23 +381,62 @@ function UpdatePolicyBadge({ policy }: { policy: MonitorResponse["updatePolicy"]
   );
 }
 
-function TrendChart({ data }: { data: TrendPoint[] }) {
-  const max = Math.max(1, ...data.map((point) => point.total));
+function TrendLegendButton({
+  series,
+  label,
+  active,
+  onToggle
+}: {
+  series: TrendSeries;
+  label: string;
+  active: boolean;
+  onToggle: (series: TrendSeries) => void;
+}) {
+  return (
+    <button
+      className={`legend-toggle ${active ? "active" : ""}`}
+      type="button"
+      aria-pressed={active}
+      title={`${active ? "隐藏" : "显示"}${label}`}
+      onClick={() => onToggle(series)}
+    >
+      <i className={series === "total" ? "total-line" : series} />
+      {label}
+    </button>
+  );
+}
+
+function TrendChart({ data, visibleSeries }: { data: TrendPoint[]; visibleSeries: TrendSeriesVisibility }) {
   if (!data.length) return <div className="chart-box empty-chart">暂无趋势数据</div>;
+  const max = Math.max(
+    1,
+    ...data.map((point) =>
+      Math.max(
+        visibleSeries.total ? point.total : 0,
+        (visibleSeries.negative ? point.negative : 0) +
+          (visibleSeries.neutral ? point.neutral : 0) +
+          (visibleSeries.positive ? point.positive : 0)
+      )
+    )
+  );
   const plotStyle = { "--trend-count": data.length } as React.CSSProperties;
-  const linePoints = data
-    .map((point, index) => {
-      const x = data.length === 1 ? 50 : ((index + 0.5) / data.length) * 100;
-      const y = 100 - (point.total / max) * 100;
-      return `${x.toFixed(2)},${y.toFixed(2)}`;
-    })
-    .join(" ");
+  const linePoints = (series: TrendSeries) =>
+    data
+      .map((point, index) => {
+        const x = data.length === 1 ? 50 : ((index + 0.5) / data.length) * 100;
+        const y = 6 + (1 - trendSeriesValue(point, series) / max) * 88;
+        return `${x.toFixed(2)},${y.toFixed(2)}`;
+      })
+      .join(" ");
+  const activeLineSeries = trendSeriesOrder.filter((series) => visibleSeries[series]);
 
   return (
     <div className="chart-box trend-chart">
       <div className="trend-plot" style={plotStyle}>
         <svg className="trend-line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-          <polyline className="trend-line-path" points={linePoints} />
+          {activeLineSeries.map((series) => (
+            <polyline className={`trend-line-path line-${series}`} points={linePoints(series)} key={series} />
+          ))}
         </svg>
         {data.map((point) => {
           const positive = Math.max(4, (point.positive / max) * 100);
@@ -372,9 +446,9 @@ function TrendChart({ data }: { data: TrendPoint[] }) {
           return (
             <div className="trend-column" key={point.bucket}>
               <div className="trend-stack" title={tooltip} aria-label={tooltip}>
-                {point.negative ? <i className="negative" style={{ height: `${negative}%` }} /> : null}
-                {point.neutral ? <i className="neutral" style={{ height: `${neutral}%` }} /> : null}
-                {point.positive ? <i className="positive" style={{ height: `${positive}%` }} /> : null}
+                {visibleSeries.negative && point.negative ? <i className="negative" style={{ height: `${negative}%` }} /> : null}
+                {visibleSeries.neutral && point.neutral ? <i className="neutral" style={{ height: `${neutral}%` }} /> : null}
+                {visibleSeries.positive && point.positive ? <i className="positive" style={{ height: `${positive}%` }} /> : null}
               </div>
               <span>{point.bucket.replace(" ", "\n")}</span>
             </div>
@@ -383,6 +457,13 @@ function TrendChart({ data }: { data: TrendPoint[] }) {
       </div>
     </div>
   );
+}
+
+function trendSeriesValue(point: TrendPoint, series: TrendSeries) {
+  if (series === "negative") return point.negative;
+  if (series === "neutral") return point.neutral;
+  if (series === "positive") return point.positive;
+  return point.total;
 }
 
 function MonitorCard({ item }: { item: MonitorItem }) {

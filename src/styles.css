@@ -158,8 +158,30 @@ h2 {
   }
 }
 
+.control-sentinel {
+  height: 1px;
+}
+
 .control-band {
+  position: sticky;
+  top: 8px;
+  z-index: 30;
   flex-wrap: wrap;
+  background: rgba(245, 247, 244, 0.92);
+  transition:
+    padding 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease;
+}
+
+.control-band.is-floating {
+  padding: 8px 10px;
+  border: 1px solid rgba(23, 32, 29, 0.12);
+  border-radius: 8px;
+  background: rgba(250, 252, 249, 0.96);
+  box-shadow: 0 12px 32px rgba(23, 32, 29, 0.14);
+  backdrop-filter: blur(14px);
 }
 
 .segmented {
@@ -388,7 +410,7 @@ button.metric:focus-visible {
   font-size: 12px;
 }
 
-.chart-legend span {
+.chart-legend button {
   min-height: 24px;
   display: inline-flex;
   align-items: center;
@@ -397,6 +419,21 @@ button.metric:focus-visible {
   border: 1px solid rgba(23, 32, 29, 0.1);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.76);
+  color: #526059;
+}
+
+.chart-legend button:hover,
+.chart-legend button:focus-visible {
+  border-color: rgba(47, 143, 112, 0.34);
+  color: #17201d;
+}
+
+.chart-legend button:not(.active) {
+  opacity: 0.46;
+}
+
+.chart-legend button:not(.active) i {
+  filter: grayscale(1);
 }
 
 .chart-legend i {
@@ -457,19 +494,36 @@ button.metric:focus-visible {
 
 .trend-line {
   position: absolute;
-  inset: 0 0 50px 0;
+  inset: 4px 0 52px 0;
   z-index: 2;
-  overflow: visible;
+  overflow: hidden;
   pointer-events: none;
 }
 
 .trend-line-path {
   fill: none;
-  stroke: #4078a8;
-  stroke-width: 1.8;
+  stroke-width: 1.7;
   stroke-linecap: round;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
+}
+
+.trend-line-path.line-negative {
+  stroke: #c0523d;
+}
+
+.trend-line-path.line-neutral {
+  stroke: #8b918b;
+}
+
+.trend-line-path.line-positive {
+  stroke: #2f8f70;
+}
+
+.trend-line-path.line-total {
+  stroke: #4078a8;
+  stroke-dasharray: 5 4;
+  opacity: 0.76;
 }
 
 .trend-column {
