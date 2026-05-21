@@ -85,7 +85,7 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
       ttlSeconds: updatePolicy.intervalSeconds
     },
     stats: makeStats(freshItems),
-    trends: makeTrends(freshItems, query.windowHours),
+    trends: makeTrends(freshItems, query.windowHours, cutoff, generatedAt),
     topicStats: makeTopicStats(freshItems),
     alerts: makeAlerts(freshItems),
     health,
@@ -136,23 +136,25 @@ function makeStats(items: MonitorItem[]): MonitorStats {
   };
 }
 
-function makeTrends(items: MonitorItem[], windowHours: number): TrendPoint[] {
-  const buckets = new Map<string, TrendPoint>();
+function makeTrends(items: MonitorItem[], windowHours: number, cutoff: Date, generatedAt: Date): TrendPoint[] {
+  const buckets = new Map<string, TrendPoint & { order: number }>();
   const useHourly = windowHours <= 96;
+
+  if (!useHourly) {
+    const start = startOfDay(cutoff);
+    const end = startOfDay(generatedAt);
+    for (let cursor = start.getTime(); cursor <= end.getTime(); cursor += 86_400_000) {
+      const date = new Date(cursor);
+      const bucket = formatDayBucket(date);
+      buckets.set(bucket, createTrendPoint(bucket, cursor));
+    }
+  }
 
   for (const item of items) {
     const date = new Date(item.publishedAt);
-    const bucket = useHourly
-      ? `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, "0")}:00`
-      : `${date.getMonth() + 1}/${date.getDate()}`;
-    const point = buckets.get(bucket) || {
-      bucket,
-      total: 0,
-      positive: 0,
-      neutral: 0,
-      negative: 0,
-      highRisk: 0
-    };
+    const order = useHourly ? startOfHour(date).getTime() : startOfDay(date).getTime();
+    const bucket = useHourly ? formatHourBucket(date) : formatDayBucket(date);
+    const point = buckets.get(bucket) || createTrendPoint(bucket, order);
     point.total += 1;
     if (item.sentiment === "positive") point.positive += 1;
     else if (item.sentiment === "negative") point.negative += 1;
@@ -161,7 +163,37 @@ function makeTrends(items: MonitorItem[], windowHours: number): TrendPoint[] {
     buckets.set(bucket, point);
   }
 
-  return Array.from(buckets.values()).reverse();
+  return Array.from(buckets.values())
+    .sort((a, b) => a.order - b.order)
+    .map(({ order: _order, ...point }) => point);
+}
+
+function createTrendPoint(bucket: string, order: number): TrendPoint & { order: number } {
+  return {
+    bucket,
+    order,
+    total: 0,
+    positive: 0,
+    neutral: 0,
+    negative: 0,
+    highRisk: 0
+  };
+}
+
+function startOfHour(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), date.getHours());
+}
+
+function startOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function formatHourBucket(date: Date) {
+  return `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, "0")}:00`;
+}
+
+function formatDayBucket(date: Date) {
+  return `${date.getMonth() + 1}/${date.getDate()}`;
 }
 
 function makeTopicStats(items: MonitorItem[]): TopicStat[] {

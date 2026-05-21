@@ -449,11 +449,12 @@ button.metric:focus-visible {
 }
 
 .trend-stack {
-  width: 100%;
+  width: min(100%, 44px);
   height: 100%;
   display: flex;
   flex-direction: column-reverse;
   justify-content: flex-start;
+  justify-self: center;
   border-bottom: 1px solid #dce2dc;
   background: linear-gradient(180deg, transparent, transparent 24%, rgba(23, 32, 29, 0.05) 25%, transparent 26%);
 }
