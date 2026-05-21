@@ -27,7 +27,7 @@ const defaultTrendSeriesVisibility: TrendSeriesVisibility = {
   negative: true,
   neutral: true,
   positive: true,
-  total: true
+  total: false
 };
 
 const trendSeriesOrder: TrendSeries[] = ["negative", "neutral", "positive", "total"];
@@ -408,40 +408,68 @@ function TrendLegendButton({
 
 function TrendChart({ data, visibleSeries }: { data: TrendPoint[]; visibleSeries: TrendSeriesVisibility }) {
   if (!data.length) return <div className="chart-box empty-chart">暂无趋势数据</div>;
-  const max = Math.max(
+  const activeLineSeries = trendSeriesOrder.filter((series) => visibleSeries[series]);
+  const barMax = Math.max(
     1,
     ...data.map((point) =>
-      Math.max(
-        visibleSeries.total ? point.total : 0,
-        (visibleSeries.negative ? point.negative : 0) +
-          (visibleSeries.neutral ? point.neutral : 0) +
-          (visibleSeries.positive ? point.positive : 0)
-      )
+      (visibleSeries.negative ? point.negative : 0) +
+        (visibleSeries.neutral ? point.neutral : 0) +
+        (visibleSeries.positive ? point.positive : 0)
     )
   );
+  const lineMax = Math.max(1, ...data.flatMap((point) => activeLineSeries.map((series) => trendSeriesValue(point, series))));
   const plotStyle = { "--trend-count": data.length } as React.CSSProperties;
-  const linePoints = (series: TrendSeries) =>
-    data
-      .map((point, index) => {
-        const x = data.length === 1 ? 50 : ((index + 0.5) / data.length) * 100;
-        const y = 6 + (1 - trendSeriesValue(point, series) / max) * 88;
-        return `${x.toFixed(2)},${y.toFixed(2)}`;
-      })
+  const lineCoordinates = (series: TrendSeries) =>
+    data.map((point, index) => {
+      const x = data.length === 1 ? 50 : ((index + 0.5) / data.length) * 100;
+      const y = 6 + (1 - trendSeriesValue(point, series) / lineMax) * 88;
+      return { point, x, y, value: trendSeriesValue(point, series) };
+    });
+  const formatLinePoints = (coordinates: Array<{ x: number; y: number }>) =>
+    coordinates
+      .map(({ x, y }) => `${x.toFixed(2)},${y.toFixed(2)}`)
       .join(" ");
-  const activeLineSeries = trendSeriesOrder.filter((series) => visibleSeries[series]);
+  const lineSegments = (series: TrendSeries) => {
+    const segments: ReturnType<typeof lineCoordinates>[] = [];
+    let current: ReturnType<typeof lineCoordinates> = [];
+    for (const coordinate of lineCoordinates(series)) {
+      if (coordinate.value) {
+        current.push(coordinate);
+      } else if (current.length) {
+        segments.push(current);
+        current = [];
+      }
+    }
+    if (current.length) segments.push(current);
+    return segments;
+  };
 
   return (
     <div className="chart-box trend-chart">
       <div className="trend-plot" style={plotStyle}>
         <svg className="trend-line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
           {activeLineSeries.map((series) => (
-            <polyline className={`trend-line-path line-${series}`} points={linePoints(series)} key={series} />
+            <React.Fragment key={series}>
+              {lineSegments(series).map((segment, index) =>
+                segment.length > 2 ? (
+                  <React.Fragment key={`${series}-${index}`}>
+                    <polyline className="trend-line-halo" points={formatLinePoints(segment)} />
+                    <polyline className={`trend-line-path line-${series}`} points={formatLinePoints(segment)} />
+                  </React.Fragment>
+                ) : null
+              )}
+              {lineCoordinates(series).map(({ point, x, y }) =>
+                trendSeriesValue(point, series) ? (
+                  <circle className={`trend-line-dot dot-${series}`} cx={x} cy={y} r="0.75" key={point.bucket} />
+                ) : null
+              )}
+            </React.Fragment>
           ))}
         </svg>
         {data.map((point) => {
-          const positive = Math.max(4, (point.positive / max) * 100);
-          const neutral = Math.max(4, (point.neutral / max) * 100);
-          const negative = Math.max(4, (point.negative / max) * 100);
+          const positive = Math.max(4, (point.positive / barMax) * 100);
+          const neutral = Math.max(4, (point.neutral / barMax) * 100);
+          const negative = Math.max(4, (point.negative / barMax) * 100);
           const tooltip = `${point.bucket}: 总声量 ${point.total} 条，负面 ${point.negative}，中性 ${point.neutral}，正面 ${point.positive}`;
           return (
             <div className="trend-column" key={point.bucket}>
