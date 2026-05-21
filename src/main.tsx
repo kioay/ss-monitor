@@ -211,9 +211,17 @@ function App() {
 
       <section className="workspace-grid">
         <div className="chart-area">
-          <div className="section-title">
-            <Waves size={18} />
-            <h2>声量趋势</h2>
+          <div className="chart-heading">
+            <div className="section-title">
+              <Waves size={18} />
+              <h2>声量趋势</h2>
+            </div>
+            <div className="chart-legend" aria-label="声量趋势颜色说明">
+              <span><i className="negative" />负面</span>
+              <span><i className="neutral" />中性</span>
+              <span><i className="positive" />正面</span>
+              <small>柱高=该时段总声量</small>
+            </div>
           </div>
           <TrendChart data={data?.trends || []} />
         </div>
@@ -346,9 +354,10 @@ function TrendChart({ data }: { data: TrendPoint[] }) {
         const positive = Math.max(4, (point.positive / max) * 100);
         const neutral = Math.max(4, (point.neutral / max) * 100);
         const negative = Math.max(4, (point.negative / max) * 100);
+        const tooltip = `${point.bucket}: 总声量 ${point.total} 条，负面 ${point.negative}，中性 ${point.neutral}，正面 ${point.positive}`;
         return (
           <div className="trend-column" key={point.bucket}>
-            <div className="trend-stack" title={`${point.bucket}: ${point.total} 条`}>
+            <div className="trend-stack" title={tooltip} aria-label={tooltip}>
               {point.negative ? <i className="negative" style={{ height: `${negative}%` }} /> : null}
               {point.neutral ? <i className="neutral" style={{ height: `${neutral}%` }} /> : null}
               {point.positive ? <i className="positive" style={{ height: `${positive}%` }} /> : null}

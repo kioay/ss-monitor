@@ -362,9 +362,64 @@ button.metric:focus-visible {
   min-width: 0;
 }
 
+.chart-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
 .section-title {
   gap: 8px;
   margin-bottom: 12px;
+}
+
+.chart-heading .section-title {
+  margin-bottom: 0;
+}
+
+.chart-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: #526059;
+  font-size: 12px;
+}
+
+.chart-legend span {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 1px solid rgba(23, 32, 29, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.chart-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.chart-legend small {
+  color: #65726b;
+  white-space: nowrap;
+}
+
+.chart-legend .positive {
+  background: #2f8f70;
+}
+
+.chart-legend .neutral {
+  background: #8b918b;
+}
+
+.chart-legend .negative {
+  background: #c0523d;
 }
 
 .chart-box {
@@ -664,6 +719,7 @@ button.metric:focus-visible {
   }
 
   .topbar,
+  .chart-heading,
   .feed-toolbar {
     align-items: flex-start;
     flex-direction: column;
