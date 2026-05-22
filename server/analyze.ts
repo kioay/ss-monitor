@@ -103,6 +103,8 @@ export function analyzeItem(input: AnalyzeInput) {
   const topics = Object.entries(topicLexicon)
     .filter(([, words]) => words.some((word) => signalContent.includes(word)))
     .map(([topic]) => topic);
+  const personalSkillShare = isPersonalSkillShare(signalContent);
+  if (personalSkillShare) topics.unshift("个人技术分享");
   if (isPlayerBehaviorComplaint(signalContent)) topics.unshift("玩家行为争议");
   const currentVersionTerms =
     input.gameId === "ss1" ? uniq([...matchCurrentVersionTerms(content), ...matchCurrentVersionTerms(signalContent)]) : [];
@@ -245,11 +247,26 @@ function assessRisk(
   const skillDefused = sentimentProfile.skillShowcase && sentimentProfile.audienceScore > -0.15 && sentimentScore > -0.35;
   const environmentInquiry = isEnvironmentInquiry(content);
   const playerBehaviorComplaint = isPlayerBehaviorComplaint(content);
-  if (sentimentScore < -0.35 && !audienceDefused && !skillDefused && !environmentInquiry && !playerBehaviorComplaint) {
+  const personalSkillShare = isPersonalSkillShare(content);
+  if (
+    sentimentScore < -0.35 &&
+    !audienceDefused &&
+    !skillDefused &&
+    !environmentInquiry &&
+    !playerBehaviorComplaint &&
+    !personalSkillShare
+  ) {
     primaryReasons.push("负面表达集中");
   }
   if (/(外挂|封号|倒闭|破游戏|没救|白氪|BUG|bug|炸服|闪退)/.test(content)) {
-    if (!illegalRisk.reasons.length && !audienceDefused && !skillDefused && !environmentInquiry && !playerBehaviorComplaint) {
+    if (
+      !illegalRisk.reasons.length &&
+      !audienceDefused &&
+      !skillDefused &&
+      !environmentInquiry &&
+      !playerBehaviorComplaint &&
+      !personalSkillShare
+    ) {
       primaryReasons.push("命中敏感风险词");
     }
   }
@@ -261,9 +278,17 @@ function assessRisk(
   }
 
   let level: RiskLevel = "low";
-  if (illegalRisk.level === "high" || primaryReasons.length >= 2 || (sentimentScore < -0.45 && engagement > 250 && !playerBehaviorComplaint)) {
+  if (
+    illegalRisk.level === "high" ||
+    primaryReasons.length >= 2 ||
+    (sentimentScore < -0.45 && engagement > 250 && !playerBehaviorComplaint && !personalSkillShare)
+  ) {
     level = "high";
-  } else if (illegalRisk.level === "medium" || primaryReasons.length === 1 || (sentimentScore < -0.25 && !playerBehaviorComplaint)) {
+  } else if (
+    (illegalRisk.level === "medium" && !personalSkillShare) ||
+    primaryReasons.length === 1 ||
+    (sentimentScore < -0.25 && !playerBehaviorComplaint && !personalSkillShare)
+  ) {
     level = "medium";
   }
   if (environmentInquiry && illegalRisk.level !== "high" && level === "high") level = "medium";
@@ -344,6 +369,15 @@ function isPlayerBehaviorComplaint(content: string) {
   const officialTarget = /(官方|策划|运营|客服|公告|更新|版本|活动|充值|氪金|礼包|皮肤|匹配|服务器|炸服|闪退|BUG|bug|卡顿|封号|封禁|举报|外挂|外卦|科技|辅助)/;
   const strongOfficialComplaint = /(破游戏|垃圾游戏|倒闭|没救|白氪|骗氪|退钱|退款|投诉)/;
   return playerTarget.test(content) && conflictAction.test(content) && !officialTarget.test(content) && !strongOfficialComplaint.test(content);
+}
+
+function isPersonalSkillShare(content: string) {
+  const skillContext =
+    /(个人|玩家|UP主|主播|全局|整局|全程|第一视角|视角|集锦|高光|精彩|操作|技术|身法|击杀|连杀|对局|实战|教学|教程|讲解|思路|打法|复盘|单排|四排|五排|排位)/;
+  const shareAction = /(分享|合集|集锦|高光|精彩操作|第一视角|全局游戏|全程无剪辑|思路讲解|教学|教程|讲解|打法|复盘|实战|单排|四排|五排|带飞)/;
+  const officialComplaint = /(官方|策划|运营|客服|公告|更新|版本|活动|充值|氪金|骗氪|退款|投诉|服务器|炸服|闪退|BUG|bug|卡顿|倒闭|没救|破游戏|垃圾游戏)/;
+  const illegalSignal = /(外挂|外卦|开挂|挂狗|科技|辅助|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|穿墙|DMA|过检测|免封|QQ群|群号|加群|售卖|卡密)/;
+  return skillContext.test(content) && shareAction.test(content) && !officialComplaint.test(content) && !illegalSignal.test(content);
 }
 
 function isCurrentVersionComplaint(content: string) {

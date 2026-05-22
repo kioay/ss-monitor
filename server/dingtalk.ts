@@ -432,7 +432,7 @@ function sourceName(source: SourceType) {
 function riskName(risk: RiskLevel) {
   if (risk === "high") return colorText("高风险", "#d93025");
   if (risk === "medium") return colorText("中风险", "#b26a00");
-  return colorText("低风险", "#6f7d75");
+  return colorText("普通", "#6f7d75");
 }
 
 function sentimentName(sentiment: Sentiment) {
