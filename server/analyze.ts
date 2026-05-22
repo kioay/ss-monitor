@@ -296,10 +296,15 @@ function isSkillShowcase(content: string) {
 }
 
 function isEnvironmentInquiry(content: string) {
-  const inquiryTone = /[?？]|吗|么|咋样|怎样|怎么样|如何|好不好|能不能|能玩吗|还能玩|值得|现在|目前/.test(content);
+  const explicitQuestion = /[?？]|吗|么|咋样|怎样|怎么样|如何|好不好|能不能|能玩吗|还能玩|值得|求问|请问|问下|问一下|有没有必要/.test(content);
   const returnIntent = /回游|回坑|回归|想玩|准备玩|入坑|萌新|新手|游戏荒|荒了/.test(content);
-  const environmentTopic = /环境|游戏环境|现状|生态|人多|人少|匹配|排位|外挂多|挂多|科技多|封号|服务器|还能玩吗|好玩吗/.test(content);
-  return (returnIntent && (environmentTopic || inquiryTone)) || (environmentTopic && inquiryTone);
+  const environmentTopic = /环境|游戏环境|现状|生态|人多|人少|匹配|排位|服务器|还能玩|好玩/.test(content);
+  const cheatEnvironmentQuestion = /(外挂|外卦|挂|科技|辅助|封号|封禁).{0,10}(多吗|多不多|严重吗|还多吗|有没有|环境|现状|情况|咋样|怎么样|[?？])/.test(content);
+  const strongComplaint =
+    /(垃圾|破游戏|恶心|烂透|没救|倒闭|炸服|闪退|崩溃|白氪)/.test(content) ||
+    /(外挂|外卦|挂|科技|辅助).{0,12}(泛滥|离谱|猖獗|满天飞|一堆|全是|太多|多到|遍地)/.test(content);
+  if (strongComplaint && !returnIntent) return false;
+  return (returnIntent && (environmentTopic || explicitQuestion || cheatEnvironmentQuestion)) || (environmentTopic && explicitQuestion) || cheatEnvironmentQuestion;
 }
 
 function detectIllegalBehavior(content: string) {
