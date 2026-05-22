@@ -1,4 +1,5 @@
 import { negativeWords, positiveWords, topicLexicon } from "./config";
+import { ss1WeaponNames } from "./domainSafeTerms";
 import { clamp, compactText, uniq } from "./utils";
 import type { ContentPart, MonitorItem, RiskLevel, Sentiment } from "../src/shared";
 
@@ -64,8 +65,6 @@ const skillShowcaseWords = [
   "巅王",
   "钻石"
 ];
-
-const domainSafeTerms = ["命运透视"];
 
 const illegalBehaviorRules = [
   {
@@ -301,7 +300,7 @@ function isSkillShowcase(content: string) {
 
 function maskDomainSafeTerms(content: string) {
   let masked = content;
-  for (const term of domainSafeTerms) {
+  for (const term of ss1WeaponNames) {
     masked = masked.replaceAll(term, "武器名");
   }
   return masked;
