@@ -34,7 +34,11 @@ const querySchema = z.object({
   force: z
     .string()
     .optional()
-    .transform((value) => value === "1" || value === "true")
+    .transform((value) => value === "1" || value === "true"),
+  notify: z
+    .string()
+    .optional()
+    .transform((value) => value !== "0" && value !== "false")
 });
 
 type MonitorQuery = z.infer<typeof querySchema>;
@@ -101,7 +105,7 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
   };
 
   cache.set(cacheKey, { createdAt: now, response });
-  if (gameIds.includes("ss1")) queueDingTalkNotification(response);
+  if (query.notify && gameIds.includes("ss1")) queueDingTalkNotification(response);
   return response;
 }
 

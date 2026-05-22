@@ -94,7 +94,7 @@ app.post("/api/notify/dingtalk/test", async (request, response) => {
     return;
   }
   try {
-    const data = await getMonitorResponse({ games: "ss1", windowHours: "72", limit: "200", force: "1" });
+    const data = await getMonitorResponse({ games: "ss1", windowHours: "72", limit: "200", force: "1", notify: "0" });
     const result = await sendDingTalkTest(data);
     response.json(result);
   } catch (error) {
