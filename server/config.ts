@@ -38,6 +38,7 @@ export const runtimeConfig = {
   dingTalkSs2Webhook: process.env.DINGTALK_SS2_WEBHOOK || "",
   dingTalkSs2Secret: process.env.DINGTALK_SS2_SECRET || "",
   dingTalkSs2StatePath: process.env.DINGTALK_SS2_STATE_PATH || "data/dingtalk-ss2-state.json",
+  dingTalkTestCooldownSeconds: Math.max(0, Number(process.env.DINGTALK_TEST_COOLDOWN_MINUTES || 240) * 60),
   maxVideosPerGame: 18,
   maxVideosToDeepParsePerGame: 8,
   maxDouyinItemsPerGame: 18,

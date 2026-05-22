@@ -96,8 +96,9 @@ app.post("/api/notify/dingtalk/test", async (request, response) => {
   }
   try {
     const gameId = request.query.game === "ss2" ? "ss2" : "ss1";
+    const force = request.query.force === "1" || request.query.force === "true";
     const data = await getMonitorResponse({ games: gameId, windowHours: "72", limit: "200", force: "1", notify: "0" });
-    const result = await sendDingTalkTest(data, gameId);
+    const result = await sendDingTalkTest(data, gameId, { force });
     response.json(result);
   } catch (error) {
     response.status(500).json({

@@ -7,6 +7,7 @@ import type { GameId, MonitorItem, MonitorResponse, RiskLevel, Sentiment, Source
 interface DingTalkState {
   initialized: boolean;
   lastSentAt?: string;
+  lastTestSentAt?: string;
   seen: Record<string, string>;
 }
 
@@ -24,6 +25,7 @@ interface DingTalkSendResult {
   sent?: number;
   existing?: number;
   mode?: "baseline" | "new" | "test";
+  retryAfterSeconds?: number;
 }
 
 const monitorUrl = "http://ss-monitor.qinoay.top/";
@@ -63,11 +65,28 @@ export async function sendDingTalkNotification(response: MonitorResponse, gameId
   return { ok: true, sent: newItems.length, existing: currentItems.length - newItems.length, mode: "new" };
 }
 
-export async function sendDingTalkTest(response: MonitorResponse, gameId: GameId = "ss1"): Promise<DingTalkSendResult> {
+export async function sendDingTalkTest(
+  response: MonitorResponse,
+  gameId: GameId = "ss1",
+  options: { force?: boolean } = {}
+): Promise<DingTalkSendResult> {
   const robot = getRobotConfig(gameId);
   if (!robot) return { ok: false, skipped: `DingTalk ${gameId} is not configured` };
+  const state = await readState(robot);
+  const cooldownMs = runtimeConfig.dingTalkTestCooldownSeconds * 1000;
+  const lastTestTime = state.lastTestSentAt ? new Date(state.lastTestSentAt).getTime() : 0;
+  const remainingMs = lastTestTime ? cooldownMs - (Date.now() - lastTestTime) : 0;
+  if (!options.force && cooldownMs > 0 && remainingMs > 0) {
+    return {
+      ok: true,
+      skipped: `${robot.shortName} DingTalk test cooldown is active`,
+      mode: "test",
+      retryAfterSeconds: Math.ceil(remainingMs / 1000)
+    };
+  }
   const currentItems = gameItemsWithin72Hours(response, gameId);
   await sendMarkdown(robot, buildTestMarkdown(robot, currentItems, response));
+  await writeState(robot, { ...state, lastTestSentAt: new Date().toISOString() });
   return { ok: true, sent: currentItems.length, mode: "test" };
 }
 
@@ -241,7 +260,12 @@ async function readState(robot: DingTalkRobotConfig): Promise<DingTalkState> {
   try {
     const raw = await fs.readFile(statePath(robot), "utf-8");
     const state = JSON.parse(raw) as DingTalkState;
-    return { initialized: Boolean(state.initialized), lastSentAt: state.lastSentAt, seen: state.seen || {} };
+    return {
+      initialized: Boolean(state.initialized),
+      lastSentAt: state.lastSentAt,
+      lastTestSentAt: state.lastTestSentAt,
+      seen: state.seen || {}
+    };
   } catch {
     return { initialized: false, seen: {} };
   }
