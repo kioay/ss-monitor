@@ -65,6 +65,8 @@ const skillShowcaseWords = [
   "钻石"
 ];
 
+const domainSafeTerms = ["命运透视"];
+
 const illegalBehaviorRules = [
   {
     reason: "疑似外挂宣传引流",
@@ -95,16 +97,17 @@ export function analyzeItem(input: AnalyzeInput) {
     .map((part) => part.text)
     .filter(Boolean)
     .join("\n");
+  const signalContent = maskDomainSafeTerms(content);
 
   const topics = Object.entries(topicLexicon)
-    .filter(([, words]) => words.some((word) => content.includes(word)))
+    .filter(([, words]) => words.some((word) => signalContent.includes(word)))
     .map(([topic]) => topic);
 
   const sentimentProfile = scoreSentiment(input.contentParts);
   const sentimentScore = sentimentProfile.score;
-  const sentiment = labelSentiment(sentimentProfile, content);
-  const keywords = extractKeywords(content, topics);
-  const risk = assessRisk(content, sentimentProfile, input.metrics);
+  const sentiment = labelSentiment(sentimentProfile, signalContent);
+  const keywords = extractKeywords(signalContent, topics);
+  const risk = assessRisk(signalContent, sentimentProfile, input.metrics);
   const summary = summarizeContent(input.title, input.contentParts, topics, sentiment, sentimentProfile);
 
   return {
@@ -166,19 +169,20 @@ function scoreSentiment(parts: ContentPart[]): SentimentProfile {
 }
 
 function scoreTextSignals(content: string) {
+  const signalContent = maskDomainSafeTerms(content);
   let positive = 0;
   let negative = 0;
 
   for (const word of uniq([...positiveWords, ...audiencePraiseWords])) {
-    positive += countOccurrences(content, word);
+    positive += countOccurrences(signalContent, word);
   }
 
   for (const word of negativeWords) {
-    negative += countOccurrences(content, word);
+    negative += countOccurrences(signalContent, word);
   }
 
-  if ((content.includes("？") || content.includes("?")) && negative > positive) negative += 0.2;
-  if ((content.includes("！！") || content.includes("!!")) && negative > positive) negative += 0.2;
+  if ((signalContent.includes("？") || signalContent.includes("?")) && negative > positive) negative += 0.2;
+  if ((signalContent.includes("！！") || signalContent.includes("!!")) && negative > positive) negative += 0.2;
 
   return { positive, negative };
 }
@@ -247,7 +251,7 @@ function assessRisk(content: string, sentimentProfile: SentimentProfile, metrics
   if (environmentInquiry && illegalRisk.level !== "high" && level === "high") level = "medium";
 
   const reasons = [...primaryReasons];
-  if (environmentInquiry && level !== "low") reasons.push("回游/环境询问语境");
+  if (environmentInquiry && illegalRisk.level !== "high" && level !== "low") reasons.push("回游/环境询问语境");
   if (level !== "low" && engagement > 800) reasons.push("互动量较高");
 
   return { level, reasons: uniq(reasons).slice(0, 4) };
@@ -293,6 +297,14 @@ function partWeight(type: ContentPart["type"]) {
 
 function isSkillShowcase(content: string) {
   return skillShowcaseWords.some((word) => content.includes(word));
+}
+
+function maskDomainSafeTerms(content: string) {
+  let masked = content;
+  for (const term of domainSafeTerms) {
+    masked = masked.replaceAll(term, "武器名");
+  }
+  return masked;
 }
 
 function isEnvironmentInquiry(content: string) {
