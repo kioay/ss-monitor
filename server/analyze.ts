@@ -103,6 +103,7 @@ export function analyzeItem(input: AnalyzeInput) {
   const topics = Object.entries(topicLexicon)
     .filter(([, words]) => words.some((word) => signalContent.includes(word)))
     .map(([topic]) => topic);
+  if (isPlayerBehaviorComplaint(signalContent)) topics.unshift("玩家行为争议");
   const currentVersionTerms =
     input.gameId === "ss1" ? uniq([...matchCurrentVersionTerms(content), ...matchCurrentVersionTerms(signalContent)]) : [];
   if (currentVersionTerms.length) topics.unshift("当前版本重点");
@@ -243,9 +244,14 @@ function assessRisk(
   const audienceDefused = sentimentProfile.audienceMentions >= 3 && sentimentProfile.audienceScore > 0.12 && sentimentScore > -0.35;
   const skillDefused = sentimentProfile.skillShowcase && sentimentProfile.audienceScore > -0.15 && sentimentScore > -0.35;
   const environmentInquiry = isEnvironmentInquiry(content);
-  if (sentimentScore < -0.35 && !audienceDefused && !skillDefused && !environmentInquiry) primaryReasons.push("负面表达集中");
+  const playerBehaviorComplaint = isPlayerBehaviorComplaint(content);
+  if (sentimentScore < -0.35 && !audienceDefused && !skillDefused && !environmentInquiry && !playerBehaviorComplaint) {
+    primaryReasons.push("负面表达集中");
+  }
   if (/(外挂|封号|倒闭|破游戏|没救|白氪|BUG|bug|炸服|闪退)/.test(content)) {
-    if (!illegalRisk.reasons.length && !audienceDefused && !skillDefused && !environmentInquiry) primaryReasons.push("命中敏感风险词");
+    if (!illegalRisk.reasons.length && !audienceDefused && !skillDefused && !environmentInquiry && !playerBehaviorComplaint) {
+      primaryReasons.push("命中敏感风险词");
+    }
   }
   if (/(水军|诈骗|未成年|退款|投诉)/.test(content)) {
     primaryReasons.push("命中治理类风险词");
@@ -255,9 +261,9 @@ function assessRisk(
   }
 
   let level: RiskLevel = "low";
-  if (illegalRisk.level === "high" || primaryReasons.length >= 2 || (sentimentScore < -0.45 && engagement > 250)) {
+  if (illegalRisk.level === "high" || primaryReasons.length >= 2 || (sentimentScore < -0.45 && engagement > 250 && !playerBehaviorComplaint)) {
     level = "high";
-  } else if (illegalRisk.level === "medium" || primaryReasons.length === 1 || sentimentScore < -0.25) {
+  } else if (illegalRisk.level === "medium" || primaryReasons.length === 1 || (sentimentScore < -0.25 && !playerBehaviorComplaint)) {
     level = "medium";
   }
   if (environmentInquiry && illegalRisk.level !== "high" && level === "high") level = "medium";
@@ -330,6 +336,14 @@ function isEnvironmentInquiry(content: string) {
     /(外挂|外卦|挂|科技|辅助).{0,12}(泛滥|离谱|猖獗|满天飞|一堆|全是|太多|多到|遍地)/.test(content);
   if (strongComplaint && !returnIntent) return false;
   return (returnIntent && (environmentTopic || explicitQuestion || cheatEnvironmentQuestion)) || (environmentTopic && explicitQuestion) || cheatEnvironmentQuestion;
+}
+
+function isPlayerBehaviorComplaint(content: string) {
+  const playerTarget = /(别人|他们|他人|队友|对手|玩家|路人|队伍|房主|敌人|人机|小学生|挂狗|老六|堵人|卡门|卡点|抢武器|扔.{0,4}武器|捡.{0,4}武器|坑人|摆烂|送人头|恶意|报复)/;
+  const conflictAction = /(堵人|卡门|卡点|抢武器|扔.{0,4}武器|捡.{0,4}武器|坑人|摆烂|送人头|报复|恶心.{0,8}(别人|他们|他人|队友|对手|玩家)|怎么.{0,8}(恶心|报复).{0,8}(别人|他们|他人|队友|对手|玩家))/;
+  const officialTarget = /(官方|策划|运营|客服|公告|更新|版本|活动|充值|氪金|礼包|皮肤|匹配|服务器|炸服|闪退|BUG|bug|卡顿|封号|封禁|举报|外挂|外卦|科技|辅助)/;
+  const strongOfficialComplaint = /(破游戏|垃圾游戏|倒闭|没救|白氪|骗氪|退钱|退款|投诉)/;
+  return playerTarget.test(content) && conflictAction.test(content) && !officialTarget.test(content) && !strongOfficialComplaint.test(content);
 }
 
 function isCurrentVersionComplaint(content: string) {
