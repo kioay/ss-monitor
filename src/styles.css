@@ -597,8 +597,13 @@ button.metric:focus-visible {
 
 .trend-line {
   position: absolute;
-  inset: 6px 0 70px 0;
+  top: 8px;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: calc(100% - 92px);
   z-index: 4;
+  display: block;
   overflow: hidden;
   pointer-events: none;
 }

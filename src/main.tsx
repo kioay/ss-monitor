@@ -33,10 +33,11 @@ const defaultTrendSeriesVisibility: TrendSeriesVisibility = {
 };
 
 const trendSeriesOrder: TrendSeries[] = ["negative", "neutral", "positive", "total"];
-const trendLineTop = 6;
-const trendLineHeight = 24;
-const trendLineMinY = 4;
-const trendLineMaxY = 36;
+const trendLineTop = 7;
+const trendLineHeight = 19;
+const trendLineMinY = 5;
+const trendLineMaxY = 30;
+const trendLineClipHeight = 32;
 
 function App() {
   const [config, setConfig] = React.useState<{
@@ -443,6 +444,12 @@ function TrendChart({ data, visibleSeries }: { data: TrendPoint[]; visibleSeries
     <div className="chart-box trend-chart">
       <div className="trend-plot" style={plotStyle}>
         <svg className="trend-line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <clipPath id="trend-line-clip">
+              <rect x="0" y="0" width="100" height={trendLineClipHeight} />
+            </clipPath>
+          </defs>
+          <g clipPath="url(#trend-line-clip)">
           {trendSamples.map(({ series, samples }) => {
             const path = formatSmoothLinePath(lineCoordinates(samples));
             return (
@@ -452,6 +459,7 @@ function TrendChart({ data, visibleSeries }: { data: TrendPoint[]; visibleSeries
               </React.Fragment>
             );
           })}
+          </g>
         </svg>
         {data.map((point) => {
           const positive = Math.max(4, (point.positive / barMax) * 100);
