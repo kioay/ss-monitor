@@ -145,14 +145,13 @@ function buildDetailedTable(items: MonitorItem[]) {
   const sortedItems = [...items].sort(compareDingTalkItems);
   if (!items.length) return "暂无新增舆情。";
   return [
-    "| 舆情 | 来源 | 风险/情绪 | 简报 |",
-    "| --- | --- | --- | --- |",
+    "| 舆情 | 风险/情绪 | 简报 |",
+    "| --- | --- | --- |",
     ...sortedItems.map((item) =>
       [
         linkCell(item),
-        sourceName(item.source),
         `${riskName(item.riskLevel)} / ${sentimentName(item.sentiment)}`,
-        compact([item.summary, item.riskReasons.slice(0, 2).join("；"), item.keywords.slice(0, 4).join("、")], 96)
+        shortDigest(item)
       ].join(" | ")
     ).map((row) => `| ${row} |`)
   ].join("\n");
@@ -264,6 +263,11 @@ function topTopics(items: MonitorItem[]) {
 
 function linkCell(item: MonitorItem) {
   return `[${safeCell(compact([item.title], 34))}](${item.url})`;
+}
+
+function shortDigest(item: MonitorItem) {
+  const signal = item.riskReasons[0] || item.summary || item.keywords[0] || "";
+  return compact([signal], 34);
 }
 
 function compact(parts: string[], maxLength: number) {
