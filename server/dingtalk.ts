@@ -177,20 +177,13 @@ function buildTestMarkdown(robot: DingTalkRobotConfig, items: MonitorItem[], res
 }
 
 function buildBriefTable(items: MonitorItem[]) {
-  const sourceCounts = countBy(items, (item) => sourceName(item.source));
   const sentimentCounts = countBy(items, (item) => sentimentName(item.sentiment));
   const highRisk = items.filter((item) => item.riskLevel === "high").length;
-  const negative = items.filter((item) => item.sentiment === "negative").length;
-  const topics = topTopics(items);
   return [
     "| 指标 | 内容 |",
     "| --- | --- |",
-    `| 总量 | ${items.length}条 |`,
     `| 高风险 | ${highRisk}条 |`,
-    `| 负面 | ${negative}条 |`,
-    `| 来源 | ${joinCounts(sourceCounts)} |`,
-    `| 情绪 | ${joinCounts(sentimentCounts)} |`,
-    `| 主题 | ${topics || "暂无"} |`
+    `| 情绪 | ${joinCounts(sentimentCounts)} |`
   ].join("\n");
 }
 
