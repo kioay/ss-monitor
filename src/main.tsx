@@ -46,7 +46,7 @@ function monitorCacheKey(gameIds: GameId[], windowHours: number) {
 
 function readCachedMonitor(key: string) {
   try {
-    const raw = window.sessionStorage.getItem(key);
+    const raw = window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
     if (!raw) return undefined;
     const payload = JSON.parse(raw) as { cachedAt: number; data: MonitorResponse };
     if (!payload?.cachedAt || Date.now() - payload.cachedAt > clientCacheMaxAgeMs) return undefined;
@@ -58,7 +58,9 @@ function readCachedMonitor(key: string) {
 
 function writeCachedMonitor(key: string, data: MonitorResponse) {
   try {
-    window.sessionStorage.setItem(key, JSON.stringify({ cachedAt: Date.now(), data }));
+    const payload = JSON.stringify({ cachedAt: Date.now(), data });
+    window.localStorage.setItem(key, payload);
+    window.sessionStorage.setItem(key, payload);
   } catch {
     // Session storage is only a speed hint; the live request remains authoritative.
   }
@@ -108,6 +110,7 @@ function App() {
           games: selectedGames.join(","),
           windowHours: String(windowHours),
           limit: "160",
+          notify: "0",
           ...(force ? { force: "1" } : {})
         });
         const response = await fetch(`${api.monitor}?${params.toString()}`);

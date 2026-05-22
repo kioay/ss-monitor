@@ -1,4 +1,6 @@
 import { z } from "zod";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { collectBilibili } from "./collectors/bilibili";
 import { collectDouyin } from "./collectors/douyin";
 import { collectTieba } from "./collectors/tieba";
@@ -43,11 +45,19 @@ const querySchema = z.object({
 });
 
 type MonitorQuery = z.infer<typeof querySchema>;
+type CollectionEntry = { createdAt: number; items: MonitorItem[]; health: SourceHealth[]; gameIds: GameId[] };
+interface CollectionSnapshotFile {
+  version: 1;
+  entries: CollectionEntry[];
+}
 
 const cache = new Map<string, { createdAt: number; response: MonitorResponse }>();
-const collectionCache = new Map<string, { createdAt: number; items: MonitorItem[]; health: SourceHealth[]; gameIds: GameId[] }>();
-const collectionInFlight = new Map<string, Promise<{ createdAt: number; items: MonitorItem[]; health: SourceHealth[]; gameIds: GameId[] }>>();
+const collectionCache = new Map<string, CollectionEntry>();
+const collectionInFlight = new Map<string, Promise<CollectionEntry>>();
+const backgroundSnapshotRefreshes = new Set<string>();
 const collectionWindowHours = 24 * 30;
+const snapshotMaxAgeMs = 12 * 3_600_000;
+let snapshotLoaded = false;
 
 export function parseMonitorQuery(raw: unknown) {
   const query = querySchema.parse(raw);
@@ -81,6 +91,11 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
   const updatePolicy = getUpdatePolicy(generatedAt, generatedAt);
   const cutoff = new Date(generatedAt.getTime() - query.windowHours * 3_600_000);
   const collection = await getCollection(query.selectedGames, query.force, generatedAt);
+  const collectionAgeSeconds = Math.max(0, Math.round((generatedAt.getTime() - collection.createdAt) / 1000));
+  const collectionIsStale = collectionAgeSeconds > updatePolicy.intervalSeconds;
+  const responseUpdatePolicy = collectionIsStale
+    ? { ...updatePolicy, nextUpdateAt: new Date(generatedAt.getTime() + 60_000).toISOString() }
+    : updatePolicy;
   const freshItems = collection.items
     .filter((item) => gameIds.includes(item.gameId))
     .filter((item) => new Date(item.publishedAt) >= cutoff)
@@ -91,10 +106,10 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
     generatedAt: generatedAt.toISOString(),
     windowHours: query.windowHours,
     freshnessCutoff: cutoff.toISOString(),
-    updatePolicy,
+    updatePolicy: responseUpdatePolicy,
     cache: {
-      hit: false,
-      ageSeconds: 0,
+      hit: collectionIsStale,
+      ageSeconds: collectionAgeSeconds,
       ttlSeconds: updatePolicy.intervalSeconds
     },
     stats: makeStats(freshItems),
@@ -105,7 +120,7 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
     items: freshItems
   };
 
-  cache.set(cacheKey, { createdAt: now, response });
+  if (!collectionIsStale) cache.set(cacheKey, { createdAt: now, response });
   if (query.notify) queueDingTalkNotification(response, gameIds);
   return response;
 }
@@ -120,9 +135,19 @@ async function getCollection(selectedGames: GameConfig[], force: boolean, genera
   const inFlight = collectionInFlight.get(exactKey);
   if (!force && inFlight) return inFlight;
 
+  if (!force) {
+    const snapshot = await findReusableSnapshotCollection(gameIds, generatedAt);
+    if (snapshot) {
+      collectionCache.set(exactKey, snapshot);
+      refreshSnapshotInBackground(selectedGames, exactKey, generatedAt);
+      return snapshot;
+    }
+  }
+
   const task = collectAll(selectedGames, new Date(now - collectionWindowHours * 3_600_000)).then((collection) => {
     const entry = { createdAt: now, gameIds, ...collection };
     collectionCache.set(exactKey, entry);
+    void saveCollectionSnapshot();
     return entry;
   }).finally(() => {
     if (collectionInFlight.get(exactKey) === task) collectionInFlight.delete(exactKey);
@@ -142,13 +167,68 @@ function findReusableCollection(gameIds: GameId[], now: Date) {
   return undefined;
 }
 
+async function findReusableSnapshotCollection(gameIds: GameId[], now: Date) {
+  await loadCollectionSnapshot();
+  const exact = collectionCache.get(collectionKey(gameIds));
+  if (exact && isUsableSnapshot(exact, now) && containsAllGames(exact.gameIds, gameIds)) return exact;
+
+  const freshEntries = Array.from(collectionCache.values()).filter((entry) => isUsableSnapshot(entry, now));
+  const covered = new Set<GameId>();
+  const selectedEntries: CollectionEntry[] = [];
+  for (const gameId of gameIds) {
+    const entry = freshEntries
+      .filter((candidate) => candidate.gameIds.includes(gameId))
+      .sort((a, b) => b.createdAt - a.createdAt)[0];
+    if (!entry) return undefined;
+    covered.add(gameId);
+    if (!selectedEntries.includes(entry)) selectedEntries.push(entry);
+  }
+  if (!gameIds.every((gameId) => covered.has(gameId))) return undefined;
+
+  return mergeCollectionEntries(gameIds, selectedEntries);
+}
+
 function isFreshCollection(
-  entry: { createdAt: number; items: MonitorItem[]; health: SourceHealth[]; gameIds: GameId[] } | undefined,
+  entry: CollectionEntry | undefined,
   now: Date
 ) {
   if (!entry) return false;
   const policy = getUpdatePolicy(now, new Date(entry.createdAt));
   return now.getTime() - entry.createdAt < policy.intervalSeconds * 1000;
+}
+
+function isUsableSnapshot(entry: CollectionEntry, now: Date) {
+  return now.getTime() - entry.createdAt < snapshotMaxAgeMs;
+}
+
+function mergeCollectionEntries(gameIds: GameId[], entries: CollectionEntry[]): CollectionEntry {
+  const seenItems = new Set<string>();
+  const items: MonitorItem[] = [];
+  const health: SourceHealth[] = [];
+  for (const entry of entries.sort((a, b) => b.createdAt - a.createdAt)) {
+    for (const item of entry.items) {
+      if (!gameIds.includes(item.gameId) || seenItems.has(item.id)) continue;
+      seenItems.add(item.id);
+      items.push(item);
+    }
+    health.push(...entry.health.filter((healthEntry) => !healthEntry.gameId || gameIds.includes(healthEntry.gameId)));
+  }
+  return {
+    createdAt: Math.max(...entries.map((entry) => entry.createdAt)),
+    gameIds,
+    items,
+    health
+  };
+}
+
+function refreshSnapshotInBackground(selectedGames: GameConfig[], exactKey: string, generatedAt: Date) {
+  if (backgroundSnapshotRefreshes.has(exactKey)) return;
+  backgroundSnapshotRefreshes.add(exactKey);
+  void getCollection(selectedGames, true, generatedAt).catch((error) => {
+    console.error("Background snapshot refresh failed", error);
+  }).finally(() => {
+    backgroundSnapshotRefreshes.delete(exactKey);
+  });
 }
 
 function containsAllGames(sourceIds: GameId[], targetIds: GameId[]) {
@@ -157,6 +237,39 @@ function containsAllGames(sourceIds: GameId[], targetIds: GameId[]) {
 
 function collectionKey(gameIds: GameId[]) {
   return [...gameIds].sort().join(",");
+}
+
+async function loadCollectionSnapshot() {
+  if (snapshotLoaded) return;
+  snapshotLoaded = true;
+  try {
+    const raw = await fs.readFile(snapshotPath(), "utf-8");
+    const snapshot = JSON.parse(raw) as CollectionSnapshotFile;
+    for (const entry of snapshot.entries || []) {
+      if (!entry?.gameIds?.length) continue;
+      collectionCache.set(collectionKey(entry.gameIds), entry);
+    }
+  } catch {
+    // Snapshot cache is an optional startup accelerator.
+  }
+}
+
+async function saveCollectionSnapshot() {
+  try {
+    const entries = Array.from(collectionCache.values())
+      .filter((entry) => Date.now() - entry.createdAt < snapshotMaxAgeMs)
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 8);
+    const target = snapshotPath();
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.writeFile(target, JSON.stringify({ version: 1, entries }, null, 2));
+  } catch (error) {
+    console.warn("Monitor snapshot save failed", error instanceof Error ? error.message : error);
+  }
+}
+
+function snapshotPath() {
+  return path.resolve(runtimeConfig.monitorSnapshotPath);
 }
 
 async function collectAll(selectedGames: GameConfig[], cutoff: Date) {
