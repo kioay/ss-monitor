@@ -73,6 +73,8 @@ export function looksBlocked(text: string) {
 
 function inferReferer(url: string) {
   if (url.includes("bilibili.com")) return "https://www.bilibili.com/";
+  if (url.includes("douyin.com")) return "https://www.douyin.com/";
+  if (url.includes("sogou.com")) return "https://www.sogou.com/";
   if (url.includes("tieba.baidu.com")) return "https://tieba.baidu.com/";
   return "https://www.baidu.com/";
 }

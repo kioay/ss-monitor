@@ -219,7 +219,7 @@ function App() {
           onClick={() => jumpToFeed({ sentiment: "negative" })}
         />
         <Metric
-          label="B站 / 贴吧"
+          label="B站 / 贴吧 / 抖音"
           tone="blue"
           hint="分别跳到来源条目"
           value={
@@ -227,6 +227,8 @@ function App() {
               <button onClick={() => jumpToFeed({ source: "bilibili" })}>{data?.stats.bilibili ?? 0}</button>
               <i>/</i>
               <button onClick={() => jumpToFeed({ source: "tieba" })}>{data?.stats.tieba ?? 0}</button>
+              <i>/</i>
+              <button onClick={() => jumpToFeed({ source: "douyin" })}>{data?.stats.douyin ?? 0}</button>
             </span>
           }
         />
@@ -318,6 +320,7 @@ function App() {
             <option value="all">全部来源</option>
             <option value="bilibili">B站</option>
             <option value="tieba">贴吧</option>
+            <option value="douyin">抖音</option>
           </select>
           <select value={risk} onChange={(event) => setRisk(event.target.value as "all" | RiskLevel)}>
             <option value="all">全部风险</option>
@@ -596,7 +599,7 @@ function Thumbnail({ item }: { item: MonitorItem }) {
   if (!imageUrl || failed) {
     return (
       <div className="fallback-thumb">
-        {item.source === "bilibili" ? <Video /> : <Waves />}
+        {item.source === "tieba" ? <Waves /> : <Video />}
       </div>
     );
   }
@@ -607,6 +610,9 @@ function Thumbnail({ item }: { item: MonitorItem }) {
 function metricLine(item: MonitorItem) {
   if (item.source === "bilibili") {
     return `${formatNumber(item.metrics.views)} 播放 · ${formatNumber(item.metrics.comments)} 评论`;
+  }
+  if (item.source === "douyin") {
+    return "公开搜索";
   }
   return `${formatNumber(item.metrics.replies)} 回复`;
 }

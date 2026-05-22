@@ -7,6 +7,7 @@ export const games: GameConfig[] = [
     name: "生死狙击1",
     shortName: "SS1",
     bilibiliKeywords: ["生死狙击", "生死狙击1", "4399生死狙击", "生死狙击页游"],
+    douyinKeywords: ["生死狙击", "生死狙击1", "4399生死狙击", "生死狙击页游"],
     tiebaBars: ["生死狙击"]
   },
   {
@@ -14,6 +15,7 @@ export const games: GameConfig[] = [
     name: "生死狙击2",
     shortName: "SS2",
     bilibiliKeywords: ["生死狙击2", "生死狙击2热油"],
+    douyinKeywords: ["生死狙击2", "生死狙击2热油"],
     tiebaBars: ["生死狙击2"]
   }
 ];
@@ -32,6 +34,7 @@ export const runtimeConfig = {
   baiduCookie: process.env.BAIDU_COOKIE || "",
   maxVideosPerGame: 18,
   maxVideosToDeepParsePerGame: 8,
+  maxDouyinItemsPerGame: 18,
   maxTiebaThreadsPerBar: 30,
   maxTiebaThreadsToDeepParse: 8
 };

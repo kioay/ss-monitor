@@ -20,7 +20,7 @@ app.get("/api/config", (_request, response) => {
     games,
     defaultWindowHours: runtimeConfig.defaultWindowHours,
     updatePolicy: getUpdatePolicy(),
-    sources: ["bilibili", "tieba"]
+    sources: ["bilibili", "tieba", "douyin"]
   });
 });
 
@@ -46,7 +46,7 @@ app.get("/api/image", async (request, response) => {
     const upstream = await fetch(imageUrl.toString(), {
       headers: {
         "User-Agent": "Mozilla/5.0",
-        Referer: imageUrl.hostname.includes("hdslb.com") ? "https://www.bilibili.com/" : "https://tieba.baidu.com/"
+        Referer: imageReferer(imageUrl.hostname)
       }
     });
 
@@ -97,5 +97,19 @@ app.listen(runtimeConfig.port, runtimeConfig.host, () => {
 });
 
 function isAllowedImageHost(hostname: string) {
-  return hostname.endsWith(".hdslb.com") || hostname === "hdslb.com" || hostname.endsWith(".baidu.com") || hostname.endsWith(".bdstatic.com");
+  return (
+    hostname.endsWith(".hdslb.com") ||
+    hostname === "hdslb.com" ||
+    hostname.endsWith(".baidu.com") ||
+    hostname.endsWith(".bdstatic.com") ||
+    hostname.endsWith(".douyinpic.com") ||
+    hostname.endsWith(".sogoucdn.com")
+  );
+}
+
+function imageReferer(hostname: string) {
+  if (hostname.includes("hdslb.com")) return "https://www.bilibili.com/";
+  if (hostname.includes("douyinpic.com")) return "https://www.douyin.com/";
+  if (hostname.includes("sogoucdn.com")) return "https://www.sogou.com/";
+  return "https://tieba.baidu.com/";
 }

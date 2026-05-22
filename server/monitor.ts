@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { collectBilibili } from "./collectors/bilibili";
+import { collectDouyin } from "./collectors/douyin";
 import { collectTieba } from "./collectors/tieba";
 import { gameById, games, getUpdatePolicy, runtimeConfig } from "./config";
 import type {
@@ -10,6 +11,7 @@ import type {
   MonitorResponse,
   MonitorStats,
   SourceHealth,
+  SourceType,
   TopicStat,
   TrendPoint
 } from "../src/shared";
@@ -97,20 +99,25 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
 }
 
 async function collectAll(selectedGames: GameConfig[], cutoff: Date) {
-  const results = await Promise.allSettled(
-    selectedGames.flatMap((game) => [collectBilibili(game, cutoff), collectTieba(game, cutoff)])
-  );
+  const tasks = selectedGames.flatMap((game) => [
+    { source: "bilibili" as const, game, run: () => collectBilibili(game, cutoff) },
+    { source: "tieba" as const, game, run: () => collectTieba(game, cutoff) },
+    { source: "douyin" as const, game, run: () => collectDouyin(game, cutoff) }
+  ]);
+  const results = await Promise.allSettled(tasks.map((task) => task.run()));
 
   const items: MonitorItem[] = [];
   const health: SourceHealth[] = [];
-  for (const result of results) {
+  for (const [index, result] of results.entries()) {
     if (result.status === "fulfilled") {
       items.push(...result.value.items);
       health.push(result.value.health);
     } else {
+      const task = tasks[index];
       health.push({
-        source: "bilibili",
-        sourceLabel: "未知来源",
+        source: task.source,
+        sourceLabel: sourceLabel(task.source),
+        gameId: task.game.id,
         ok: false,
         fetchedAt: new Date().toISOString(),
         latencyMs: 0,
@@ -123,6 +130,12 @@ async function collectAll(selectedGames: GameConfig[], cutoff: Date) {
   return { items, health };
 }
 
+function sourceLabel(source: SourceType) {
+  if (source === "bilibili") return "B站视频";
+  if (source === "douyin") return "抖音视频";
+  return "百度贴吧";
+}
+
 function makeStats(items: MonitorItem[]): MonitorStats {
   const negative = items.filter((item) => item.sentiment === "negative").length;
   return {
@@ -132,6 +145,7 @@ function makeStats(items: MonitorItem[]): MonitorStats {
     negativeRate: items.length ? Number((negative / items.length).toFixed(3)) : 0,
     bilibili: items.filter((item) => item.source === "bilibili").length,
     tieba: items.filter((item) => item.source === "tieba").length,
+    douyin: items.filter((item) => item.source === "douyin").length,
     freshestAt: items[0]?.publishedAt
   };
 }
