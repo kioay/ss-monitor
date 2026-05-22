@@ -8,3 +8,4 @@
 - Do not rewrite shared history or force-push unless the user explicitly approves it.
 - Do not send DingTalk test messages unless the user explicitly asks for a test in the current task. Test pushes are rate-limited by `DINGTALK_TEST_COOLDOWN_MINUTES`, but the rate limit is only a safety net and is not permission to test proactively.
 - DingTalk sentiment notifications are batched on a 15-minute cycle to avoid message floods. Do not change this back to immediate pushes unless the user explicitly asks.
+- The production server cannot reach the internal Confluence network. Refresh current-version Confluence focus from the local machine and sync only `current-version-focus.json` to production with `npm run sync:confluence`; keep the local token and SSH settings in ignored `.env.local`.

@@ -78,8 +78,16 @@ const genericVersionTerms = new Set([
   "需求描述",
   "标题"
 ]);
+const noisyVersionTermPatterns = [
+  /^(?:\d+阶|适配\d+|4399超级用户|超级用户)$/,
+  /版本(?:家园租赁武器列表调整|皮肤验收|技术需求表|美术需求表)/,
+  /(?:染色贴图需求|光环配件催化剂描述内容拓展|强化石与称号)$/,
+  /模型缩放比例/,
+  /^(?:配件英雄近战武器|传说级战术武器\d*)$/
+];
 let focusCache: CurrentVersionFocus = emptyFocus();
 let loadedCache = false;
+let cachedFileMtimeMs = 0;
 let refreshInFlight: Promise<CurrentVersionFocus> | undefined;
 
 export function getCurrentVersionFocus() {
@@ -88,6 +96,7 @@ export function getCurrentVersionFocus() {
 
 export async function refreshCurrentVersionFocus(now = new Date()) {
   if (!loadedCache) await loadCachedFocus();
+  else await reloadCachedFocusIfUpdated();
   if (!shouldRefresh(now)) return focusCache;
   if (!refreshInFlight) {
     refreshInFlight = fetchCurrentVersionFocus(now)
@@ -313,9 +322,14 @@ function extractWeaponFieldTerms(text: string) {
 function addTerm(target: Set<string>, value: string) {
   const term = value.trim();
   if (term.length < 2 || term.length > 24 || /^\d+(?:\.\d+)?$/.test(term) || genericVersionTerms.has(term)) return;
+  if (isNoisyVersionTerm(term)) return;
   if (/^(?:\d+d|已完成|预计\d+月|WooduanJIRA|SSJJ)/i.test(term)) return;
   if (/[_/\\]|svn|JIRA|NaN|^[^\p{L}\p{N}]/u.test(term)) return;
   target.add(term);
+}
+
+function isNoisyVersionTerm(term: string) {
+  return noisyVersionTermPatterns.some((pattern) => pattern.test(term));
 }
 
 function cleanPlanText(text: string) {
@@ -361,11 +375,27 @@ function shouldRefresh(now: Date) {
 async function loadCachedFocus() {
   loadedCache = true;
   try {
+    const target = cachePath();
+    const [raw, stat] = await Promise.all([fs.readFile(target, "utf-8"), fs.stat(target)]);
+    const cached = JSON.parse(raw) as CurrentVersionFocus;
+    focusCache = { ...emptyFocus(), ...cached, terms: cached.terms || [], weaponTerms: cached.weaponTerms || [] };
+    cachedFileMtimeMs = stat.mtimeMs;
+  } catch {
+    focusCache = emptyFocus();
+    cachedFileMtimeMs = 0;
+  }
+}
+
+async function reloadCachedFocusIfUpdated() {
+  try {
+    const stat = await fs.stat(cachePath());
+    if (stat.mtimeMs <= cachedFileMtimeMs) return;
     const raw = await fs.readFile(cachePath(), "utf-8");
     const cached = JSON.parse(raw) as CurrentVersionFocus;
     focusCache = { ...emptyFocus(), ...cached, terms: cached.terms || [], weaponTerms: cached.weaponTerms || [] };
+    cachedFileMtimeMs = stat.mtimeMs;
   } catch {
-    focusCache = emptyFocus();
+    // Keep the in-memory cache if the external sync is temporarily unavailable.
   }
 }
 
@@ -373,6 +403,7 @@ async function saveCachedFocus(focus: CurrentVersionFocus) {
   const target = cachePath();
   await fs.mkdir(path.dirname(target), { recursive: true });
   await fs.writeFile(target, JSON.stringify(focus, null, 2));
+  cachedFileMtimeMs = (await fs.stat(target)).mtimeMs;
 }
 
 function cachePath() {
