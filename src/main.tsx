@@ -33,6 +33,10 @@ const defaultTrendSeriesVisibility: TrendSeriesVisibility = {
 };
 
 const trendSeriesOrder: TrendSeries[] = ["negative", "neutral", "positive", "total"];
+const trendLineTop = 6;
+const trendLineHeight = 24;
+const trendLineMinY = 4;
+const trendLineMaxY = 36;
 
 function App() {
   const [config, setConfig] = React.useState<{
@@ -430,7 +434,7 @@ function TrendChart({ data, visibleSeries }: { data: TrendPoint[]; visibleSeries
   const lineMax = Math.max(1, ...trendSamples.flatMap(({ samples }) => samples.map((sample) => sample.value)));
   const plotStyle = { "--trend-count": data.length } as React.CSSProperties;
   const lineCoordinates = (samples: TrendLineSample[]) =>
-    samples.map((sample) => ({ ...sample, y: 10 + (1 - sample.value / lineMax) * 76 }));
+    samples.map((sample) => ({ ...sample, y: trendLineTop + (1 - sample.value / lineMax) * trendLineHeight }));
 
   return (
     <div className="chart-box trend-chart">
@@ -544,7 +548,7 @@ function formatSmoothLinePath(coordinates: TrendLineCoordinate[]) {
 }
 
 function clampLineY(value: number) {
-  return Math.min(92, Math.max(6, value));
+  return Math.min(trendLineMaxY, Math.max(trendLineMinY, value));
 }
 
 function MonitorCard({ item }: { item: MonitorItem }) {
