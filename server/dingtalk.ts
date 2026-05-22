@@ -8,6 +8,7 @@ interface DingTalkState {
   initialized: boolean;
   lastSentAt?: string;
   lastTestSentAt?: string;
+  lastHighRiskReminderSlot?: string;
   seen: Record<string, string>;
 }
 
@@ -56,18 +57,29 @@ export async function sendDingTalkNotification(response: MonitorResponse, gameId
 
   const newItems = currentItems.filter((item) => !state.seen[item.id]);
   const highRiskItems = currentItems.filter((item) => item.riskLevel === "high");
+  const reminderSlot = highRiskReminderSlot(response.generatedAt);
+  const shouldSendHighRiskReminder = Boolean(
+    highRiskItems.length && reminderSlot && state.lastHighRiskReminderSlot !== reminderSlot
+  );
   if (!newItems.length) {
-    if (highRiskItems.length) {
+    if (shouldSendHighRiskReminder && reminderSlot) {
       await sendMarkdown(robot, buildHighRiskReminderMarkdown(robot, highRiskItems, currentItems, response));
-      await writeState(robot, pruneState(markSeen(state, currentItems)));
+      await writeState(robot, pruneState(markSeen({ ...state, lastHighRiskReminderSlot: reminderSlot }, currentItems)));
       return { ok: true, sent: highRiskItems.length, existing: currentItems.length, mode: "risk" };
+    }
+    if (highRiskItems.length) {
+      await writeState(robot, pruneState(markSeen(state, currentItems)));
+      return { ok: true, skipped: `${robot.shortName} high risk reminder is outside scheduled slots or already sent` };
     }
     await writeState(robot, pruneState(markSeen(state, currentItems)));
     return { ok: true, skipped: `No new ${robot.shortName} sentiment items` };
   }
 
-  await sendMarkdown(robot, buildNewItemsMarkdown(robot, newItems, currentItems, response));
-  await writeState(robot, markSeen(state, currentItems));
+  await sendMarkdown(
+    robot,
+    buildNewItemsMarkdown(robot, newItems, currentItems, response, shouldSendHighRiskReminder ? highRiskItems : [])
+  );
+  await writeState(robot, markSeen(reminderSlot && shouldSendHighRiskReminder ? { ...state, lastHighRiskReminderSlot: reminderSlot } : state, currentItems));
   return { ok: true, sent: newItems.length, existing: currentItems.length - newItems.length, mode: "new" };
 }
 
@@ -141,7 +153,13 @@ function buildBaselineMarkdown(robot: DingTalkRobotConfig, items: MonitorItem[],
   return { title, text: lines.join("\n") };
 }
 
-function buildNewItemsMarkdown(robot: DingTalkRobotConfig, newItems: MonitorItem[], allItems: MonitorItem[], response: MonitorResponse) {
+function buildNewItemsMarkdown(
+  robot: DingTalkRobotConfig,
+  newItems: MonitorItem[],
+  allItems: MonitorItem[],
+  response: MonitorResponse,
+  scheduledHighRiskItems: MonitorItem[] = []
+) {
   const title = `${robot.shortName}新增舆情 ${newItems.length}条`;
   const lines = [
     `## ${title}`,
@@ -154,7 +172,7 @@ function buildNewItemsMarkdown(robot: DingTalkRobotConfig, newItems: MonitorItem
     "",
     buildDetailedTable(newItems),
     "",
-    buildHighRiskSection(allItems),
+    buildHighRiskSection(scheduledHighRiskItems),
     "",
     `[打开舆情平台](${monitorUrl})`
   ];
@@ -191,7 +209,7 @@ function buildTestMarkdown(robot: DingTalkRobotConfig, items: MonitorItem[], res
     "",
     buildBriefTable(items),
     "",
-    buildHighRiskSection(items),
+    buildHighRiskSection(items, "高风险预警"),
     "",
     `[打开舆情平台](${monitorUrl})`
   ];
@@ -221,11 +239,11 @@ function buildDetailedTable(items: MonitorItem[]) {
   ].join("\n");
 }
 
-function buildHighRiskSection(items: MonitorItem[]) {
+function buildHighRiskSection(items: MonitorItem[], title = "高风险持续预警（定时推送）") {
   const highRiskItems = items.filter((item) => item.riskLevel === "high").sort(compareDingTalkItems);
   if (!highRiskItems.length) return "";
   return [
-    "### 高风险持续预警（始终推送）",
+    `### ${title}`,
     "",
     "| 时间 | 来源 | 舆情 | 简报 |",
     "| --- | --- | --- | --- |",
@@ -293,6 +311,7 @@ async function readState(robot: DingTalkRobotConfig): Promise<DingTalkState> {
       initialized: Boolean(state.initialized),
       lastSentAt: state.lastSentAt,
       lastTestSentAt: state.lastTestSentAt,
+      lastHighRiskReminderSlot: state.lastHighRiskReminderSlot,
       seen: state.seen || {}
     };
   } catch {
@@ -308,6 +327,16 @@ async function writeState(robot: DingTalkRobotConfig, state: DingTalkState) {
 
 function statePath(robot: DingTalkRobotConfig) {
   return path.resolve(robot.statePath);
+}
+
+function highRiskReminderSlot(value: string) {
+  const date = new Date(value);
+  const hour = date.getHours();
+  if (hour !== 10 && hour !== 16) return undefined;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}-${hour}`;
 }
 
 function markSeen(state: DingTalkState, items: MonitorItem[]): DingTalkState {
