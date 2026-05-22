@@ -24,7 +24,7 @@ interface DingTalkSendResult {
   skipped?: string;
   sent?: number;
   existing?: number;
-  mode?: "baseline" | "new" | "test";
+  mode?: "baseline" | "new" | "risk" | "test";
   retryAfterSeconds?: number;
 }
 
@@ -55,7 +55,13 @@ export async function sendDingTalkNotification(response: MonitorResponse, gameId
   }
 
   const newItems = currentItems.filter((item) => !state.seen[item.id]);
+  const highRiskItems = currentItems.filter((item) => item.riskLevel === "high");
   if (!newItems.length) {
+    if (highRiskItems.length) {
+      await sendMarkdown(robot, buildHighRiskReminderMarkdown(robot, highRiskItems, currentItems, response));
+      await writeState(robot, pruneState(markSeen(state, currentItems)));
+      return { ok: true, sent: highRiskItems.length, existing: currentItems.length, mode: "risk" };
+    }
     await writeState(robot, pruneState(markSeen(state, currentItems)));
     return { ok: true, skipped: `No new ${robot.shortName} sentiment items` };
   }
@@ -128,6 +134,8 @@ function buildBaselineMarkdown(robot: DingTalkRobotConfig, items: MonitorItem[],
     "",
     buildBriefTable(items),
     "",
+    buildHighRiskSection(items),
+    "",
     `[打开舆情平台](${monitorUrl})`
   ];
   return { title, text: lines.join("\n") };
@@ -146,6 +154,29 @@ function buildNewItemsMarkdown(robot: DingTalkRobotConfig, newItems: MonitorItem
     "",
     buildDetailedTable(newItems),
     "",
+    buildHighRiskSection(allItems),
+    "",
+    `[打开舆情平台](${monitorUrl})`
+  ];
+  return { title, text: lines.join("\n") };
+}
+
+function buildHighRiskReminderMarkdown(
+  robot: DingTalkRobotConfig,
+  highRiskItems: MonitorItem[],
+  allItems: MonitorItem[],
+  response: MonitorResponse
+) {
+  const title = `${robot.shortName}高风险持续预警 ${highRiskItems.length}条`;
+  const lines = [
+    `## ${title}`,
+    "",
+    `> 巡检时间：${formatLocalTime(response.generatedAt)} | 窗口：近72小时`,
+    "",
+    buildBriefTable(allItems),
+    "",
+    buildHighRiskSection(highRiskItems),
+    "",
     `[打开舆情平台](${monitorUrl})`
   ];
   return { title, text: lines.join("\n") };
@@ -159,6 +190,8 @@ function buildTestMarkdown(robot: DingTalkRobotConfig, items: MonitorItem[], res
     `> 测试时间：${formatLocalTime(new Date().toISOString())} | 数据生成：${formatLocalTime(response.generatedAt)}`,
     "",
     buildBriefTable(items),
+    "",
+    buildHighRiskSection(items),
     "",
     `[打开舆情平台](${monitorUrl})`
   ];
@@ -185,6 +218,20 @@ function buildDetailedTable(items: MonitorItem[]) {
     ...sortedItems
       .map((item) => [linkCell(item), `${riskName(item.riskLevel)} / ${sentimentName(item.sentiment)}`, shortDigest(item)].join(" | "))
       .map((row) => `| ${row} |`)
+  ].join("\n");
+}
+
+function buildHighRiskSection(items: MonitorItem[]) {
+  const highRiskItems = items.filter((item) => item.riskLevel === "high").sort(compareDingTalkItems);
+  if (!highRiskItems.length) return "";
+  return [
+    "### 高风险持续预警（始终推送）",
+    "",
+    "| 时间 | 来源 | 舆情 | 简报 |",
+    "| --- | --- | --- | --- |",
+    ...highRiskItems.map(
+      (item) => `| ${formatShortTime(item.publishedAt)} | ${sourceName(item.source)} | ${linkCell(item)} | ${shortDigest(item)} |`
+    )
   ].join("\n");
 }
 
