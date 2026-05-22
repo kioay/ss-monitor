@@ -22,6 +22,8 @@ const api = {
 
 type TrendSeries = "negative" | "neutral" | "positive" | "total";
 type TrendSeriesVisibility = Record<TrendSeries, boolean>;
+type TrendLineSample = { point: TrendPoint; x: number; value: number };
+type TrendLineCoordinate = TrendLineSample & { y: number };
 
 const defaultTrendSeriesVisibility: TrendSeriesVisibility = {
   negative: true,
@@ -256,7 +258,7 @@ function App() {
               <TrendLegendButton series="neutral" label="中性" active={trendSeries.neutral} onToggle={toggleTrendSeries} />
               <TrendLegendButton series="positive" label="正面" active={trendSeries.positive} onToggle={toggleTrendSeries} />
               <TrendLegendButton series="total" label="总声量折线" active={trendSeries.total} onToggle={toggleTrendSeries} />
-              <small>柱子=情绪构成</small>
+              <small>柱子=情绪构成 · 折线=平滑趋势</small>
             </div>
           </div>
           <TrendChart data={data?.trends || []} visibleSeries={trendSeries} />
@@ -408,7 +410,15 @@ function TrendLegendButton({
 
 function TrendChart({ data, visibleSeries }: { data: TrendPoint[]; visibleSeries: TrendSeriesVisibility }) {
   if (!data.length) return <div className="chart-box empty-chart">暂无趋势数据</div>;
-  const activeLineSeries = trendSeriesOrder.filter((series) => visibleSeries[series]);
+  const activeLineSeries = trendSeriesOrder.filter(
+    (series) => visibleSeries[series] && data.some((point) => trendSeriesValue(point, series) > 0)
+  );
+  const trendSamples = activeLineSeries
+    .map((series) => ({
+      series,
+      samples: makeTrendLineSamples(data, series)
+    }))
+    .filter(({ samples }) => samples.length >= 2);
   const barMax = Math.max(
     1,
     ...data.map((point) =>
@@ -417,54 +427,24 @@ function TrendChart({ data, visibleSeries }: { data: TrendPoint[]; visibleSeries
         (visibleSeries.positive ? point.positive : 0)
     )
   );
-  const lineMax = Math.max(1, ...data.flatMap((point) => activeLineSeries.map((series) => trendSeriesValue(point, series))));
+  const lineMax = Math.max(1, ...trendSamples.flatMap(({ samples }) => samples.map((sample) => sample.value)));
   const plotStyle = { "--trend-count": data.length } as React.CSSProperties;
-  const lineCoordinates = (series: TrendSeries) =>
-    data.map((point, index) => {
-      const x = data.length === 1 ? 50 : ((index + 0.5) / data.length) * 100;
-      const y = 6 + (1 - trendSeriesValue(point, series) / lineMax) * 88;
-      return { point, x, y, value: trendSeriesValue(point, series) };
-    });
-  const formatLinePoints = (coordinates: Array<{ x: number; y: number }>) =>
-    coordinates
-      .map(({ x, y }) => `${x.toFixed(2)},${y.toFixed(2)}`)
-      .join(" ");
-  const lineSegments = (series: TrendSeries) => {
-    const segments: ReturnType<typeof lineCoordinates>[] = [];
-    let current: ReturnType<typeof lineCoordinates> = [];
-    for (const coordinate of lineCoordinates(series)) {
-      if (coordinate.value) {
-        current.push(coordinate);
-      } else if (current.length) {
-        segments.push(current);
-        current = [];
-      }
-    }
-    if (current.length) segments.push(current);
-    return segments;
-  };
+  const lineCoordinates = (samples: TrendLineSample[]) =>
+    samples.map((sample) => ({ ...sample, y: 10 + (1 - sample.value / lineMax) * 76 }));
 
   return (
     <div className="chart-box trend-chart">
       <div className="trend-plot" style={plotStyle}>
         <svg className="trend-line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-          {activeLineSeries.map((series) => (
-            <React.Fragment key={series}>
-              {lineSegments(series).map((segment, index) =>
-                segment.length > 2 ? (
-                  <React.Fragment key={`${series}-${index}`}>
-                    <polyline className="trend-line-halo" points={formatLinePoints(segment)} />
-                    <polyline className={`trend-line-path line-${series}`} points={formatLinePoints(segment)} />
-                  </React.Fragment>
-                ) : null
-              )}
-              {lineCoordinates(series).map(({ point, x, y }) =>
-                trendSeriesValue(point, series) ? (
-                  <circle className={`trend-line-dot dot-${series}`} cx={x} cy={y} r="0.75" key={point.bucket} />
-                ) : null
-              )}
-            </React.Fragment>
-          ))}
+          {trendSamples.map(({ series, samples }) => {
+            const path = formatSmoothLinePath(lineCoordinates(samples));
+            return (
+              <React.Fragment key={series}>
+                <path className="trend-line-halo" d={path} />
+                <path className={`trend-line-path line-${series}`} d={path} />
+              </React.Fragment>
+            );
+          })}
         </svg>
         {data.map((point) => {
           const positive = Math.max(4, (point.positive / barMax) * 100);
@@ -492,6 +472,79 @@ function trendSeriesValue(point: TrendPoint, series: TrendSeries) {
   if (series === "neutral") return point.neutral;
   if (series === "positive") return point.positive;
   return point.total;
+}
+
+function makeTrendLineSamples(data: TrendPoint[], series: TrendSeries): TrendLineSample[] {
+  const rawValues = data.map((point) => trendSeriesValue(point, series));
+  const signalCount = rawValues.filter((value) => value > 0).length;
+  if (signalCount < 2) return [];
+
+  const radius = data.length >= 14 ? 3 : 2;
+  const smoothedValues = rawValues.map((_, index) => weightedTrendAverage(rawValues, index, radius));
+  const sparseAverage = averageNonZeroValues(rawValues);
+  const lineValues =
+    signalCount <= 2
+      ? rawValues.map((value) => (value > 0 ? sparseAverage : 0))
+      : signalCount <= 3
+        ? rawValues
+        : smoothedValues;
+  return data
+    .map((point, index) => ({
+      point,
+      x: data.length === 1 ? 50 : ((index + 0.5) / data.length) * 100,
+      value: lineValues[index]
+    }))
+    .filter((_, index) => rawValues[index] > 0);
+}
+
+function averageNonZeroValues(values: number[]) {
+  const nonZeroValues = values.filter((value) => value > 0);
+  return nonZeroValues.reduce((sum, value) => sum + value, 0) / Math.max(1, nonZeroValues.length);
+}
+
+function weightedTrendAverage(values: number[], index: number, radius: number) {
+  let weightedSum = 0;
+  let weightSum = 0;
+  for (let offset = -radius; offset <= radius; offset += 1) {
+    const sampleIndex = index + offset;
+    if (sampleIndex < 0 || sampleIndex >= values.length) continue;
+    const weight = radius + 1 - Math.abs(offset);
+    weightedSum += values[sampleIndex] * weight;
+    weightSum += weight;
+  }
+  return weightSum ? weightedSum / weightSum : 0;
+}
+
+function formatSmoothLinePath(coordinates: TrendLineCoordinate[]) {
+  if (!coordinates.length) return "";
+  if (coordinates.length === 1) return `M ${coordinates[0].x.toFixed(2)} ${coordinates[0].y.toFixed(2)}`;
+  if (coordinates.length === 2) {
+    return `M ${coordinates[0].x.toFixed(2)} ${coordinates[0].y.toFixed(2)} L ${coordinates[1].x.toFixed(2)} ${coordinates[1].y.toFixed(2)}`;
+  }
+
+  const path = [`M ${coordinates[0].x.toFixed(2)} ${coordinates[0].y.toFixed(2)}`];
+  for (let index = 0; index < coordinates.length - 1; index += 1) {
+    const previous = coordinates[index - 1] || coordinates[index];
+    const current = coordinates[index];
+    const next = coordinates[index + 1];
+    const afterNext = coordinates[index + 2] || next;
+    const controlPoint1 = {
+      x: current.x + (next.x - previous.x) / 6,
+      y: clampLineY(current.y + (next.y - previous.y) / 6)
+    };
+    const controlPoint2 = {
+      x: next.x - (afterNext.x - current.x) / 6,
+      y: clampLineY(next.y - (afterNext.y - current.y) / 6)
+    };
+    path.push(
+      `C ${controlPoint1.x.toFixed(2)} ${controlPoint1.y.toFixed(2)}, ${controlPoint2.x.toFixed(2)} ${controlPoint2.y.toFixed(2)}, ${next.x.toFixed(2)} ${next.y.toFixed(2)}`
+    );
+  }
+  return path.join(" ");
+}
+
+function clampLineY(value: number) {
+  return Math.min(92, Math.max(6, value));
 }
 
 function MonitorCard({ item }: { item: MonitorItem }) {
