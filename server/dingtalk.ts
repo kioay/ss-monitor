@@ -282,16 +282,20 @@ function sourceName(source: SourceType) {
 }
 
 function riskName(risk: RiskLevel) {
-  if (risk === "high") return "高";
-  if (risk === "medium") return "中";
-  return "低";
+  if (risk === "high") return colorText("高风险", "#d93025");
+  if (risk === "medium") return colorText("中风险", "#b26a00");
+  return colorText("低风险", "#6f7d75");
 }
 
 function sentimentName(sentiment: Sentiment) {
-  if (sentiment === "negative") return "负面";
-  if (sentiment === "positive") return "正面";
-  if (sentiment === "mixed") return "混合";
-  return "中性";
+  if (sentiment === "negative") return colorText("负面", "#d93025");
+  if (sentiment === "positive") return colorText("正面", "#14845f");
+  if (sentiment === "mixed") return colorText("混合", "#b26a00");
+  return colorText("中性", "#6f7d75");
+}
+
+function colorText(text: string, color: string) {
+  return `<font color="${color}">${text}</font>`;
 }
 
 function formatLocalTime(value: string) {
