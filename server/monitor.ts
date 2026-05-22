@@ -105,7 +105,7 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
   };
 
   cache.set(cacheKey, { createdAt: now, response });
-  if (query.notify && gameIds.includes("ss1")) queueDingTalkNotification(response);
+  if (query.notify) queueDingTalkNotification(response, gameIds);
   return response;
 }
 

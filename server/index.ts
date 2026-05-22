@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { games, getUpdatePolicy, runtimeConfig } from "./config";
 import { sendDingTalkTest } from "./dingtalk";
 import { getMonitorResponse } from "./monitor";
+import type { GameId } from "../src/shared";
 
 const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -94,8 +95,9 @@ app.post("/api/notify/dingtalk/test", async (request, response) => {
     return;
   }
   try {
-    const data = await getMonitorResponse({ games: "ss1", windowHours: "72", limit: "200", force: "1", notify: "0" });
-    const result = await sendDingTalkTest(data);
+    const gameId = request.query.game === "ss2" ? "ss2" : "ss1";
+    const data = await getMonitorResponse({ games: gameId, windowHours: "72", limit: "200", force: "1", notify: "0" });
+    const result = await sendDingTalkTest(data, gameId);
     response.json(result);
   } catch (error) {
     response.status(500).json({
@@ -117,7 +119,10 @@ app.listen(runtimeConfig.port, runtimeConfig.host, () => {
 function startBackgroundMonitor() {
   const run = async () => {
     try {
-      await getMonitorResponse({ games: "ss1", windowHours: "72", limit: "200", force: "1" });
+      await Promise.all([
+        refreshRobotGame("ss1"),
+        refreshRobotGame("ss2")
+      ]);
     } catch (error) {
       console.error("Background monitor refresh failed", error);
     } finally {
@@ -126,6 +131,10 @@ function startBackgroundMonitor() {
     }
   };
   setTimeout(run, 60_000);
+}
+
+function refreshRobotGame(gameId: GameId) {
+  return getMonitorResponse({ games: gameId, windowHours: "72", limit: "200", force: "1" });
 }
 
 function isLocalRequest(request: Request) {
