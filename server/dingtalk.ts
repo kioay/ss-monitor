@@ -124,11 +124,9 @@ function buildBaselineMarkdown(robot: DingTalkRobotConfig, items: MonitorItem[],
   const lines = [
     `## ${title}`,
     "",
-    "> 钉钉机器人已启用。以下为当前72小时内已有舆情简版（仅中高风险），后续新增舆情会立即推送完整简报。",
+    "> 钉钉机器人已启用。后续新增舆情会立即推送完整简报。",
     "",
     buildBriefTable(items),
-    "",
-    buildExistingTable(items),
     "",
     `[打开舆情平台](${monitorUrl})`
   ];
@@ -136,7 +134,6 @@ function buildBaselineMarkdown(robot: DingTalkRobotConfig, items: MonitorItem[],
 }
 
 function buildNewItemsMarkdown(robot: DingTalkRobotConfig, newItems: MonitorItem[], allItems: MonitorItem[], response: MonitorResponse) {
-  const existingItems = allItems.filter((item) => !newItems.some((newItem) => newItem.id === item.id));
   const title = `${robot.shortName}新增舆情 ${newItems.length}条`;
   const lines = [
     `## ${title}`,
@@ -148,10 +145,6 @@ function buildNewItemsMarkdown(robot: DingTalkRobotConfig, newItems: MonitorItem
     "### 新增舆情完整简报",
     "",
     buildDetailedTable(newItems),
-    "",
-    "### 已有72小时舆情简版（仅中高风险）",
-    "",
-    buildExistingTable(existingItems),
     "",
     `[打开舆情平台](${monitorUrl})`
   ];
@@ -166,10 +159,6 @@ function buildTestMarkdown(robot: DingTalkRobotConfig, items: MonitorItem[], res
     `> 测试时间：${formatLocalTime(new Date().toISOString())} | 数据生成：${formatLocalTime(response.generatedAt)}`,
     "",
     buildBriefTable(items),
-    "",
-    "### 72小时舆情简版样例（仅中高风险）",
-    "",
-    buildExistingTable(items),
     "",
     `[打开舆情平台](${monitorUrl})`
   ];
