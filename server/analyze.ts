@@ -229,9 +229,10 @@ function assessRisk(content: string, sentimentProfile: SentimentProfile, metrics
   primaryReasons.push(...illegalRisk.reasons);
   const audienceDefused = sentimentProfile.audienceMentions >= 3 && sentimentProfile.audienceScore > 0.12 && sentimentScore > -0.35;
   const skillDefused = sentimentProfile.skillShowcase && sentimentProfile.audienceScore > -0.15 && sentimentScore > -0.35;
-  if (sentimentScore < -0.35 && !audienceDefused && !skillDefused) primaryReasons.push("负面表达集中");
+  const environmentInquiry = isEnvironmentInquiry(content);
+  if (sentimentScore < -0.35 && !audienceDefused && !skillDefused && !environmentInquiry) primaryReasons.push("负面表达集中");
   if (/(外挂|封号|倒闭|破游戏|没救|白氪|BUG|bug|炸服|闪退)/.test(content)) {
-    if (!illegalRisk.reasons.length && !audienceDefused && !skillDefused) primaryReasons.push("命中敏感风险词");
+    if (!illegalRisk.reasons.length && !audienceDefused && !skillDefused && !environmentInquiry) primaryReasons.push("命中敏感风险词");
   }
   if (/(水军|诈骗|未成年|退款|投诉)/.test(content)) {
     primaryReasons.push("命中治理类风险词");
@@ -243,8 +244,10 @@ function assessRisk(content: string, sentimentProfile: SentimentProfile, metrics
   } else if (illegalRisk.level === "medium" || primaryReasons.length === 1 || sentimentScore < -0.25) {
     level = "medium";
   }
+  if (environmentInquiry && illegalRisk.level !== "high" && level === "high") level = "medium";
 
   const reasons = [...primaryReasons];
+  if (environmentInquiry && level !== "low") reasons.push("回游/环境询问语境");
   if (level !== "low" && engagement > 800) reasons.push("互动量较高");
 
   return { level, reasons: uniq(reasons).slice(0, 4) };
@@ -290,6 +293,13 @@ function partWeight(type: ContentPart["type"]) {
 
 function isSkillShowcase(content: string) {
   return skillShowcaseWords.some((word) => content.includes(word));
+}
+
+function isEnvironmentInquiry(content: string) {
+  const inquiryTone = /[?？]|吗|么|咋样|怎样|怎么样|如何|好不好|能不能|能玩吗|还能玩|值得|现在|目前/.test(content);
+  const returnIntent = /回游|回坑|回归|想玩|准备玩|入坑|萌新|新手|游戏荒|荒了/.test(content);
+  const environmentTopic = /环境|游戏环境|现状|生态|人多|人少|匹配|排位|外挂多|挂多|科技多|封号|服务器|还能玩吗|好玩吗/.test(content);
+  return (returnIntent && (environmentTopic || inquiryTone)) || (environmentTopic && inquiryTone);
 }
 
 function detectIllegalBehavior(content: string) {
