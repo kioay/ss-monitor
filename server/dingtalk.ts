@@ -79,16 +79,17 @@ export async function sendDingTalkNotification(response: MonitorResponse, gameId
   const robot = getRobotConfig(gameId);
   if (!robot) return { ok: true, skipped: `DingTalk ${gameId} is not configured` };
 
-  const currentItems = gameItemsWithin72Hours(response, gameId);
+  const allCurrentItems = gameItemsWithin72Hours(response, gameId);
+  const currentItems = allCurrentItems.filter(isDingTalkRelevantItem);
   const state = await readState(robot);
   if (!state.initialized) {
     await sendMarkdown(robot, buildBaselineMarkdown(robot, currentItems, response));
-    await writeState(robot, markSeen(state, currentItems));
+    await writeState(robot, markSeen(state, allCurrentItems));
     return { ok: true, sent: 0, existing: currentItems.length, mode: "baseline" };
   }
 
   const newItems = currentItems.filter((item) => !state.seen[item.id]);
-  const highRiskItems = currentItems.filter((item) => item.riskLevel === "high");
+  const highRiskItems = allCurrentItems.filter((item) => item.riskLevel === "high");
   const reminderSlot = highRiskReminderSlot(response.generatedAt);
   const shouldSendHighRiskReminder = Boolean(
     highRiskItems.length && reminderSlot && state.lastHighRiskReminderSlot !== reminderSlot
@@ -96,14 +97,14 @@ export async function sendDingTalkNotification(response: MonitorResponse, gameId
   if (!newItems.length) {
     if (shouldSendHighRiskReminder && reminderSlot) {
       await sendMarkdown(robot, buildHighRiskReminderMarkdown(robot, highRiskItems, currentItems, response));
-      await writeState(robot, pruneState(markSeen({ ...state, lastHighRiskReminderSlot: reminderSlot }, currentItems)));
+      await writeState(robot, pruneState(markSeen({ ...state, lastHighRiskReminderSlot: reminderSlot }, allCurrentItems)));
       return { ok: true, sent: highRiskItems.length, existing: currentItems.length, mode: "risk" };
     }
     if (highRiskItems.length) {
-      await writeState(robot, pruneState(markSeen(state, currentItems)));
+      await writeState(robot, pruneState(markSeen(state, allCurrentItems)));
       return { ok: true, skipped: `${robot.shortName} high risk reminder is outside scheduled slots or already sent` };
     }
-    await writeState(robot, pruneState(markSeen(state, currentItems)));
+    await writeState(robot, pruneState(markSeen(state, allCurrentItems)));
     return { ok: true, skipped: `No new ${robot.shortName} sentiment items` };
   }
 
@@ -111,7 +112,7 @@ export async function sendDingTalkNotification(response: MonitorResponse, gameId
     robot,
     buildNewItemsMarkdown(robot, newItems, currentItems, response, shouldSendHighRiskReminder ? highRiskItems : [])
   );
-  await writeState(robot, markSeen(reminderSlot && shouldSendHighRiskReminder ? { ...state, lastHighRiskReminderSlot: reminderSlot } : state, currentItems));
+  await writeState(robot, markSeen(reminderSlot && shouldSendHighRiskReminder ? { ...state, lastHighRiskReminderSlot: reminderSlot } : state, allCurrentItems));
   return { ok: true, sent: newItems.length, existing: currentItems.length - newItems.length, mode: "new" };
 }
 
@@ -134,7 +135,7 @@ export async function sendDingTalkTest(
       retryAfterSeconds: Math.ceil(remainingMs / 1000)
     };
   }
-  const currentItems = gameItemsWithin72Hours(response, gameId);
+  const currentItems = gameItemsWithin72Hours(response, gameId).filter(isDingTalkRelevantItem);
   await sendMarkdown(robot, buildTestMarkdown(robot, currentItems, response));
   await writeState(robot, { ...state, lastTestSentAt: new Date().toISOString() });
   return { ok: true, sent: currentItems.length, mode: "test" };
@@ -169,12 +170,19 @@ function gameItemsWithin72Hours(response: MonitorResponse, gameId: GameId) {
     .sort(compareDingTalkItems);
 }
 
+function isDingTalkRelevantItem(item: MonitorItem) {
+  if (item.riskLevel !== "low") return true;
+  if (item.riskReasons.length) return true;
+  if (item.sentiment === "negative" || item.sentiment === "mixed") return true;
+  return false;
+}
+
 function buildBaselineMarkdown(robot: DingTalkRobotConfig, items: MonitorItem[], response: MonitorResponse) {
   const title = `${robot.shortName}舆情基线 ${formatLocalTime(response.generatedAt)}`;
   const lines = [
     `## ${title}`,
     "",
-    "> 钉钉机器人已启用。后续新增舆情会按15分钟周期合并推送完整简报。",
+    "> 钉钉机器人已启用。后续新增有效舆情会按15分钟周期合并推送；普通玩家分享、求助、技巧内容仅保留在平台。",
     "",
     buildBriefTable(items),
     "",
