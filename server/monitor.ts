@@ -3,6 +3,7 @@ import { collectBilibili } from "./collectors/bilibili";
 import { collectDouyin } from "./collectors/douyin";
 import { collectTieba } from "./collectors/tieba";
 import { gameById, games, getUpdatePolicy, runtimeConfig } from "./config";
+import { queueDingTalkNotification } from "./dingtalk";
 import type {
   AlertItem,
   GameConfig,
@@ -100,6 +101,7 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
   };
 
   cache.set(cacheKey, { createdAt: now, response });
+  if (gameIds.includes("ss1")) queueDingTalkNotification(response);
   return response;
 }
 

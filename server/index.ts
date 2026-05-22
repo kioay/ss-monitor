@@ -1,11 +1,12 @@
 import cors from "cors";
-import express from "express";
+import express, { type Request } from "express";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { ReadableStream as NodeReadableStream } from "node:stream/web";
 import { fileURLToPath } from "node:url";
 import { games, getUpdatePolicy, runtimeConfig } from "./config";
+import { sendDingTalkTest } from "./dingtalk";
 import { getMonitorResponse } from "./monitor";
 
 const app = express();
@@ -87,6 +88,22 @@ app.get("/api/monitor", async (request, response) => {
   }
 });
 
+app.post("/api/notify/dingtalk/test", async (request, response) => {
+  if (!isLocalRequest(request)) {
+    response.status(403).json({ message: "Local access only" });
+    return;
+  }
+  try {
+    const data = await getMonitorResponse({ games: "ss1", windowHours: "72", limit: "200", force: "1" });
+    const result = await sendDingTalkTest(data);
+    response.json(result);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "未知错误"
+    });
+  }
+});
+
 app.use(express.static(distDir));
 app.get(/^(?!\/api).*/, (_request, response) => {
   response.sendFile(path.join(distDir, "index.html"));
@@ -94,7 +111,30 @@ app.get(/^(?!\/api).*/, (_request, response) => {
 
 app.listen(runtimeConfig.port, runtimeConfig.host, () => {
   console.log(`Sentiment monitor listening on http://${runtimeConfig.host}:${runtimeConfig.port}`);
+  startBackgroundMonitor();
 });
+
+function startBackgroundMonitor() {
+  const run = async () => {
+    try {
+      await getMonitorResponse({ games: "ss1", windowHours: "72", limit: "200", force: "1" });
+    } catch (error) {
+      console.error("Background monitor refresh failed", error);
+    } finally {
+      const policy = getUpdatePolicy();
+      setTimeout(run, policy.intervalSeconds * 1000);
+    }
+  };
+  setTimeout(run, 60_000);
+}
+
+function isLocalRequest(request: Request) {
+  const host = request.headers.host || "";
+  const remoteAddress = request.socket.remoteAddress || "";
+  const isLocalHost = /^(127\.0\.0\.1|localhost|\[::1\])(?::|$)/.test(host);
+  const isLocalSocket = ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(remoteAddress);
+  return isLocalHost && isLocalSocket;
+}
 
 function isAllowedImageHost(hostname: string) {
   return (
