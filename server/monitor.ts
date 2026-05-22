@@ -39,6 +39,9 @@ const querySchema = z.object({
 type MonitorQuery = z.infer<typeof querySchema>;
 
 const cache = new Map<string, { createdAt: number; response: MonitorResponse }>();
+const collectionCache = new Map<string, { createdAt: number; items: MonitorItem[]; health: SourceHealth[]; gameIds: GameId[] }>();
+const collectionInFlight = new Map<string, Promise<{ createdAt: number; items: MonitorItem[]; health: SourceHealth[]; gameIds: GameId[] }>>();
+const collectionWindowHours = 24 * 30;
 
 export function parseMonitorQuery(raw: unknown) {
   const query = querySchema.parse(raw);
@@ -51,7 +54,8 @@ export function parseMonitorQuery(raw: unknown) {
 
 export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResponse> {
   const query = parseMonitorQuery(rawQuery);
-  const cacheKey = `${query.selectedGames.map((game) => game.id).join(",")}:${query.windowHours}:${query.limit}`;
+  const gameIds = query.selectedGames.map((game) => game.id);
+  const cacheKey = `${gameIds.join(",")}:${query.windowHours}:${query.limit}`;
   const cached = cache.get(cacheKey);
   const now = Date.now();
   const currentPolicy = getUpdatePolicy(new Date(now), new Date(cached?.createdAt || now));
@@ -70,8 +74,9 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
   const generatedAt = new Date();
   const updatePolicy = getUpdatePolicy(generatedAt, generatedAt);
   const cutoff = new Date(generatedAt.getTime() - query.windowHours * 3_600_000);
-  const { items, health } = await collectAll(query.selectedGames, cutoff);
-  const freshItems = items
+  const collection = await getCollection(query.selectedGames, query.force, generatedAt);
+  const freshItems = collection.items
+    .filter((item) => gameIds.includes(item.gameId))
     .filter((item) => new Date(item.publishedAt) >= cutoff)
     .sort((a, b) => +new Date(b.publishedAt) - +new Date(a.publishedAt))
     .slice(0, query.limit);
@@ -90,12 +95,61 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
     trends: makeTrends(freshItems, query.windowHours, cutoff, generatedAt),
     topicStats: makeTopicStats(freshItems),
     alerts: makeAlerts(freshItems),
-    health,
+    health: collection.health.filter((entry) => !entry.gameId || gameIds.includes(entry.gameId)),
     items: freshItems
   };
 
   cache.set(cacheKey, { createdAt: now, response });
   return response;
+}
+
+async function getCollection(selectedGames: GameConfig[], force: boolean, generatedAt: Date) {
+  const gameIds = selectedGames.map((game) => game.id);
+  const exactKey = collectionKey(gameIds);
+  const now = generatedAt.getTime();
+  const reusable = force ? undefined : findReusableCollection(gameIds, generatedAt);
+  if (reusable) return reusable;
+
+  const inFlight = collectionInFlight.get(exactKey);
+  if (!force && inFlight) return inFlight;
+
+  const task = collectAll(selectedGames, new Date(now - collectionWindowHours * 3_600_000)).then((collection) => {
+    const entry = { createdAt: now, gameIds, ...collection };
+    collectionCache.set(exactKey, entry);
+    return entry;
+  }).finally(() => {
+    if (collectionInFlight.get(exactKey) === task) collectionInFlight.delete(exactKey);
+  });
+
+  collectionInFlight.set(exactKey, task);
+  return task;
+}
+
+function findReusableCollection(gameIds: GameId[], now: Date) {
+  const exact = collectionCache.get(collectionKey(gameIds));
+  if (exact && isFreshCollection(exact, now) && containsAllGames(exact.gameIds, gameIds)) return exact;
+
+  for (const entry of collectionCache.values()) {
+    if (isFreshCollection(entry, now) && containsAllGames(entry.gameIds, gameIds)) return entry;
+  }
+  return undefined;
+}
+
+function isFreshCollection(
+  entry: { createdAt: number; items: MonitorItem[]; health: SourceHealth[]; gameIds: GameId[] } | undefined,
+  now: Date
+) {
+  if (!entry) return false;
+  const policy = getUpdatePolicy(now, new Date(entry.createdAt));
+  return now.getTime() - entry.createdAt < policy.intervalSeconds * 1000;
+}
+
+function containsAllGames(sourceIds: GameId[], targetIds: GameId[]) {
+  return targetIds.every((id) => sourceIds.includes(id));
+}
+
+function collectionKey(gameIds: GameId[]) {
+  return [...gameIds].sort().join(",");
 }
 
 async function collectAll(selectedGames: GameConfig[], cutoff: Date) {

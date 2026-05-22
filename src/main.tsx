@@ -19,6 +19,7 @@ const api = {
   config: "/api/config",
   monitor: "/api/monitor"
 };
+const clientCacheMaxAgeMs = 4 * 3_600_000;
 
 type TrendSeries = "negative" | "neutral" | "positive" | "total";
 type TrendSeriesVisibility = Record<TrendSeries, boolean>;
@@ -39,6 +40,30 @@ const trendLineMinY = 5;
 const trendLineMaxY = 30;
 const trendLineClipHeight = 32;
 
+function monitorCacheKey(gameIds: GameId[], windowHours: number) {
+  return `ss-monitor:${[...gameIds].sort().join(",")}:${windowHours}`;
+}
+
+function readCachedMonitor(key: string) {
+  try {
+    const raw = window.sessionStorage.getItem(key);
+    if (!raw) return undefined;
+    const payload = JSON.parse(raw) as { cachedAt: number; data: MonitorResponse };
+    if (!payload?.cachedAt || Date.now() - payload.cachedAt > clientCacheMaxAgeMs) return undefined;
+    return payload.data;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeCachedMonitor(key: string, data: MonitorResponse) {
+  try {
+    window.sessionStorage.setItem(key, JSON.stringify({ cachedAt: Date.now(), data }));
+  } catch {
+    // Session storage is only a speed hint; the live request remains authoritative.
+  }
+}
+
 function App() {
   const [config, setConfig] = React.useState<{
     games: GameConfig[];
@@ -57,6 +82,7 @@ function App() {
   const [trendSeries, setTrendSeries] = React.useState<TrendSeriesVisibility>(defaultTrendSeriesVisibility);
   const [isControlFloating, setControlFloating] = React.useState(false);
   const controlSentinelRef = React.useRef<HTMLDivElement>(null);
+  const latestRequestRef = React.useRef(0);
 
   React.useEffect(() => {
     fetch(api.config)
@@ -70,6 +96,11 @@ function App() {
 
   const load = React.useCallback(
     async (force = false) => {
+      const requestId = latestRequestRef.current + 1;
+      latestRequestRef.current = requestId;
+      const cacheKey = monitorCacheKey(selectedGames, windowHours);
+      const cachedPayload = force ? undefined : readCachedMonitor(cacheKey);
+      if (cachedPayload) setData(cachedPayload);
       setLoading(true);
       setError("");
       try {
@@ -82,11 +113,14 @@ function App() {
         const response = await fetch(`${api.monitor}?${params.toString()}`);
         if (!response.ok) throw new Error(`API ${response.status}`);
         const payload = (await response.json()) as MonitorResponse;
+        if (latestRequestRef.current !== requestId) return;
         setData(payload);
+        writeCachedMonitor(cacheKey, payload);
       } catch (reason) {
-        setError(reason instanceof Error ? reason.message : String(reason));
+        if (latestRequestRef.current !== requestId) return;
+        if (!cachedPayload) setError(reason instanceof Error ? reason.message : String(reason));
       } finally {
-        setLoading(false);
+        if (latestRequestRef.current === requestId) setLoading(false);
       }
     },
     [selectedGames, windowHours]
