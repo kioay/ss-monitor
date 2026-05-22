@@ -397,21 +397,36 @@ button.metric:focus-visible {
 
 .health-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 14px;
-  padding-bottom: 20px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding-bottom: 12px;
 }
 
 .health-tile {
-  padding: 14px;
+  min-width: 0;
+  padding: 9px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 253, 248, 0.76), rgba(250, 251, 246, 0.68)),
+    var(--paper);
+  box-shadow: none;
 }
 
 .health-main {
   gap: 8px;
+  min-width: 0;
+  flex: 0 1 auto;
 }
 
 .health-main svg {
+  flex: 0 0 auto;
   color: var(--green);
+}
+
+.health-main strong {
+  white-space: nowrap;
 }
 
 .health-main span,
@@ -426,15 +441,23 @@ button.metric:focus-visible {
 }
 
 .health-tile p {
-  margin: 10px 0;
+  display: none;
+  margin: 0;
   color: var(--muted);
   line-height: 1.5;
 }
 
 .health-meta {
   display: flex;
-  gap: 6px;
+  gap: 5px;
   flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
+.health-meta span {
+  padding: 2px 7px;
+  font-size: 11px;
 }
 
 .workspace-grid {
@@ -945,6 +968,10 @@ button.metric:focus-visible {
     grid-template-columns: 1fr 1fr;
   }
 
+  .health-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .monitor-card {
     grid-template-columns: 140px minmax(0, 1fr);
   }
@@ -970,7 +997,8 @@ button.metric:focus-visible {
   }
 
   .metrics-grid,
-  .workspace-grid {
+  .workspace-grid,
+  .health-row {
     grid-template-columns: 1fr;
   }
 
