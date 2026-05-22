@@ -32,6 +32,7 @@ interface DingTalkSendResult {
 const monitorUrl = "http://ss-monitor.qinoay.top/";
 const stateRetentionMs = 30 * 24 * 3_600_000;
 const notificationBatchMs = 15 * 60 * 1000;
+const routinePlayerTopics = new Set(["个人技术分享", "玩家求助咨询", "玩家行为争议"]);
 const pendingNotifications = new Map<GameId, MonitorResponse>();
 let notificationQueue: Promise<unknown> = Promise.resolve();
 let notificationBatchTimer: ReturnType<typeof setTimeout> | undefined;
@@ -171,10 +172,15 @@ function gameItemsWithin72Hours(response: MonitorResponse, gameId: GameId) {
 }
 
 function isDingTalkRelevantItem(item: MonitorItem) {
+  if (isRoutinePlayerContent(item)) return false;
   if (item.riskLevel !== "low") return true;
   if (item.riskReasons.length) return true;
   if (item.sentiment === "negative" || item.sentiment === "mixed") return true;
   return false;
+}
+
+function isRoutinePlayerContent(item: MonitorItem) {
+  return item.riskLevel === "low" && !item.riskReasons.length && item.topics.some((topic) => routinePlayerTopics.has(topic));
 }
 
 function buildBaselineMarkdown(robot: DingTalkRobotConfig, items: MonitorItem[], response: MonitorResponse) {
