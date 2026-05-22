@@ -213,7 +213,7 @@ async function buildBiliMonitorItem(game: GameConfig, searchItem: BiliSearchItem
     favorites: data?.stat?.favorite ?? searchItem.favorites,
     shares: data?.stat?.share
   };
-  const analysis = analyzeItem({ title, contentParts, metrics });
+  const analysis = analyzeItem({ title, gameId: game.id, contentParts, metrics });
 
   return {
     id: `bilibili:${searchItem.bvid}`,

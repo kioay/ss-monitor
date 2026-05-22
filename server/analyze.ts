@@ -2,10 +2,11 @@ import { negativeWords, positiveWords, topicLexicon } from "./config";
 import { matchCurrentVersionTerms } from "./currentVersion";
 import { ss1WeaponNames } from "./domainSafeTerms";
 import { clamp, compactText, uniq } from "./utils";
-import type { ContentPart, MonitorItem, RiskLevel, Sentiment } from "../src/shared";
+import type { ContentPart, GameId, MonitorItem, RiskLevel, Sentiment } from "../src/shared";
 
 interface AnalyzeInput {
   contentParts: ContentPart[];
+  gameId: GameId;
   metrics: MonitorItem["metrics"];
   title: string;
 }
@@ -97,15 +98,16 @@ export function analyzeItem(input: AnalyzeInput) {
     .map((part) => part.text)
     .filter(Boolean)
     .join("\n");
-  const signalContent = maskDomainSafeTerms(content);
+  const signalContent = maskDomainSafeTerms(content, input.gameId);
 
   const topics = Object.entries(topicLexicon)
     .filter(([, words]) => words.some((word) => signalContent.includes(word)))
     .map(([topic]) => topic);
-  const currentVersionTerms = uniq([...matchCurrentVersionTerms(content), ...matchCurrentVersionTerms(signalContent)]);
+  const currentVersionTerms =
+    input.gameId === "ss1" ? uniq([...matchCurrentVersionTerms(content), ...matchCurrentVersionTerms(signalContent)]) : [];
   if (currentVersionTerms.length) topics.unshift("当前版本重点");
 
-  const sentimentProfile = scoreSentiment(input.contentParts);
+  const sentimentProfile = scoreSentiment(input.contentParts, input.gameId);
   const sentimentScore = sentimentProfile.score;
   const sentiment = labelSentiment(sentimentProfile, signalContent);
   const keywords = uniq([...currentVersionTerms, ...extractKeywords(signalContent, topics)]);
@@ -123,7 +125,7 @@ export function analyzeItem(input: AnalyzeInput) {
   };
 }
 
-function scoreSentiment(parts: ContentPart[]): SentimentProfile {
+function scoreSentiment(parts: ContentPart[], gameId: GameId): SentimentProfile {
   const content = parts.map((part) => part.text).join("\n");
   let positive = 0;
   let negative = 0;
@@ -136,7 +138,7 @@ function scoreSentiment(parts: ContentPart[]): SentimentProfile {
   for (const part of parts) {
     if (!part.text) continue;
     const weight = partWeight(part.type);
-    const signal = scoreTextSignals(part.text);
+    const signal = scoreTextSignals(part.text, gameId);
     positive += signal.positive * weight;
     negative += signal.negative * weight;
 
@@ -170,8 +172,8 @@ function scoreSentiment(parts: ContentPart[]): SentimentProfile {
   };
 }
 
-function scoreTextSignals(content: string) {
-  const signalContent = maskDomainSafeTerms(content);
+function scoreTextSignals(content: string, gameId: GameId) {
+  const signalContent = maskDomainSafeTerms(content, gameId);
   let positive = 0;
   let negative = 0;
 
@@ -309,7 +311,8 @@ function isSkillShowcase(content: string) {
   return skillShowcaseWords.some((word) => content.includes(word));
 }
 
-function maskDomainSafeTerms(content: string) {
+function maskDomainSafeTerms(content: string, gameId: GameId) {
+  if (gameId !== "ss1") return content;
   let masked = content;
   for (const term of ss1WeaponNames) {
     masked = masked.replaceAll(term, "武器名");

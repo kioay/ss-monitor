@@ -107,7 +107,7 @@ function buildDouyinMonitorItem(game: GameConfig, candidate: DouyinCandidate): M
     { type: "title", text: candidate.title, count: 1 },
     ...(candidate.description ? [{ type: "description" as const, text: candidate.description, count: 1 }] : [])
   ];
-  const analysis = analyzeItem({ title: candidate.title, contentParts, metrics: {} });
+  const analysis = analyzeItem({ title: candidate.title, gameId: game.id, contentParts, metrics: {} });
 
   return {
     id: `douyin:${candidate.id}`,

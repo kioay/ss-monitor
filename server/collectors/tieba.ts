@@ -229,7 +229,7 @@ async function buildTiebaMonitorItem(game: GameConfig, candidate: TiebaThreadCan
     replies: candidate.replyCount,
     comments: candidate.replyCount
   };
-  const analysis = analyzeItem({ title: candidate.title, contentParts, metrics });
+  const analysis = analyzeItem({ title: candidate.title, gameId: game.id, contentParts, metrics });
 
   return {
     id: `tieba:${candidate.tid}`,
