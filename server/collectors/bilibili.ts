@@ -391,11 +391,27 @@ function isRelevantVideo(gameId: GameConfig["id"], item: BiliSearchItem) {
   const description = stripHtml(item.description || item.desc || "");
   const tags = item.tag || "";
   const author = item.author || "";
-  const text = `${title} ${description} ${tags} ${author}`;
+  const primaryText = `${title} ${description} ${author}`;
+  const text = `${primaryText} ${tags}`;
+  if (isCompetingShooter(primaryText) && !mentionsTargetGame(primaryText, gameId)) return false;
   if (gameId === "ss2") {
-    if (/生死狙击2/.test(`${title} ${description} ${author}`)) return true;
-    return /生死狙击2/.test(tags) && /(FPS|fps|射击|枪战|变异|狙击|热油|教程|攻略|端游|塔菲|甩狙|瞬狙)/.test(text);
+    if (/生死狙击2/.test(primaryText)) return true;
+    return /生死狙击2/.test(tags) && hasGameContext(primaryText);
   }
   if (/生死狙击2|热油/.test(text)) return false;
-  return /生死狙击|4399生死狙击|生死狙击1|生死狙击页游/.test(text);
+  if (/生死狙击|4399生死狙击|生死狙击1|生死狙击页游/.test(primaryText)) return true;
+  return /生死狙击|4399生死狙击|生死狙击1|生死狙击页游/.test(tags) && hasGameContext(primaryText);
+}
+
+function mentionsTargetGame(text: string, gameId: GameConfig["id"]) {
+  if (gameId === "ss2") return /生死狙击2/.test(text);
+  return /生死狙击|4399生死狙击|生死狙击1|生死狙击页游/.test(text) && !/生死狙击2|热油/.test(text);
+}
+
+function isCompetingShooter(text: string) {
+  return /\bCF\b|穿越火线|CrossFire|无畏契约|瓦罗兰特|Valorant|CS2|反恐精英|和平精英|三角洲行动|逆战/.test(text);
+}
+
+function hasGameContext(text: string) {
+  return /刷关|关卡|冒险|变异|狙击|甩狙|瞬狙|身法|枪法|枪战|武器|皮肤|军费|匹配|排位|PVP|PVE|pvp|pve|塔菲|热油|页游|4399|沙漠奇兵|天梯|战术|英雄级|典藏/.test(text);
 }
