@@ -31,16 +31,48 @@ interface DingTalkSendResult {
 
 const monitorUrl = "http://ss-monitor.qinoay.top/";
 const stateRetentionMs = 30 * 24 * 3_600_000;
+const notificationBatchMs = 15 * 60 * 1000;
+const pendingNotifications = new Map<GameId, MonitorResponse>();
 let notificationQueue: Promise<unknown> = Promise.resolve();
+let notificationBatchTimer: ReturnType<typeof setTimeout> | undefined;
 
 export function queueDingTalkNotification(response: MonitorResponse, gameIds: GameId[]) {
   for (const gameId of gameIds) {
+    pendingNotifications.set(gameId, response);
+  }
+  scheduleNotificationBatch();
+}
+
+function scheduleNotificationBatch() {
+  if (notificationBatchTimer) return;
+  const delayMs = msUntilNextNotificationBatch();
+  notificationBatchTimer = setTimeout(flushNotificationBatch, delayMs);
+}
+
+function flushNotificationBatch() {
+  notificationBatchTimer = undefined;
+  const entries = Array.from(pendingNotifications.entries());
+  pendingNotifications.clear();
+  for (const [gameId, response] of entries) {
     notificationQueue = notificationQueue
       .then(() => sendDingTalkNotification(response, gameId))
       .catch((error) => {
         console.error(`DingTalk ${gameId} notification failed`, error);
       });
   }
+}
+
+function msUntilNextNotificationBatch(now = new Date()) {
+  const next = new Date(now);
+  const minutes = now.getMinutes();
+  const nextMinute = Math.ceil((minutes + 1) / 15) * 15;
+  next.setSeconds(0, 0);
+  if (nextMinute >= 60) {
+    next.setHours(next.getHours() + 1, 0, 0, 0);
+  } else {
+    next.setMinutes(nextMinute);
+  }
+  return Math.max(1_000, next.getTime() - now.getTime());
 }
 
 export async function sendDingTalkNotification(response: MonitorResponse, gameId: GameId): Promise<DingTalkSendResult> {
@@ -142,7 +174,7 @@ function buildBaselineMarkdown(robot: DingTalkRobotConfig, items: MonitorItem[],
   const lines = [
     `## ${title}`,
     "",
-    "> 钉钉机器人已启用。后续新增舆情会立即推送完整简报。",
+    "> 钉钉机器人已启用。后续新增舆情会按15分钟周期合并推送完整简报。",
     "",
     buildBriefTable(items),
     "",
