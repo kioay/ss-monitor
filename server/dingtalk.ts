@@ -159,8 +159,8 @@ function buildDetailedTable(items: MonitorItem[]) {
 }
 
 function buildExistingTable(items: MonitorItem[]) {
-  const sortedItems = [...items].sort(compareDingTalkItems);
-  if (!items.length) return "暂无已有舆情。";
+  const sortedItems = items.filter((item) => item.riskLevel !== "low").sort(compareDingTalkItems);
+  if (!sortedItems.length) return "暂无中高风险舆情。";
   return [
     "| 时间 | 来源 | 舆情 | 风险 |",
     "| --- | --- | --- | --- |",
