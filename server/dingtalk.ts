@@ -63,7 +63,7 @@ function ss1ItemsWithin72Hours(response: MonitorResponse) {
   const cutoff = Date.now() - 72 * 3_600_000;
   return response.items
     .filter((item) => item.gameId === "ss1" && new Date(item.publishedAt).getTime() >= cutoff)
-    .sort((a, b) => +new Date(b.publishedAt) - +new Date(a.publishedAt));
+    .sort(compareDingTalkItems);
 }
 
 function buildBaselineMarkdown(items: MonitorItem[], response: MonitorResponse) {
@@ -142,11 +142,12 @@ function buildBriefTable(items: MonitorItem[]) {
 }
 
 function buildDetailedTable(items: MonitorItem[]) {
+  const sortedItems = [...items].sort(compareDingTalkItems);
   if (!items.length) return "暂无新增舆情。";
   return [
     "| 舆情 | 来源 | 风险/情绪 | 简报 |",
     "| --- | --- | --- | --- |",
-    ...items.map((item) =>
+    ...sortedItems.map((item) =>
       [
         linkCell(item),
         sourceName(item.source),
@@ -158,14 +159,27 @@ function buildDetailedTable(items: MonitorItem[]) {
 }
 
 function buildExistingTable(items: MonitorItem[]) {
+  const sortedItems = [...items].sort(compareDingTalkItems);
   if (!items.length) return "暂无已有舆情。";
   return [
     "| 时间 | 来源 | 舆情 | 风险 |",
     "| --- | --- | --- | --- |",
-    ...items.map((item) =>
+    ...sortedItems.map((item) =>
       `| ${formatShortTime(item.publishedAt)} | ${sourceName(item.source)} | ${linkCell(item)} | ${riskName(item.riskLevel)} |`
     )
   ].join("\n");
+}
+
+function compareDingTalkItems(a: MonitorItem, b: MonitorItem) {
+  const riskDelta = riskRank(b.riskLevel) - riskRank(a.riskLevel);
+  if (riskDelta) return riskDelta;
+  return +new Date(b.publishedAt) - +new Date(a.publishedAt);
+}
+
+function riskRank(risk: RiskLevel) {
+  if (risk === "high") return 3;
+  if (risk === "medium") return 2;
+  return 1;
 }
 
 async function sendMarkdown(markdown: { title: string; text: string }) {
