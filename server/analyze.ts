@@ -1,4 +1,5 @@
 import { negativeWords, positiveWords, topicLexicon } from "./config";
+import { matchCurrentVersionTerms } from "./currentVersion";
 import { ss1WeaponNames } from "./domainSafeTerms";
 import { clamp, compactText, uniq } from "./utils";
 import type { ContentPart, MonitorItem, RiskLevel, Sentiment } from "../src/shared";
@@ -101,12 +102,14 @@ export function analyzeItem(input: AnalyzeInput) {
   const topics = Object.entries(topicLexicon)
     .filter(([, words]) => words.some((word) => signalContent.includes(word)))
     .map(([topic]) => topic);
+  const currentVersionTerms = uniq([...matchCurrentVersionTerms(content), ...matchCurrentVersionTerms(signalContent)]);
+  if (currentVersionTerms.length) topics.unshift("当前版本重点");
 
   const sentimentProfile = scoreSentiment(input.contentParts);
   const sentimentScore = sentimentProfile.score;
   const sentiment = labelSentiment(sentimentProfile, signalContent);
-  const keywords = extractKeywords(signalContent, topics);
-  const risk = assessRisk(signalContent, sentimentProfile, input.metrics);
+  const keywords = uniq([...currentVersionTerms, ...extractKeywords(signalContent, topics)]);
+  const risk = assessRisk(signalContent, sentimentProfile, input.metrics, currentVersionTerms);
   const summary = summarizeContent(input.title, input.contentParts, topics, sentiment, sentimentProfile);
 
   return {
@@ -217,7 +220,12 @@ function extractKeywords(content: string, topics: string[]) {
     .slice(0, 10);
 }
 
-function assessRisk(content: string, sentimentProfile: SentimentProfile, metrics: MonitorItem["metrics"]) {
+function assessRisk(
+  content: string,
+  sentimentProfile: SentimentProfile,
+  metrics: MonitorItem["metrics"],
+  currentVersionTerms: string[] = []
+) {
   const sentimentScore = sentimentProfile.score;
   const illegalRisk = detectIllegalBehavior(content);
   const engagement =
@@ -239,6 +247,9 @@ function assessRisk(content: string, sentimentProfile: SentimentProfile, metrics
   }
   if (/(水军|诈骗|未成年|退款|投诉)/.test(content)) {
     primaryReasons.push("命中治理类风险词");
+  }
+  if (currentVersionTerms.length && (sentimentScore < -0.18 || isCurrentVersionComplaint(content))) {
+    primaryReasons.push("当前版本重点负反馈");
   }
 
   let level: RiskLevel = "low";
@@ -316,6 +327,10 @@ function isEnvironmentInquiry(content: string) {
     /(外挂|外卦|挂|科技|辅助).{0,12}(泛滥|离谱|猖獗|满天飞|一堆|全是|太多|多到|遍地)/.test(content);
   if (strongComplaint && !returnIntent) return false;
   return (returnIntent && (environmentTopic || explicitQuestion || cheatEnvironmentQuestion)) || (environmentTopic && explicitQuestion) || cheatEnvironmentQuestion;
+}
+
+function isCurrentVersionComplaint(content: string) {
+  return /(太弱|弱了|削弱|手感.{0,6}差|很差|没用|不好用|难用|垃圾|恶心|离谱|问题|bug|BUG|卡顿|异常|不生效)/.test(content);
 }
 
 function detectIllegalBehavior(content: string) {

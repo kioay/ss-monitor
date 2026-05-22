@@ -3,6 +3,7 @@ import { collectBilibili } from "./collectors/bilibili";
 import { collectDouyin } from "./collectors/douyin";
 import { collectTieba } from "./collectors/tieba";
 import { gameById, games, getUpdatePolicy, runtimeConfig } from "./config";
+import { refreshCurrentVersionFocus } from "./currentVersion";
 import { queueDingTalkNotification } from "./dingtalk";
 import type {
   AlertItem,
@@ -159,6 +160,7 @@ function collectionKey(gameIds: GameId[]) {
 }
 
 async function collectAll(selectedGames: GameConfig[], cutoff: Date) {
+  await refreshCurrentVersionFocus();
   const tasks = selectedGames.flatMap((game) => [
     { source: "bilibili" as const, game, run: () => collectBilibili(game, cutoff) },
     { source: "tieba" as const, game, run: () => collectTieba(game, cutoff) },
