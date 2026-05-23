@@ -149,7 +149,8 @@ export async function sendDingTalkDailyReport(
   }
 
   const items = gameItemsForLocalDay(response, gameId, reportDay);
-  await sendMarkdownToRobots(robots, buildDailyReportMarkdown(robot, items, reportDay, now));
+  const ongoingHighRiskItems = gameItemsWithin72Hours(response, gameId).filter((item) => item.riskLevel === "high");
+  await sendMarkdownToRobots(robots, buildDailyReportMarkdown(robot, items, ongoingHighRiskItems, reportDay, now));
   await writeState(robot, {
     ...state,
     initialized: true,
@@ -311,6 +312,7 @@ function buildTestMarkdown(robot: DingTalkRobotConfig, items: MonitorItem[], res
 function buildDailyReportMarkdown(
   robot: DingTalkRobotConfig,
   items: MonitorItem[],
+  ongoingHighRiskItems: MonitorItem[],
   reportDay: Date,
   sentAt: Date
 ) {
@@ -322,13 +324,17 @@ function buildDailyReportMarkdown(
     "",
     `> 发送时间：${formatLocalTime(sentAt.toISOString())} | 统计范围：${reportDate} 00:00-24:00`,
     "",
-    buildDailySummaryTable(items),
+    buildDailySummaryTable(items, ongoingHighRiskItems.length),
     "",
     buildDailySourceTable(items),
     "",
     "### 重点关注",
     "",
     buildDailyFocusTable(focusItems),
+    "",
+    "### 高风险持续汇总（近72小时）",
+    "",
+    buildDailyHighRiskTable(ongoingHighRiskItems),
     "",
     `[打开舆情平台](${monitorUrl})`
   ];
@@ -346,7 +352,7 @@ function buildBriefTable(items: MonitorItem[]) {
   ].join("\n");
 }
 
-function buildDailySummaryTable(items: MonitorItem[]) {
+function buildDailySummaryTable(items: MonitorItem[], ongoingHighRiskCount = 0) {
   const sentimentCounts = countBy(items, (item) => sentimentName(item.sentiment));
   const highRisk = items.filter((item) => item.riskLevel === "high").length;
   const negative = items.filter((item) => item.sentiment === "negative").length;
@@ -356,6 +362,7 @@ function buildDailySummaryTable(items: MonitorItem[]) {
     "| --- | --- |",
     `| 总量 | ${items.length}条 |`,
     `| 高风险 | ${highRisk}条 |`,
+    `| 近72小时高风险存量 | ${ongoingHighRiskCount}条 |`,
     `| 负面率 | ${negativeRate} |`,
     `| 情绪 | ${joinCounts(sentimentCounts)} |`
   ].join("\n");
@@ -381,6 +388,19 @@ function buildDailyFocusTable(items: MonitorItem[]) {
       .map((item) => [linkCell(item), `${pushReasonName(item)} / ${sentimentName(item.sentiment)}`, shortDigest(item)].join(" | "))
       .map((row) => `| ${row} |`)
   ].join("\n");
+}
+
+function buildDailyHighRiskTable(items: MonitorItem[]) {
+  if (!items.length) return "近72小时暂无高风险舆情存量。";
+  const visibleItems = items.slice(0, 8);
+  const moreText = items.length > visibleItems.length ? `\n\n> 仅展示风险排序前 ${visibleItems.length} 条，剩余 ${items.length - visibleItems.length} 条可在平台查看。` : "";
+  return [
+    "| 时间 | 来源 | 舆情 | 简报 |",
+    "| --- | --- | --- | --- |",
+    ...visibleItems.map(
+      (item) => `| ${formatShortTime(item.publishedAt)} | ${sourceName(item.source)} | ${linkCell(item)} | ${shortDigest(item)} |`
+    )
+  ].join("\n") + moreText;
 }
 
 function buildDetailedTable(items: MonitorItem[]) {
