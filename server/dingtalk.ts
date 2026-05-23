@@ -17,7 +17,7 @@ interface DingTalkRobotConfig {
   gameId: GameId;
   shortName: "SS1" | "SS2";
   webhook: string;
-  secret: string;
+  secret?: string;
   statePath: string;
 }
 
@@ -80,14 +80,15 @@ function msUntilNextNotificationBatch(now = new Date()) {
 }
 
 export async function sendDingTalkNotification(response: MonitorResponse, gameId: GameId): Promise<DingTalkSendResult> {
-  const robot = getRobotConfig(gameId);
-  if (!robot) return { ok: true, skipped: `DingTalk ${gameId} is not configured` };
+  const robots = getRobotConfigs(gameId);
+  if (!robots.length) return { ok: true, skipped: `DingTalk ${gameId} is not configured` };
+  const robot = robots[0];
 
   const allCurrentItems = gameItemsWithin72Hours(response, gameId);
   const currentItems = allCurrentItems.filter(isDingTalkRelevantItem);
   const state = await readState(robot);
   if (!state.initialized) {
-    await sendMarkdown(robot, buildBaselineMarkdown(robot, currentItems, response));
+    await sendMarkdownToRobots(robots, buildBaselineMarkdown(robot, currentItems, response));
     await writeState(robot, markSeen(state, allCurrentItems));
     return { ok: true, sent: 0, existing: currentItems.length, mode: "baseline" };
   }
@@ -100,7 +101,7 @@ export async function sendDingTalkNotification(response: MonitorResponse, gameId
   );
   if (!newItems.length) {
     if (shouldSendHighRiskReminder && reminderSlot) {
-      await sendMarkdown(robot, buildHighRiskReminderMarkdown(robot, highRiskItems, currentItems, response));
+      await sendMarkdownToRobots(robots, buildHighRiskReminderMarkdown(robot, highRiskItems, currentItems, response));
       await writeState(robot, pruneState(markSeen({ ...state, lastHighRiskReminderSlot: reminderSlot }, allCurrentItems)));
       return { ok: true, sent: highRiskItems.length, existing: currentItems.length, mode: "risk" };
     }
@@ -112,8 +113,8 @@ export async function sendDingTalkNotification(response: MonitorResponse, gameId
     return { ok: true, skipped: `No new ${robot.shortName} sentiment items` };
   }
 
-  await sendMarkdown(
-    robot,
+  await sendMarkdownToRobots(
+    robots,
     buildNewItemsMarkdown(robot, newItems, currentItems, response, shouldSendHighRiskReminder ? highRiskItems : [])
   );
   await writeState(robot, markSeen(reminderSlot && shouldSendHighRiskReminder ? { ...state, lastHighRiskReminderSlot: reminderSlot } : state, allCurrentItems));
@@ -125,8 +126,9 @@ export async function sendDingTalkTest(
   gameId: GameId = "ss1",
   options: { force?: boolean } = {}
 ): Promise<DingTalkSendResult> {
-  const robot = getRobotConfig(gameId);
-  if (!robot) return { ok: false, skipped: `DingTalk ${gameId} is not configured` };
+  const robots = getRobotConfigs(gameId);
+  if (!robots.length) return { ok: false, skipped: `DingTalk ${gameId} is not configured` };
+  const robot = robots[0];
   const state = await readState(robot);
   const cooldownMs = runtimeConfig.dingTalkTestCooldownSeconds * 1000;
   const lastTestTime = state.lastTestSentAt ? new Date(state.lastTestSentAt).getTime() : 0;
@@ -140,7 +142,7 @@ export async function sendDingTalkTest(
     };
   }
   const currentItems = gameItemsWithin72Hours(response, gameId).filter(isDingTalkRelevantItem);
-  await sendMarkdown(robot, buildTestMarkdown(robot, currentItems, response));
+  await sendMarkdownToRobots(robots, buildTestMarkdown(robot, currentItems, response));
   await writeState(robot, { ...state, lastTestSentAt: new Date().toISOString() });
   return { ok: true, sent: currentItems.length, mode: "test" };
 }
@@ -150,8 +152,9 @@ export async function sendDingTalkDailyReport(
   gameId: GameId,
   now = new Date()
 ): Promise<DingTalkSendResult> {
-  const robot = getRobotConfig(gameId);
-  if (!robot) return { ok: true, skipped: `DingTalk ${gameId} is not configured` };
+  const robots = getRobotConfigs(gameId);
+  if (!robots.length) return { ok: true, skipped: `DingTalk ${gameId} is not configured` };
+  const robot = robots[0];
 
   const reportDay = previousLocalDay(now);
   const reportDate = localDateKey(reportDay);
@@ -161,7 +164,7 @@ export async function sendDingTalkDailyReport(
   }
 
   const items = gameItemsForLocalDay(response, gameId, reportDay);
-  await sendMarkdown(robot, buildDailyReportMarkdown(robot, items, reportDay, now));
+  await sendMarkdownToRobots(robots, buildDailyReportMarkdown(robot, items, reportDay, now));
   await writeState(robot, {
     ...state,
     initialized: true,
@@ -170,26 +173,45 @@ export async function sendDingTalkDailyReport(
   return { ok: true, sent: items.length, mode: "daily" };
 }
 
-function getRobotConfig(gameId: GameId): DingTalkRobotConfig | undefined {
-  if (gameId === "ss1" && runtimeConfig.dingTalkWebhook && runtimeConfig.dingTalkSecret) {
-    return {
+function getRobotConfigs(gameId: GameId): DingTalkRobotConfig[] {
+  if (gameId === "ss1" && runtimeConfig.dingTalkWebhook) {
+    return [{
       gameId,
       shortName: "SS1",
       webhook: runtimeConfig.dingTalkWebhook,
-      secret: runtimeConfig.dingTalkSecret,
+      secret: runtimeConfig.dingTalkSecret || undefined,
       statePath: runtimeConfig.dingTalkStatePath
-    };
+    }];
   }
-  if (gameId === "ss2" && runtimeConfig.dingTalkSs2Webhook && runtimeConfig.dingTalkSs2Secret) {
-    return {
+  const robots: DingTalkRobotConfig[] = [];
+  if (gameId === "ss2" && runtimeConfig.dingTalkSs2Webhook) {
+    robots.push({
       gameId,
       shortName: "SS2",
       webhook: runtimeConfig.dingTalkSs2Webhook,
-      secret: runtimeConfig.dingTalkSs2Secret,
+      secret: runtimeConfig.dingTalkSs2Secret || undefined,
       statePath: runtimeConfig.dingTalkSs2StatePath
-    };
+    });
+    const extraWebhooks = parseConfigList(runtimeConfig.dingTalkSs2ExtraWebhooks);
+    const extraSecrets = parseConfigList(runtimeConfig.dingTalkSs2ExtraSecrets);
+    for (const [index, webhook] of extraWebhooks.entries()) {
+      robots.push({
+        gameId,
+        shortName: "SS2",
+        webhook,
+        secret: extraSecrets[index] || undefined,
+        statePath: runtimeConfig.dingTalkSs2StatePath
+      });
+    }
   }
-  return undefined;
+  return robots;
+}
+
+function parseConfigList(value: string) {
+  return value
+    .split(/[\n,]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function gameItemsWithin72Hours(response: MonitorResponse, gameId: GameId) {
@@ -478,7 +500,12 @@ async function sendMarkdown(robot: DingTalkRobotConfig, markdown: { title: strin
   }
 }
 
+async function sendMarkdownToRobots(robots: DingTalkRobotConfig[], markdown: { title: string; text: string }) {
+  await Promise.all(robots.map((robot) => sendMarkdown(robot, markdown)));
+}
+
 function signedWebhookUrl(robot: DingTalkRobotConfig) {
+  if (!robot.secret) return robot.webhook;
   const timestamp = Date.now();
   const stringToSign = `${timestamp}\n${robot.secret}`;
   const sign = crypto.createHmac("sha256", robot.secret).update(stringToSign).digest("base64");

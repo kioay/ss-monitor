@@ -41,6 +41,8 @@ export const runtimeConfig = {
   dingTalkStatePath: process.env.DINGTALK_STATE_PATH || "data/dingtalk-ss1-state.json",
   dingTalkSs2Webhook: process.env.DINGTALK_SS2_WEBHOOK || "",
   dingTalkSs2Secret: process.env.DINGTALK_SS2_SECRET || "",
+  dingTalkSs2ExtraWebhooks: process.env.DINGTALK_SS2_EXTRA_WEBHOOKS || "",
+  dingTalkSs2ExtraSecrets: process.env.DINGTALK_SS2_EXTRA_SECRETS || "",
   dingTalkSs2StatePath: process.env.DINGTALK_SS2_STATE_PATH || "data/dingtalk-ss2-state.json",
   dingTalkTestCooldownSeconds: Math.max(0, Number(process.env.DINGTALK_TEST_COOLDOWN_MINUTES || 240) * 60),
   maxVideosPerGame: 18,
