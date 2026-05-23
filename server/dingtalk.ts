@@ -160,16 +160,27 @@ export async function sendDingTalkDailyReport(
 }
 
 function getRobotConfigs(gameId: GameId): DingTalkRobotConfig[] {
+  const robots: DingTalkRobotConfig[] = [];
   if (gameId === "ss1" && runtimeConfig.dingTalkWebhook) {
-    return [{
+    robots.push({
       gameId,
       shortName: "SS1",
       webhook: runtimeConfig.dingTalkWebhook,
       secret: runtimeConfig.dingTalkSecret || undefined,
       statePath: runtimeConfig.dingTalkStatePath
-    }];
+    });
+    const extraWebhooks = parseConfigList(runtimeConfig.dingTalkSs1ExtraWebhooks);
+    const extraSecrets = parseConfigList(runtimeConfig.dingTalkSs1ExtraSecrets);
+    for (const [index, webhook] of extraWebhooks.entries()) {
+      robots.push({
+        gameId,
+        shortName: "SS1",
+        webhook,
+        secret: extraSecrets[index] || undefined,
+        statePath: runtimeConfig.dingTalkStatePath
+      });
+    }
   }
-  const robots: DingTalkRobotConfig[] = [];
   if (gameId === "ss2" && runtimeConfig.dingTalkSs2Webhook) {
     robots.push({
       gameId,

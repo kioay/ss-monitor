@@ -40,6 +40,8 @@ export const runtimeConfig = {
   douyinAuthorizedSourcesPath: process.env.DOUYIN_AUTHORIZED_SOURCES_PATH || "data/douyin-authorized-sources.json",
   dingTalkWebhook: process.env.DINGTALK_WEBHOOK || "",
   dingTalkSecret: process.env.DINGTALK_SECRET || "",
+  dingTalkSs1ExtraWebhooks: process.env.DINGTALK_SS1_EXTRA_WEBHOOKS || "",
+  dingTalkSs1ExtraSecrets: process.env.DINGTALK_SS1_EXTRA_SECRETS || "",
   dingTalkStatePath: process.env.DINGTALK_STATE_PATH || "data/dingtalk-ss1-state.json",
   dingTalkSs2Webhook: process.env.DINGTALK_SS2_WEBHOOK || "",
   dingTalkSs2Secret: process.env.DINGTALK_SS2_SECRET || "",
