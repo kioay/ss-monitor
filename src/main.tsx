@@ -159,6 +159,13 @@ function App() {
     });
   }, []);
 
+  const resetFeedFilters = React.useCallback(() => {
+    setSource("all");
+    setRisk("all");
+    setSentiment("all");
+    setQuery("");
+  }, []);
+
   const filteredItems = React.useMemo(() => {
     const keyword = query.trim().toLowerCase();
     return (data?.items || []).filter((item) => {
@@ -181,6 +188,22 @@ function App() {
       ...configuredGames.map((game) => ({ key: game.id, label: game.shortName, ids: [game.id] }))
     ];
   }, [config?.games]);
+  const selectGames = React.useCallback(
+    (gameIds: GameId[]) => {
+      if (sameGameSelection(selectedGames, gameIds)) return;
+      resetFeedFilters();
+      setSelectedGames(gameIds);
+    },
+    [resetFeedFilters, selectedGames]
+  );
+  const selectWindowHours = React.useCallback(
+    (hours: number) => {
+      if (windowHours === hours) return;
+      resetFeedFilters();
+      setWindowHours(hours);
+    },
+    [resetFeedFilters, windowHours]
+  );
   const jumpToFeed = React.useCallback(
     (filters?: { source?: "all" | SourceType; risk?: "all" | RiskLevel; sentiment?: "all" | Sentiment }) => {
       setSource(filters?.source ?? "all");
@@ -223,7 +246,7 @@ function App() {
             <button
               key={option.key}
               className={sameGameSelection(selectedGames, option.ids) ? "active" : ""}
-              onClick={() => setSelectedGames(option.ids)}
+              onClick={() => selectGames(option.ids)}
             >
               {option.label}
             </button>
@@ -231,7 +254,7 @@ function App() {
         </div>
         <label className="field">
           <span>窗口</span>
-          <select value={windowHours} onChange={(event) => setWindowHours(Number(event.target.value))}>
+          <select value={windowHours} onChange={(event) => selectWindowHours(Number(event.target.value))}>
             <option value={24}>24 小时</option>
             <option value={72}>72 小时</option>
             <option value={168}>7 天</option>
