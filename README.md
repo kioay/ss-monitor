@@ -75,3 +75,38 @@ ss1,Example title,https://www.douyin.com/video/123456,Creator,2026-05-23T10:00:0
 ```
 
 JSON can be either an array or `{ "items": [...] }`. Supported aliases include `awemeId`, `videoId`, `caption`, `desc`, `nickname`, `createTime`, `likeCount`, `commentCount`, `shareCount`, `playCount`, `tags`, `comments`, `danmaku`, `subtitles`, and `contentParts`.
+
+## Douyin authorized API sources
+
+Use `DOUYIN_AUTHORIZED_SOURCES_PATH` for APIs from Douyin Open Platform, 巨量算数, or an authorized data vendor. Copy `examples/douyin-authorized-sources.example.json` to `data/douyin-authorized-sources.json`, enable the relevant source, and keep real endpoints/tokens in `.env` or another ignored server-side secret store.
+
+Each source fetches JSON and maps rows into the same Douyin sentiment shape used by file imports:
+
+```json
+{
+  "sources": [
+    {
+      "id": "vendor-feed",
+      "enabled": true,
+      "urlEnv": "DOUYIN_VENDOR_ENDPOINT",
+      "tokenEnv": "DOUYIN_VENDOR_TOKEN",
+      "rowsPath": "items",
+      "fieldMap": {
+        "gameId": "game_id",
+        "sourceItemId": "aweme_id",
+        "title": "title",
+        "description": "summary",
+        "url": "url",
+        "publishedAt": "publish_time",
+        "comments": "comments",
+        "likes": "like_count"
+      }
+    }
+  ]
+}
+```
+
+Notes:
+- Douyin Open Platform access requires app approval, user authorization, and the relevant scopes such as comment/data permissions.
+- 巨量算数 and third-party vendors should provide an authorized API or export endpoint; map their response fields through `fieldMap`.
+- The monitor only reads authorized JSON endpoints. It does not perform login automation, captcha handling, private signature generation, or anti-bot bypass.

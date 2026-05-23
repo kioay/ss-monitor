@@ -3,6 +3,7 @@ import { analyzeItem } from "../analyze";
 import { runtimeConfig } from "../config";
 import { fetchText, SourceError } from "../http";
 import { hoursBetween, md5, normalizeUrl, nowIso, stripHtml, uniq } from "../utils";
+import { collectAuthorizedDouyinSourceItems } from "./douyinAuthorizedSources";
 import { collectImportedDouyinItems } from "./douyinImport";
 import type { ContentPart, GameConfig, MonitorItem, SourceHealth } from "../../src/shared";
 
@@ -30,6 +31,12 @@ export async function collectDouyin(game: GameConfig, cutoff: Date) {
   });
   staleDropped += imported.staleDropped;
   errors.push(...imported.errors.slice(0, 8).map((error) => `authorized import: ${error}`));
+  const authorized = await collectAuthorizedDouyinSourceItems(game, cutoff).catch((error) => {
+    errors.push(`authorized API: ${error instanceof Error ? error.message : String(error)}`);
+    return { items: [] as MonitorItem[], staleDropped: 0, errors: [] as string[], fileCount: 0, rowCount: 0 };
+  });
+  staleDropped += authorized.staleDropped;
+  errors.push(...authorized.errors.slice(0, 8).map((error) => `authorized API: ${error}`));
 
   for (const keyword of game.douyinKeywords) {
     try {
@@ -53,7 +60,7 @@ export async function collectDouyin(game: GameConfig, cutoff: Date) {
     .sort((a, b) => (b.publishedAt?.getTime() || 0) - (a.publishedAt?.getTime() || 0))
     .slice(0, runtimeConfig.maxDouyinItemsPerGame);
   const searchItems = candidates.map((candidate) => buildDouyinMonitorItem(game, candidate));
-  const items = mergeDouyinItems([...imported.items, ...searchItems]).slice(0, runtimeConfig.maxDouyinItemsPerGame);
+  const items = mergeDouyinItems([...authorized.items, ...imported.items, ...searchItems]).slice(0, runtimeConfig.maxDouyinItemsPerGame);
 
   const health: SourceHealth = {
     source: "douyin",

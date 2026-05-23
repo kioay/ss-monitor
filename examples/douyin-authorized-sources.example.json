@@ -1,0 +1,56 @@
+{
+  "sources": [
+    {
+      "id": "douyin-open-platform-comments",
+      "label": "Douyin Open Platform",
+      "enabled": false,
+      "urlEnv": "DOUYIN_OPEN_PLATFORM_COMMENTS_URL",
+      "tokenEnv": "DOUYIN_OPEN_PLATFORM_ACCESS_TOKEN",
+      "tokenHeader": "access-token",
+      "tokenPrefix": "",
+      "rowsPath": "data.comments",
+      "staticFields": {
+        "gameId": "ss1",
+        "url": "https://www.douyin.com/video/REPLACE_WITH_ITEM_ID",
+        "title": "Replace with authorized video title"
+      },
+      "fieldMap": {
+        "sourceItemId": "item_id",
+        "comment": "text",
+        "author": "user.nickname",
+        "publishedAt": "create_time",
+        "likes": "digg_count"
+      }
+    },
+    {
+      "id": "juliang-suan-shu",
+      "label": "Juliang Suanshu authorized export",
+      "enabled": false,
+      "urlEnv": "JULIANG_SUANSHU_ENDPOINT",
+      "tokenEnv": "JULIANG_SUANSHU_TOKEN",
+      "rowsPath": "data.items",
+      "fieldMap": {
+        "gameId": "game_id",
+        "sourceItemId": "aweme_id",
+        "title": "title",
+        "description": "summary",
+        "url": "url",
+        "author": "author_name",
+        "publishedAt": "publish_time",
+        "comments": "comments",
+        "views": "play_count",
+        "likes": "like_count",
+        "commentsCount": "comment_count",
+        "shares": "share_count"
+      }
+    },
+    {
+      "id": "third-party-sentiment-vendor",
+      "label": "Authorized third-party data",
+      "enabled": false,
+      "urlEnv": "DOUYIN_VENDOR_ENDPOINT",
+      "tokenEnv": "DOUYIN_VENDOR_TOKEN",
+      "rowsPath": "items"
+    }
+  ]
+}

@@ -37,6 +37,7 @@ export const runtimeConfig = {
   currentVersionFocusCachePath: process.env.CURRENT_VERSION_FOCUS_CACHE_PATH || "data/current-version-focus.json",
   monitorSnapshotPath: process.env.MONITOR_SNAPSHOT_PATH || "data/monitor-snapshot.json",
   douyinImportDir: process.env.DOUYIN_IMPORT_DIR || "data/douyin-imports",
+  douyinAuthorizedSourcesPath: process.env.DOUYIN_AUTHORIZED_SOURCES_PATH || "data/douyin-authorized-sources.json",
   dingTalkWebhook: process.env.DINGTALK_WEBHOOK || "",
   dingTalkSecret: process.env.DINGTALK_SECRET || "",
   dingTalkStatePath: process.env.DINGTALK_STATE_PATH || "data/dingtalk-ss1-state.json",

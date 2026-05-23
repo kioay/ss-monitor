@@ -3,11 +3,11 @@ import path from "node:path";
 import { analyzeItem } from "../analyze";
 import { runtimeConfig } from "../config";
 import { hoursBetween, md5, normalizeUrl, stripHtml, uniq } from "../utils";
-import type { ContentPart, GameConfig, GameId, MonitorItem } from "../../src/shared";
+import type { ContentPart, GameConfig, MonitorItem } from "../../src/shared";
 
-type ImportedRow = Record<string, unknown>;
+export type ImportedRow = Record<string, unknown>;
 
-interface ImportParseResult {
+export interface ImportParseResult {
   items: MonitorItem[];
   staleDropped: number;
   errors: string[];
@@ -27,45 +27,66 @@ const textPartTypes = new Set<ContentPart["type"]>([
 
 export async function collectImportedDouyinItems(game: GameConfig, cutoff: Date): Promise<ImportParseResult> {
   const files = await listImportFiles(runtimeConfig.douyinImportDir);
-  const items: MonitorItem[] = [];
+  const allRows: Array<{ row: ImportedRow; label: string }> = [];
   const errors: string[] = [];
-  let staleDropped = 0;
-  let rowCount = 0;
 
   for (const file of files) {
     try {
       const rows = await readImportRows(file);
-      rowCount += rows.length;
-      for (const [index, row] of rows.entries()) {
-        try {
-          const item = buildImportedDouyinItem(game, row);
-          if (!item) continue;
-          if (new Date(item.publishedAt) < cutoff) {
-            staleDropped += 1;
-            continue;
-          }
-          items.push(item);
-        } catch (error) {
-          errors.push(`${path.basename(file)} row ${index + 1}: ${messageOf(error)}`);
-        }
-      }
+      allRows.push(...rows.map((row) => ({ row, label: path.basename(file) })));
     } catch (error) {
       errors.push(`${path.basename(file)}: ${messageOf(error)}`);
     }
   }
 
+  const parsed = rowsToDouyinMonitorItems(game, cutoff, allRows, { sourceLabel: "Douyin import" });
+  errors.push(...parsed.errors);
+
   return {
-    items: dedupeItems(items)
-      .sort((a, b) => +new Date(b.publishedAt) - +new Date(a.publishedAt))
-      .slice(0, runtimeConfig.maxDouyinImportedItemsPerGame),
-    staleDropped,
+    ...parsed,
+    items: parsed.items.slice(0, runtimeConfig.maxDouyinImportedItemsPerGame),
     errors,
     fileCount: files.length,
-    rowCount
+    rowCount: allRows.length
   };
 }
 
-function buildImportedDouyinItem(game: GameConfig, row: ImportedRow): MonitorItem | undefined {
+export function rowsToDouyinMonitorItems(
+  game: GameConfig,
+  cutoff: Date,
+  rows: Array<ImportedRow | { row: ImportedRow; label?: string }>,
+  options: { sourceLabel?: string } = {}
+): ImportParseResult {
+  const items: MonitorItem[] = [];
+  const errors: string[] = [];
+  let staleDropped = 0;
+
+  for (const [index, rowEntry] of rows.entries()) {
+    const row = isLabeledRow(rowEntry) ? rowEntry.row : rowEntry;
+    const label = isLabeledRow(rowEntry) ? rowEntry.label : undefined;
+    try {
+      const item = buildImportedDouyinItem(game, row, options.sourceLabel);
+      if (!item) continue;
+      if (new Date(item.publishedAt) < cutoff) {
+        staleDropped += 1;
+        continue;
+      }
+      items.push(item);
+    } catch (error) {
+      errors.push(`${label || "row"} ${index + 1}: ${messageOf(error)}`);
+    }
+  }
+
+  return {
+    items: dedupeItems(items).sort((a, b) => +new Date(b.publishedAt) - +new Date(a.publishedAt)),
+    staleDropped,
+    errors,
+    fileCount: 0,
+    rowCount: rows.length
+  };
+}
+
+function buildImportedDouyinItem(game: GameConfig, row: ImportedRow, sourceLabel = "Douyin import"): MonitorItem | undefined {
   if (!belongsToGame(row, game)) return undefined;
 
   const url = normalizeDouyinImportUrl(stringValue(row, ["url", "link", "shareUrl", "share_url", "videoUrl", "video_url"]));
@@ -110,7 +131,7 @@ function buildImportedDouyinItem(game: GameConfig, row: ImportedRow): MonitorIte
     gameId: game.id,
     gameName: game.name,
     source: "douyin",
-    sourceLabel: "Douyin import",
+    sourceLabel,
     sourceItemId,
     title,
     author,
@@ -327,6 +348,10 @@ function normalizeKey(key: string) {
 
 function isRecord(value: unknown): value is ImportedRow {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isLabeledRow(value: ImportedRow | { row: ImportedRow; label?: string }): value is { row: ImportedRow; label?: string } {
+  return isRecord(value) && isRecord(value.row);
 }
 
 function messageOf(error: unknown) {
