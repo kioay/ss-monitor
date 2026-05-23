@@ -58,3 +58,20 @@ B站或贴吧触发风控时，把浏览器中对应站点的 Cookie 放入 `.en
 - `GET /api/config`
 - `GET /api/health`
 - `GET /api/monitor?games=ss1,ss2&windowHours=72&limit=120&force=1`
+
+## Douyin authorized import
+
+Use this path for Douyin data that you have exported or received through an authorized channel. The importer does not log in to Douyin, bypass anti-bot checks, solve captchas, or call private signed endpoints.
+
+1. Put `.csv` or `.json` files under `data/douyin-imports/` on the machine that runs the monitor. The whole `data/` directory is ignored by Git.
+2. Set `DOUYIN_IMPORT_DIR` if the files live elsewhere.
+3. Refresh `/api/monitor?...&force=1` or use the frontend refresh button. Imported rows are merged with public search results and analyzed as `douyin` items.
+
+Recommended CSV headers:
+
+```csv
+gameId,title,url,author,publishedAt,description,comments,likes,commentsCount,shares,views
+ss1,Example title,https://www.douyin.com/video/123456,Creator,2026-05-23T10:00:00+08:00,Caption text,"comment one|comment two",120,18,5,3000
+```
+
+JSON can be either an array or `{ "items": [...] }`. Supported aliases include `awemeId`, `videoId`, `caption`, `desc`, `nickname`, `createTime`, `likeCount`, `commentCount`, `shareCount`, `playCount`, `tags`, `comments`, `danmaku`, `subtitles`, and `contentParts`.

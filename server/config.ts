@@ -36,6 +36,7 @@ export const runtimeConfig = {
   confluencePageId: process.env.CONFLUENCE_PAGE_ID || "231710712",
   currentVersionFocusCachePath: process.env.CURRENT_VERSION_FOCUS_CACHE_PATH || "data/current-version-focus.json",
   monitorSnapshotPath: process.env.MONITOR_SNAPSHOT_PATH || "data/monitor-snapshot.json",
+  douyinImportDir: process.env.DOUYIN_IMPORT_DIR || "data/douyin-imports",
   dingTalkWebhook: process.env.DINGTALK_WEBHOOK || "",
   dingTalkSecret: process.env.DINGTALK_SECRET || "",
   dingTalkStatePath: process.env.DINGTALK_STATE_PATH || "data/dingtalk-ss1-state.json",
@@ -48,6 +49,7 @@ export const runtimeConfig = {
   maxVideosPerGame: 18,
   maxVideosToDeepParsePerGame: 8,
   maxDouyinItemsPerGame: 18,
+  maxDouyinImportedItemsPerGame: Math.max(1, Number(process.env.MAX_DOUYIN_IMPORTED_ITEMS_PER_GAME || 80)),
   maxTiebaThreadsPerBar: 30,
   maxTiebaThreadsToDeepParse: 8
 };

@@ -3,6 +3,7 @@ import { analyzeItem } from "../analyze";
 import { runtimeConfig } from "../config";
 import { fetchText, SourceError } from "../http";
 import { hoursBetween, md5, normalizeUrl, nowIso, stripHtml, uniq } from "../utils";
+import { collectImportedDouyinItems } from "./douyinImport";
 import type { ContentPart, GameConfig, MonitorItem, SourceHealth } from "../../src/shared";
 
 interface DouyinCandidate {
@@ -23,6 +24,12 @@ export async function collectDouyin(game: GameConfig, cutoff: Date) {
   let blocked = false;
   let staleDropped = 0;
   const byUrl = new Map<string, DouyinCandidate>();
+  const imported = await collectImportedDouyinItems(game, cutoff).catch((error) => {
+    errors.push(`authorized import: ${error instanceof Error ? error.message : String(error)}`);
+    return { items: [] as MonitorItem[], staleDropped: 0, errors: [] as string[], fileCount: 0, rowCount: 0 };
+  });
+  staleDropped += imported.staleDropped;
+  errors.push(...imported.errors.slice(0, 8).map((error) => `authorized import: ${error}`));
 
   for (const keyword of game.douyinKeywords) {
     try {
@@ -45,7 +52,8 @@ export async function collectDouyin(game: GameConfig, cutoff: Date) {
   const candidates = Array.from(byUrl.values())
     .sort((a, b) => (b.publishedAt?.getTime() || 0) - (a.publishedAt?.getTime() || 0))
     .slice(0, runtimeConfig.maxDouyinItemsPerGame);
-  const items = candidates.map((candidate) => buildDouyinMonitorItem(game, candidate));
+  const searchItems = candidates.map((candidate) => buildDouyinMonitorItem(game, candidate));
+  const items = mergeDouyinItems([...imported.items, ...searchItems]).slice(0, runtimeConfig.maxDouyinItemsPerGame);
 
   const health: SourceHealth = {
     source: "douyin",
@@ -64,6 +72,20 @@ export async function collectDouyin(game: GameConfig, cutoff: Date) {
   };
 
   return { items, health };
+}
+
+function mergeDouyinItems(items: MonitorItem[]) {
+  const seen = new Set<string>();
+  return items
+    .sort((a, b) => +new Date(b.publishedAt) - +new Date(a.publishedAt))
+    .filter((item) => {
+      const urlKey = item.url.startsWith("http") ? item.url : "";
+      const key = urlKey || item.id;
+      if (seen.has(key) || seen.has(item.id)) return false;
+      seen.add(key);
+      seen.add(item.id);
+      return true;
+    });
 }
 
 async function searchSogouDouyin(keyword: string) {
