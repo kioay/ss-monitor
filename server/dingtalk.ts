@@ -9,6 +9,7 @@ interface DingTalkState {
   lastSentAt?: string;
   lastTestSentAt?: string;
   lastHighRiskReminderSlot?: string;
+  lastDailyReportDate?: string;
   seen: Record<string, string>;
 }
 
@@ -25,7 +26,7 @@ interface DingTalkSendResult {
   skipped?: string;
   sent?: number;
   existing?: number;
-  mode?: "baseline" | "new" | "risk" | "test";
+  mode?: "baseline" | "new" | "risk" | "test" | "daily";
   retryAfterSeconds?: number;
 }
 
@@ -144,6 +145,31 @@ export async function sendDingTalkTest(
   return { ok: true, sent: currentItems.length, mode: "test" };
 }
 
+export async function sendDingTalkDailyReport(
+  response: MonitorResponse,
+  gameId: GameId,
+  now = new Date()
+): Promise<DingTalkSendResult> {
+  const robot = getRobotConfig(gameId);
+  if (!robot) return { ok: true, skipped: `DingTalk ${gameId} is not configured` };
+
+  const reportDay = previousLocalDay(now);
+  const reportDate = localDateKey(reportDay);
+  const state = await readState(robot);
+  if (state.lastDailyReportDate === reportDate) {
+    return { ok: true, skipped: `${robot.shortName} daily report already sent for ${reportDate}`, mode: "daily" };
+  }
+
+  const items = gameItemsForLocalDay(response, gameId, reportDay);
+  await sendMarkdown(robot, buildDailyReportMarkdown(robot, items, reportDay, now));
+  await writeState(robot, {
+    ...state,
+    initialized: true,
+    lastDailyReportDate: reportDate
+  });
+  return { ok: true, sent: items.length, mode: "daily" };
+}
+
 function getRobotConfig(gameId: GameId): DingTalkRobotConfig | undefined {
   if (gameId === "ss1" && runtimeConfig.dingTalkWebhook && runtimeConfig.dingTalkSecret) {
     return {
@@ -170,6 +196,18 @@ function gameItemsWithin72Hours(response: MonitorResponse, gameId: GameId) {
   const cutoff = Date.now() - 72 * 3_600_000;
   return response.items
     .filter((item) => item.gameId === gameId && new Date(item.publishedAt).getTime() >= cutoff)
+    .sort(compareDingTalkItems);
+}
+
+function gameItemsForLocalDay(response: MonitorResponse, gameId: GameId, day: Date) {
+  const start = startOfLocalDay(day);
+  const end = new Date(start.getTime() + 86_400_000);
+  return response.items
+    .filter((item) => item.gameId === gameId)
+    .filter((item) => {
+      const publishedAt = new Date(item.publishedAt);
+      return publishedAt >= start && publishedAt < end;
+    })
     .sort(compareDingTalkItems);
 }
 
@@ -287,6 +325,33 @@ function buildTestMarkdown(robot: DingTalkRobotConfig, items: MonitorItem[], res
   return { title, text: lines.join("\n") };
 }
 
+function buildDailyReportMarkdown(
+  robot: DingTalkRobotConfig,
+  items: MonitorItem[],
+  reportDay: Date,
+  sentAt: Date
+) {
+  const reportDate = formatLocalDate(reportDay);
+  const title = `${robot.shortName}昨日舆情日报 ${reportDate}`;
+  const focusItems = items.filter(isDailyFocusItem).sort(compareDingTalkItems).slice(0, 8);
+  const lines = [
+    `## ${title}`,
+    "",
+    `> 发送时间：${formatLocalTime(sentAt.toISOString())} | 统计范围：${reportDate} 00:00-24:00`,
+    "",
+    buildDailySummaryTable(items),
+    "",
+    buildDailySourceTable(items),
+    "",
+    "### 重点关注",
+    "",
+    buildDailyFocusTable(focusItems),
+    "",
+    `[打开舆情平台](${monitorUrl})`
+  ];
+  return { title, text: lines.join("\n") };
+}
+
 function buildBriefTable(items: MonitorItem[]) {
   const sentimentCounts = countBy(items, (item) => sentimentName(item.sentiment));
   const highRisk = items.filter((item) => item.riskLevel === "high").length;
@@ -295,6 +360,43 @@ function buildBriefTable(items: MonitorItem[]) {
     "| --- | --- |",
     `| 高风险 | ${highRisk}条 |`,
     `| 情绪 | ${joinCounts(sentimentCounts)} |`
+  ].join("\n");
+}
+
+function buildDailySummaryTable(items: MonitorItem[]) {
+  const sentimentCounts = countBy(items, (item) => sentimentName(item.sentiment));
+  const highRisk = items.filter((item) => item.riskLevel === "high").length;
+  const negative = items.filter((item) => item.sentiment === "negative").length;
+  const negativeRate = items.length ? `${Math.round((negative / items.length) * 100)}%` : "0%";
+  return [
+    "| 指标 | 昨日概况 |",
+    "| --- | --- |",
+    `| 总量 | ${items.length}条 |`,
+    `| 高风险 | ${highRisk}条 |`,
+    `| 负面率 | ${negativeRate} |`,
+    `| 情绪 | ${joinCounts(sentimentCounts)} |`
+  ].join("\n");
+}
+
+function buildDailySourceTable(items: MonitorItem[]) {
+  const sourceCounts = countBy(items, (item) => sourceName(item.source));
+  const topicSummary = topTopics(items) || "暂无";
+  return [
+    "| 维度 | 概况 |",
+    "| --- | --- |",
+    `| 来源 | ${joinCounts(sourceCounts)} |`,
+    `| 话题 | ${topicSummary} |`
+  ].join("\n");
+}
+
+function buildDailyFocusTable(items: MonitorItem[]) {
+  if (!items.length) return "昨日无高风险、高热度或明显负面舆情。";
+  return [
+    "| 舆情 | 触发/情绪 | 简报 |",
+    "| --- | --- | --- |",
+    ...items
+      .map((item) => [linkCell(item), `${pushReasonName(item)} / ${sentimentName(item.sentiment)}`, shortDigest(item)].join(" | "))
+      .map((row) => `| ${row} |`)
   ].join("\n");
 }
 
@@ -337,9 +439,21 @@ function buildExistingTable(items: MonitorItem[]) {
 }
 
 function compareDingTalkItems(a: MonitorItem, b: MonitorItem) {
+  const reasonDelta = pushReasonRank(b) - pushReasonRank(a);
+  if (reasonDelta) return reasonDelta;
   const riskDelta = riskRank(b.riskLevel) - riskRank(a.riskLevel);
   if (riskDelta) return riskDelta;
+  const heatDelta = engagementScore(b) - engagementScore(a);
+  if (Math.abs(heatDelta) >= 1) return heatDelta;
   return +new Date(b.publishedAt) - +new Date(a.publishedAt);
+}
+
+function pushReasonRank(item: MonitorItem) {
+  const reason = dingTalkPushReason(item);
+  if (reason === "高风险") return 3;
+  if (reason === "高负面") return 2;
+  if (reason === "高热度") return 1;
+  return 0;
 }
 
 function riskRank(risk: RiskLevel) {
@@ -383,6 +497,7 @@ async function readState(robot: DingTalkRobotConfig): Promise<DingTalkState> {
       lastSentAt: state.lastSentAt,
       lastTestSentAt: state.lastTestSentAt,
       lastHighRiskReminderSlot: state.lastHighRiskReminderSlot,
+      lastDailyReportDate: state.lastDailyReportDate,
       seen: state.seen || {}
     };
   } catch {
@@ -408,6 +523,11 @@ function highRiskReminderSlot(value: string) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}-${hour}`;
+}
+
+function isDailyFocusItem(item: MonitorItem) {
+  if (isRoutinePlayerContent(item)) return false;
+  return item.riskLevel !== "low" || Boolean(dingTalkPushReason(item));
 }
 
 function markSeen(state: DingTalkState, items: MonitorItem[]): DingTalkState {
@@ -501,6 +621,30 @@ function formatLocalTime(value: string) {
     minute: "2-digit",
     hour12: false
   }).format(new Date(value));
+}
+
+function formatLocalDate(value: Date) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "2-digit",
+    day: "2-digit"
+  }).format(value);
+}
+
+function localDateKey(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function previousLocalDay(value: Date) {
+  const day = startOfLocalDay(value);
+  day.setDate(day.getDate() - 1);
+  return day;
+}
+
+function startOfLocalDay(value: Date) {
+  return new Date(value.getFullYear(), value.getMonth(), value.getDate());
 }
 
 function formatShortTime(value: string) {

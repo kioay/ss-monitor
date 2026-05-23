@@ -6,7 +6,7 @@ import { pipeline } from "node:stream/promises";
 import type { ReadableStream as NodeReadableStream } from "node:stream/web";
 import { fileURLToPath } from "node:url";
 import { games, getUpdatePolicy, runtimeConfig } from "./config";
-import { sendDingTalkTest } from "./dingtalk";
+import { sendDingTalkDailyReport, sendDingTalkTest } from "./dingtalk";
 import { getMonitorResponse } from "./monitor";
 import type { GameId } from "../src/shared";
 
@@ -115,6 +115,7 @@ app.get(/^(?!\/api).*/, (_request, response) => {
 app.listen(runtimeConfig.port, runtimeConfig.host, () => {
   console.log(`Sentiment monitor listening on http://${runtimeConfig.host}:${runtimeConfig.port}`);
   startBackgroundMonitor();
+  startDailyReportScheduler();
 });
 
 function startBackgroundMonitor() {
@@ -136,6 +137,36 @@ function startBackgroundMonitor() {
 
 function refreshRobotGame(gameId: GameId) {
   return getMonitorResponse({ games: gameId, windowHours: "72", limit: "200", force: "1" });
+}
+
+function startDailyReportScheduler() {
+  const run = async () => {
+    try {
+      const data = await getMonitorResponse({ games: "ss1,ss2", windowHours: "72", limit: "300", force: "1", notify: "0" });
+      await Promise.all([
+        sendDingTalkDailyReport(data, "ss1"),
+        sendDingTalkDailyReport(data, "ss2")
+      ]);
+    } catch (error) {
+      console.error("Daily DingTalk report failed", error);
+    } finally {
+      setTimeout(run, msUntilNextDailyReport());
+    }
+  };
+  setTimeout(run, msUntilNextDailyReport());
+}
+
+function msUntilNextDailyReport(now = new Date()) {
+  const next = new Date(now);
+  next.setHours(9, 30, 0, 0);
+  if (next <= now) next.setDate(next.getDate() + 1);
+  while (!isWorkday(next)) next.setDate(next.getDate() + 1);
+  return Math.max(1_000, next.getTime() - now.getTime());
+}
+
+function isWorkday(value: Date) {
+  const day = value.getDay();
+  return day >= 1 && day <= 5;
 }
 
 function isLocalRequest(request: Request) {
