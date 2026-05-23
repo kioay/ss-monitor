@@ -105,8 +105,10 @@ export function analyzeItem(input: AnalyzeInput) {
     .map(([topic]) => topic);
   const personalSkillShare = isPersonalSkillShare(signalContent);
   const playerHelpRequest = isPlayerHelpRequest(signalContent);
+  const routinePlayerShare = isRoutinePlayerShare(signalContent);
   if (personalSkillShare) topics.unshift("个人技术分享");
   if (playerHelpRequest) topics.unshift("玩家求助咨询");
+  if (routinePlayerShare) topics.unshift("玩家日常分享");
   if (isPlayerBehaviorComplaint(signalContent)) topics.unshift("玩家行为争议");
   const currentVersionTerms =
     input.gameId === "ss1" ? uniq([...matchCurrentVersionTerms(content), ...matchCurrentVersionTerms(signalContent)]) : [];
@@ -393,6 +395,14 @@ function isPlayerHelpRequest(content: string) {
   const officialComplaint = /(官方|策划|运营|客服|公告|骗氪|退款|投诉|倒闭|没救|破游戏|垃圾游戏|炸服|闪退|BUG|bug|卡顿)/;
   const illegalSignal = /(外挂|外卦|开挂|挂狗|科技|辅助|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|穿墙|DMA|过检测|免封|QQ群|群号|加群|售卖|卡密)/;
   return helpIntent.test(content) && (helpTopic.test(content) || questionMark.test(content)) && !officialComplaint.test(content) && !illegalSignal.test(content);
+}
+
+function isRoutinePlayerShare(content: string) {
+  const shareAction = /(获得|获取|买到|购买|入手|抽到|抽取|出了|开出|晒|分享|记录)/;
+  const shareObject = /(武器|皮肤|道具|角色|配件|金蛇|桃光|裁决之音|号|账号|礼包|奖励|战绩|段位|排位|击杀|截图)/;
+  const officialComplaint = /(官方|策划|运营|客服|公告|更新|版本|活动|充值|氪金|骗氪|退款|投诉|概率|保底|太贵|降价|倒闭|没救|破游戏|垃圾游戏|炸服|闪退|BUG|bug|卡顿)/;
+  const illegalSignal = /(外挂|外卦|开挂|挂狗|科技|辅助|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|穿墙|DMA|过检测|免封|QQ群|群号|加群|售卖|卡密)/;
+  return shareAction.test(content) && shareObject.test(content) && !officialComplaint.test(content) && !illegalSignal.test(content);
 }
 
 function isCurrentVersionComplaint(content: string) {

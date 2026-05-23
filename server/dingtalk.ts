@@ -32,7 +32,9 @@ interface DingTalkSendResult {
 const monitorUrl = "http://ss-monitor.qinoay.top/";
 const stateRetentionMs = 30 * 24 * 3_600_000;
 const notificationBatchMs = 15 * 60 * 1000;
-const routinePlayerTopics = new Set(["个人技术分享", "玩家求助咨询", "玩家行为争议"]);
+const highHeatScoreThreshold = 800;
+const highNegativeScoreThreshold = -0.45;
+const routinePlayerTopics = new Set(["个人技术分享", "玩家求助咨询", "玩家行为争议", "玩家日常分享"]);
 const pendingNotifications = new Map<GameId, MonitorResponse>();
 let notificationQueue: Promise<unknown> = Promise.resolve();
 let notificationBatchTimer: ReturnType<typeof setTimeout> | undefined;
@@ -173,10 +175,33 @@ function gameItemsWithin72Hours(response: MonitorResponse, gameId: GameId) {
 
 function isDingTalkRelevantItem(item: MonitorItem) {
   if (isRoutinePlayerContent(item)) return false;
-  if (item.riskLevel !== "low") return true;
-  if (item.riskReasons.length) return true;
-  if (item.sentiment === "negative" || item.sentiment === "mixed") return true;
-  return false;
+  return Boolean(dingTalkPushReason(item));
+}
+
+function dingTalkPushReason(item: MonitorItem) {
+  if (item.riskLevel === "high") return "高风险";
+  if (isHighNegativeItem(item)) return "高负面";
+  if (isHighHeatItem(item)) return "高热度";
+  return "";
+}
+
+function isHighNegativeItem(item: MonitorItem) {
+  return item.sentiment === "negative" && item.sentimentScore <= highNegativeScoreThreshold;
+}
+
+function isHighHeatItem(item: MonitorItem) {
+  return engagementScore(item) >= highHeatScoreThreshold;
+}
+
+function engagementScore(item: MonitorItem) {
+  return (
+    (item.metrics.views || 0) * 0.002 +
+    (item.metrics.replies || 0) * 2 +
+    (item.metrics.comments || 0) * 2 +
+    (item.metrics.danmaku || 0) * 1.2 +
+    (item.metrics.likes || 0) * 0.2 +
+    (item.metrics.shares || 0) * 0.4
+  );
 }
 
 function isRoutinePlayerContent(item: MonitorItem) {
@@ -188,7 +213,7 @@ function buildBaselineMarkdown(robot: DingTalkRobotConfig, items: MonitorItem[],
   const lines = [
     `## ${title}`,
     "",
-    "> 钉钉机器人已启用。后续新增有效舆情会按15分钟周期合并推送；普通玩家分享、求助、技巧内容仅保留在平台。",
+    "> 钉钉机器人已启用。后续仅推送高风险、高热度或高负面新增舆情；普通玩家分享、求助、技巧内容仅保留在平台。",
     "",
     buildBriefTable(items),
     "",
@@ -277,10 +302,10 @@ function buildDetailedTable(items: MonitorItem[]) {
   const sortedItems = [...items].sort(compareDingTalkItems);
   if (!items.length) return "暂无新增舆情。";
   return [
-    "| 舆情 | 风险/情绪 | 简报 |",
+    "| 舆情 | 触发/情绪 | 简报 |",
     "| --- | --- | --- |",
     ...sortedItems
-      .map((item) => [linkCell(item), `${riskName(item.riskLevel)} / ${sentimentName(item.sentiment)}`, shortDigest(item)].join(" | "))
+      .map((item) => [linkCell(item), `${pushReasonName(item)} / ${sentimentName(item.sentiment)}`, shortDigest(item)].join(" | "))
       .map((row) => `| ${row} |`)
   ].join("\n");
 }
@@ -447,6 +472,14 @@ function riskName(risk: RiskLevel) {
   if (risk === "high") return colorText("高风险", "#d93025");
   if (risk === "medium") return colorText("中风险", "#b26a00");
   return colorText("普通", "#6f7d75");
+}
+
+function pushReasonName(item: MonitorItem) {
+  const reason = dingTalkPushReason(item);
+  if (reason === "高风险") return colorText("高风险", "#d93025");
+  if (reason === "高负面") return colorText("高负面", "#d93025");
+  if (reason === "高热度") return colorText("高热度", "#b26a00");
+  return riskName(item.riskLevel);
 }
 
 function sentimentName(sentiment: Sentiment) {
