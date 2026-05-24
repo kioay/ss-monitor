@@ -15,6 +15,7 @@ interface DingTalkState {
 interface DingTalkRobotConfig {
   gameId: GameId;
   shortName: "SS1" | "SS2";
+  label: string;
   webhook: string;
   secret?: string;
   statePath: string;
@@ -165,6 +166,7 @@ function getRobotConfigs(gameId: GameId): DingTalkRobotConfig[] {
     robots.push({
       gameId,
       shortName: "SS1",
+      label: "SS1-primary",
       webhook: runtimeConfig.dingTalkWebhook,
       secret: runtimeConfig.dingTalkSecret || undefined,
       statePath: runtimeConfig.dingTalkStatePath
@@ -175,6 +177,7 @@ function getRobotConfigs(gameId: GameId): DingTalkRobotConfig[] {
       robots.push({
         gameId,
         shortName: "SS1",
+        label: `SS1-extra-${index + 1}`,
         webhook,
         secret: extraSecrets[index] || undefined,
         statePath: runtimeConfig.dingTalkStatePath
@@ -185,6 +188,7 @@ function getRobotConfigs(gameId: GameId): DingTalkRobotConfig[] {
     robots.push({
       gameId,
       shortName: "SS2",
+      label: "SS2-primary",
       webhook: runtimeConfig.dingTalkSs2Webhook,
       secret: runtimeConfig.dingTalkSs2Secret || undefined,
       statePath: runtimeConfig.dingTalkSs2StatePath
@@ -195,6 +199,7 @@ function getRobotConfigs(gameId: GameId): DingTalkRobotConfig[] {
       robots.push({
         gameId,
         shortName: "SS2",
+        label: `SS2-extra-${index + 1}`,
         webhook,
         secret: extraSecrets[index] || undefined,
         statePath: runtimeConfig.dingTalkSs2StatePath
@@ -488,12 +493,23 @@ async function sendMarkdown(robot: DingTalkRobotConfig, markdown: { title: strin
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || payload.errcode !== 0) {
-    throw new Error(`DingTalk ${robot.shortName} send failed: ${response.status} ${JSON.stringify(payload)}`);
+    throw new Error(`DingTalk ${robot.label} send failed: ${response.status} ${JSON.stringify(payload)}`);
   }
 }
 
 async function sendMarkdownToRobots(robots: DingTalkRobotConfig[], markdown: { title: string; text: string }) {
-  await Promise.all(robots.map((robot) => sendMarkdown(robot, markdown)));
+  const results = await Promise.allSettled(robots.map((robot) => sendMarkdown(robot, markdown)));
+  const failures = results
+    .map((result, index) => ({ result, robot: robots[index] }))
+    .filter((entry): entry is { result: PromiseRejectedResult; robot: DingTalkRobotConfig } => entry.result.status === "rejected");
+  if (failures.length) {
+    const details = failures.map(({ robot, result }) => `${robot.label}: ${errorMessage(result.reason)}`).join(" | ");
+    throw new Error(`DingTalk ${robots[0]?.shortName || "robot"} partial send failed ${failures.length}/${robots.length}: ${details}`);
+  }
+}
+
+function errorMessage(value: unknown) {
+  return value instanceof Error ? value.message : String(value);
 }
 
 function signedWebhookUrl(robot: DingTalkRobotConfig) {
