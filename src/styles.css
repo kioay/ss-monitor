@@ -397,25 +397,27 @@ button.metric:focus-visible {
 
 .health-row {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-  padding-bottom: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 0 0 8px;
 }
 
 .health-tile {
   min-width: 0;
-  padding: 9px 12px;
+  min-height: 38px;
+  padding: 6px 9px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   background:
-    linear-gradient(180deg, rgba(255, 253, 248, 0.76), rgba(250, 251, 246, 0.68)),
+    linear-gradient(180deg, rgba(255, 253, 248, 0.62), rgba(250, 251, 246, 0.48)),
     var(--paper);
+  opacity: 0.86;
   box-shadow: none;
 }
 
 .health-main {
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
   flex: 0 1 auto;
 }
@@ -426,6 +428,9 @@ button.metric:focus-visible {
 }
 
 .health-main strong {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
   white-space: nowrap;
 }
 
@@ -449,15 +454,15 @@ button.metric:focus-visible {
 
 .health-meta {
   display: flex;
-  gap: 5px;
+  gap: 4px;
   flex-wrap: wrap;
   justify-content: flex-end;
   margin-left: auto;
 }
 
 .health-meta span {
-  padding: 2px 7px;
-  font-size: 11px;
+  padding: 1px 6px;
+  font-size: 10px;
 }
 
 .workspace-grid {

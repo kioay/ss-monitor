@@ -12,7 +12,7 @@ import {
   Video,
   Waves
 } from "lucide-react";
-import type { GameConfig, GameId, MonitorItem, MonitorResponse, RiskLevel, Sentiment, SourceType, TrendPoint } from "./shared";
+import type { GameConfig, GameId, MonitorItem, MonitorResponse, RiskLevel, Sentiment, SourceHealth, SourceType, TrendPoint } from "./shared";
 import "./styles.css";
 
 const api = {
@@ -183,14 +183,21 @@ function App() {
   }, [data?.items, query, risk, sentiment, source, topic]);
 
   const visiblePolicy = data?.updatePolicy || config?.updatePolicy;
+  const configuredGameIds = React.useMemo(() => {
+    const configuredGames = config?.games || [];
+    return configuredGames.length ? configuredGames.map((game) => game.id) : (["ss1", "ss2"] as GameId[]);
+  }, [config?.games]);
   const gameOptions = React.useMemo(() => {
     const configuredGames = config?.games || [];
-    const allGameIds = configuredGames.length ? configuredGames.map((game) => game.id) : (["ss1", "ss2"] as GameId[]);
     return [
-      { key: "all", label: "全部", ids: allGameIds },
+      { key: "all", label: "全部", ids: configuredGameIds },
       ...configuredGames.map((game) => ({ key: game.id, label: game.shortName, ids: [game.id] }))
     ];
-  }, [config?.games]);
+  }, [config?.games, configuredGameIds]);
+  const visibleHealth = React.useMemo(
+    () => makeVisibleHealth(data?.health || [], sameGameSelection(selectedGames, configuredGameIds)),
+    [configuredGameIds, data?.health, selectedGames]
+  );
   const topicOptions = React.useMemo(() => makeTopicOptions(data?.items || []), [data?.items]);
   const selectGames = React.useCallback(
     (gameIds: GameId[]) => {
@@ -300,17 +307,17 @@ function App() {
       </section>
 
       <section className="health-row">
-        {(data?.health || []).map((health, index) => (
-          <div className="health-tile" key={`${health.source}-${health.gameId}-${index}`}>
+        {visibleHealth.map((health, index) => (
+          <div className="health-tile" key={`${health.source}-${health.gameId || "all"}-${index}`} title={health.message}>
             <div className="health-main">
-              {health.ok ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
+              {health.ok ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
               <strong>{health.sourceLabel}</strong>
               {health.gameId ? <span>{health.gameId.toUpperCase()}</span> : null}
             </div>
             <p>{health.message}</p>
             <div className="health-meta">
               <span>{health.itemCount} 条</span>
-              <span>丢弃旧消息 {health.staleDropped}</span>
+              <span>旧 {health.staleDropped}</span>
               <span>{health.latencyMs} ms</span>
             </div>
           </div>
@@ -720,6 +727,34 @@ function formatDateTime(value: string) {
 
 function sameGameSelection(left: GameId[], right: GameId[]) {
   return left.length === right.length && left.every((id) => right.includes(id));
+}
+
+function makeVisibleHealth(health: SourceHealth[], aggregateBySource: boolean) {
+  if (!aggregateBySource) return health;
+  const bySource = new Map<SourceType, SourceHealth[]>();
+  for (const entry of health) {
+    bySource.set(entry.source, [...(bySource.get(entry.source) || []), entry]);
+  }
+  const sourceOrder: SourceType[] = ["bilibili", "tieba", "douyin"];
+  return Array.from(bySource.values())
+    .map((entries) => {
+      const [first] = entries;
+      const gameLabels = entries.map((entry) => entry.gameId?.toUpperCase()).filter((value): value is string => Boolean(value));
+      const issueMessages = Array.from(new Set(entries.filter((entry) => !entry.ok || entry.blocked).map((entry) => entry.message).filter(Boolean)));
+      const fetchedAt = entries.reduce((latest, entry) => (new Date(entry.fetchedAt).getTime() > new Date(latest).getTime() ? entry.fetchedAt : latest), first.fetchedAt);
+      return {
+        ...first,
+        gameId: undefined,
+        ok: entries.every((entry) => entry.ok),
+        fetchedAt,
+        latencyMs: Math.max(...entries.map((entry) => entry.latencyMs)),
+        itemCount: entries.reduce((sum, entry) => sum + entry.itemCount, 0),
+        staleDropped: entries.reduce((sum, entry) => sum + entry.staleDropped, 0),
+        blocked: entries.some((entry) => entry.blocked),
+        message: issueMessages.length ? issueMessages.join(" / ") : `覆盖 ${gameLabels.join(" / ") || "全部项目"}`
+      } satisfies SourceHealth;
+    })
+    .sort((left, right) => sourceOrder.indexOf(left.source) - sourceOrder.indexOf(right.source));
 }
 
 function makeTopicOptions(items: MonitorItem[]) {
