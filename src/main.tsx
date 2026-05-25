@@ -77,6 +77,7 @@ function App() {
   const [source, setSource] = React.useState<"all" | SourceType>("all");
   const [risk, setRisk] = React.useState<"all" | RiskLevel>("all");
   const [sentiment, setSentiment] = React.useState<"all" | Sentiment>("all");
+  const [topic, setTopic] = React.useState("all");
   const [query, setQuery] = React.useState("");
   const [data, setData] = React.useState<MonitorResponse>();
   const [loading, setLoading] = React.useState(false);
@@ -163,6 +164,7 @@ function App() {
     setSource("all");
     setRisk("all");
     setSentiment("all");
+    setTopic("all");
     setQuery("");
   }, []);
 
@@ -172,12 +174,13 @@ function App() {
       if (source !== "all" && item.source !== source) return false;
       if (risk !== "all" && item.riskLevel !== risk) return false;
       if (sentiment !== "all" && item.sentiment !== sentiment) return false;
+      if (topic !== "all" && !item.topics.includes(topic)) return false;
       if (!keyword) return true;
       return `${item.title} ${item.summary} ${item.author} ${item.keywords.join(" ")} ${item.riskReasons.join(" ")}`
         .toLowerCase()
         .includes(keyword);
     });
-  }, [data?.items, query, risk, sentiment, source]);
+  }, [data?.items, query, risk, sentiment, source, topic]);
 
   const visiblePolicy = data?.updatePolicy || config?.updatePolicy;
   const gameOptions = React.useMemo(() => {
@@ -188,6 +191,7 @@ function App() {
       ...configuredGames.map((game) => ({ key: game.id, label: game.shortName, ids: [game.id] }))
     ];
   }, [config?.games]);
+  const topicOptions = React.useMemo(() => makeTopicOptions(data?.items || []), [data?.items]);
   const selectGames = React.useCallback(
     (gameIds: GameId[]) => {
       if (sameGameSelection(selectedGames, gameIds)) return;
@@ -395,6 +399,12 @@ function App() {
             <option value="mixed">混合</option>
             <option value="neutral">中性</option>
             <option value="positive">正面</option>
+          </select>
+          <select value={topic} onChange={(event) => setTopic(event.target.value)}>
+            <option value="all">全部主题</option>
+            {topicOptions.map((option) => (
+              <option value={option.topic} key={option.topic}>{`${option.topic} ${option.count}`}</option>
+            ))}
           </select>
         </div>
       </section>
@@ -710,6 +720,16 @@ function formatDateTime(value: string) {
 
 function sameGameSelection(left: GameId[], right: GameId[]) {
   return left.length === right.length && left.every((id) => right.includes(id));
+}
+
+function makeTopicOptions(items: MonitorItem[]) {
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    for (const itemTopic of item.topics) counts.set(itemTopic, (counts.get(itemTopic) || 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "zh-CN"))
+    .map(([itemTopic, count]) => ({ topic: itemTopic, count }));
 }
 
 function formatHour(hour: number) {
