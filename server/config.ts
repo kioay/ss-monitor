@@ -104,7 +104,6 @@ export const topicLexicon: Record<string, string[]> = {
     "脚本",
     "科技",
     "辅助",
-    "封号",
     "作弊",
     "锁头",
     "自瞄",

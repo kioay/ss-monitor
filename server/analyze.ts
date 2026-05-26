@@ -89,7 +89,8 @@ const illegalBehaviorRules = [
   {
     reason: "命中外挂治理线索",
     level: "medium" as const,
-    pattern: /(外挂|外卦|开挂|挂狗|科技|辅助|作弊|封号|封禁|举报|锁头|透视|宏)/
+    pattern:
+      /(外挂|外卦|开挂|挂狗|作弊|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|穿墙|无后座|无后坐|DMA|驱动挂|过检测|免封|辅助售卖|外挂售卖|科技售卖)|(封号|封禁|举报).{0,12}(外挂|外卦|开挂|挂狗|作弊|科技|辅助|脚本|自瞄|锁头|透视)|(外挂|外卦|开挂|挂狗|作弊|科技|辅助|脚本|自瞄|锁头|透视).{0,12}(封号|封禁|举报)/
   }
 ];
 
@@ -106,8 +107,9 @@ export function analyzeItem(input: AnalyzeInput) {
   const personalSkillShare = isPersonalSkillShare(signalContent);
   const playerHelpRequest = isPlayerHelpRequest(signalContent);
   const routinePlayerShare = isRoutinePlayerShare(signalContent);
+  const eventUnlockDiscussion = isEventUnlockDiscussion(signalContent);
   if (personalSkillShare) topics.unshift("个人技术分享");
-  if (playerHelpRequest) topics.unshift("玩家求助咨询");
+  if (playerHelpRequest || eventUnlockDiscussion) topics.unshift("玩家求助咨询");
   if (routinePlayerShare) topics.unshift("玩家日常分享");
   if (isPlayerBehaviorComplaint(signalContent)) topics.unshift("玩家行为争议");
   const currentVersionTerms =
@@ -254,6 +256,7 @@ function assessRisk(
   const playerBehaviorComplaint = isPlayerBehaviorComplaint(content);
   const personalSkillShare = isPersonalSkillShare(content);
   const playerHelpRequest = isPlayerHelpRequest(content);
+  const eventUnlockDiscussion = isEventUnlockDiscussion(content);
   if (
     sentimentScore < -0.35 &&
     !audienceDefused &&
@@ -261,11 +264,12 @@ function assessRisk(
     !environmentInquiry &&
     !playerBehaviorComplaint &&
     !personalSkillShare &&
-    !playerHelpRequest
+    !playerHelpRequest &&
+    !eventUnlockDiscussion
   ) {
     primaryReasons.push("负面表达集中");
   }
-  if (/(外挂|封号|倒闭|破游戏|没救|白氪|BUG|bug|炸服|闪退)/.test(content)) {
+  if (/(外挂|倒闭|破游戏|没救|白氪|BUG|bug|炸服|闪退)/.test(content)) {
     if (
       !illegalRisk.reasons.length &&
       !audienceDefused &&
@@ -273,7 +277,8 @@ function assessRisk(
       !environmentInquiry &&
       !playerBehaviorComplaint &&
       !personalSkillShare &&
-      !playerHelpRequest
+      !playerHelpRequest &&
+      !eventUnlockDiscussion
     ) {
       primaryReasons.push("命中敏感风险词");
     }
@@ -289,13 +294,19 @@ function assessRisk(
   if (
     illegalRisk.level === "high" ||
     primaryReasons.length >= 2 ||
-    (sentimentScore < -0.45 && engagement > 250 && !environmentInquiry && !playerBehaviorComplaint && !personalSkillShare && !playerHelpRequest)
+    (sentimentScore < -0.45 &&
+      engagement > 250 &&
+      !environmentInquiry &&
+      !playerBehaviorComplaint &&
+      !personalSkillShare &&
+      !playerHelpRequest &&
+      !eventUnlockDiscussion)
   ) {
     level = "high";
   } else if (
     (illegalRisk.level === "medium" && !personalSkillShare) ||
     primaryReasons.length === 1 ||
-    (sentimentScore < -0.25 && !environmentInquiry && !playerBehaviorComplaint && !personalSkillShare && !playerHelpRequest)
+    (sentimentScore < -0.25 && !environmentInquiry && !playerBehaviorComplaint && !personalSkillShare && !playerHelpRequest && !eventUnlockDiscussion)
   ) {
     level = "medium";
   }
@@ -403,6 +414,13 @@ function isPlayerHelpRequest(content: string) {
   const officialComplaint = /(官方|策划|运营|客服|公告|骗氪|退款|投诉|倒闭|没救|破游戏|垃圾游戏|炸服|闪退|BUG|bug|卡顿)/;
   const illegalSignal = /(外挂|外卦|开挂|挂狗|科技|辅助|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|穿墙|DMA|过检测|免封|QQ群|群号|加群|售卖|卡密)/;
   return helpIntent.test(content) && (helpTopic.test(content) || questionMark.test(content)) && !officialComplaint.test(content) && !illegalSignal.test(content);
+}
+
+function isEventUnlockDiscussion(content: string) {
+  const itemContext = /(礼盒|礼包|活动|绝版|开放|交易|武器|道具|龙魂箭|bug箭|BUG箭)/;
+  const unlockContext = /(强开|强行|翘开|封号|封七天|封了|不开|不开放|什么时候|什么原因|上次开放)/;
+  const illegalSignal = /(外挂|外卦|开挂|挂狗|作弊|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|穿墙|DMA|过检测|免封|QQ群|群号|加群|售卖|卡密)/;
+  return itemContext.test(content) && unlockContext.test(content) && !illegalSignal.test(content);
 }
 
 function isRoutinePlayerShare(content: string) {
