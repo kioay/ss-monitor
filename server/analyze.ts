@@ -193,7 +193,9 @@ function scoreTextSignals(content: string, gameId: GameId) {
   let negative = 0;
 
   for (const word of uniq([...positiveWords, ...audiencePraiseWords])) {
-    positive += countOccurrences(signalContent, word);
+    const signal = countPositiveSignalOccurrences(signalContent, word);
+    positive += signal.positive;
+    negative += signal.negated;
   }
 
   for (const word of negativeWords) {
@@ -260,44 +262,52 @@ function assessRisk(
   const audienceDefused = sentimentProfile.audienceMentions >= 3 && sentimentProfile.audienceScore > 0.12 && sentimentScore > -0.35;
   const skillDefused = sentimentProfile.skillShowcase && sentimentProfile.audienceScore > -0.15 && sentimentScore > -0.35;
   const contextDefused = isProtectedDiscussionContext(context);
-  if (
-    sentimentScore < -0.35 &&
+  const negativeSignal = sentimentScore < -0.35 && !audienceDefused && !skillDefused && !contextDefused;
+  const sensitiveSignal =
+    /(外挂|倒闭|破游戏|没救|白氪|BUG|bug|炸服|闪退)/.test(content) &&
+    !illegalRisk.reasons.length &&
     !audienceDefused &&
     !skillDefused &&
-    !contextDefused
-  ) {
+    !contextDefused;
+  const governanceSignal = /(水军|诈骗|未成年|退款|投诉)/.test(content);
+  const versionSignal = currentVersionTerms.length > 0 && (sentimentScore < -0.18 || isCurrentVersionComplaint(content));
+  const officialImpactSignal = isOfficialImpactComplaint(content);
+  const highEngagementSignal = engagement > 800;
+  const elevatedEngagementSignal = engagement > 250;
+
+  if (negativeSignal) {
     primaryReasons.push("负面表达集中");
   }
-  if (/(外挂|倒闭|破游戏|没救|白氪|BUG|bug|炸服|闪退)/.test(content)) {
-    if (
-      !illegalRisk.reasons.length &&
-      !audienceDefused &&
-      !skillDefused &&
-      !contextDefused
-    ) {
-      primaryReasons.push("命中敏感风险词");
-    }
+  if (sensitiveSignal) {
+    primaryReasons.push("命中敏感风险词");
   }
-  if (/(水军|诈骗|未成年|退款|投诉)/.test(content)) {
+  if (governanceSignal) {
     primaryReasons.push("命中治理类风险词");
   }
-  if (currentVersionTerms.length && (sentimentScore < -0.18 || isCurrentVersionComplaint(content))) {
+  if (versionSignal) {
     primaryReasons.push("当前版本重点负反馈");
   }
 
+  const semanticSignals = [
+    negativeSignal,
+    sensitiveSignal,
+    governanceSignal,
+    versionSignal,
+    officialImpactSignal,
+    highEngagementSignal
+  ].filter(Boolean).length;
   let level: RiskLevel = "low";
   if (
     illegalRisk.level === "high" ||
-    primaryReasons.length >= 2 ||
-    (sentimentScore < -0.45 &&
-      engagement > 250 &&
-      !contextDefused)
+    (!contextDefused &&
+      (semanticSignals >= 3 ||
+        (negativeSignal && elevatedEngagementSignal && (officialImpactSignal || versionSignal || sensitiveSignal || governanceSignal))))
   ) {
     level = "high";
   } else if (
     (illegalRisk.level === "medium" && !context.personalSkillShare) ||
     primaryReasons.length === 1 ||
-    (sentimentScore < -0.25 && !contextDefused)
+    (!contextDefused && negativeSignal)
   ) {
     level = "medium";
   }
@@ -338,6 +348,22 @@ function summarizeContent(title: string, parts: ContentPart[], topics: string[],
 function countOccurrences(content: string, word: string) {
   if (!word) return 0;
   return content.split(word).length - 1;
+}
+
+function countPositiveSignalOccurrences(content: string, word: string) {
+  if (!word) return { positive: 0, negated: 0 };
+  let positive = 0;
+  let negated = 0;
+  let cursor = 0;
+  while (cursor < content.length) {
+    const index = content.indexOf(word, cursor);
+    if (index < 0) break;
+    const prefix = content.slice(Math.max(0, index - 4), index);
+    if (!word.startsWith("不") && /不|没|無|无|难/.test(prefix)) negated += 1;
+    else positive += 1;
+    cursor = index + word.length;
+  }
+  return { positive, negated };
 }
 
 function partWeight(type: ContentPart["type"]) {
@@ -400,6 +426,12 @@ function isProtectedDiscussionContext(context: ContextProfile) {
 
 function isStrongComplaint(content: string) {
   return /(垃圾|破游戏|恶心|烂透|没救|倒闭|炸服|闪退|崩溃|白氪|骗氪|退钱|退款|投诉)/.test(content);
+}
+
+function isOfficialImpactComplaint(content: string) {
+  const officialTarget = /(官方|策划|运营|客服|公告|更新|版本|活动|充值|氪金|礼包|礼盒|皮肤|匹配|服务器|交易行|优化|BUG|bug|卡顿|炸服|闪退|封号|封禁|退款|投诉)/;
+  const complaint = /(垃圾|破游戏|恶心|烂透|没救|倒闭|白氪|骗氪|逼氪|太贵|退钱|退款|投诉|不修|不管|不开|不开放|卡顿|炸服|闪退|崩溃|异常|问题|离谱|削弱|太弱|难用)/;
+  return officialTarget.test(content) && complaint.test(content);
 }
 
 function isPlayerBehaviorComplaint(content: string) {
