@@ -209,6 +209,7 @@ function labelSentiment(profile: SentimentProfile, content: string): Sentiment {
   const hasNegative = negativeWords.some((word) => content.includes(word));
   if (profile.audienceMentions >= 3 && profile.audienceScore > 0.15 && profile.score > -0.35) return "positive";
   if (profile.audienceMentions >= 3 && profile.audienceScore < -0.25 && profile.score < 0.2) return "negative";
+  if (isEnvironmentInquiry(content) && !isStrongComplaint(content)) return hasPositive && hasNegative ? "mixed" : "neutral";
   if (profile.skillShowcase && profile.score > -0.35 && profile.audienceScore > -0.2) {
     return profile.score > 0.16 || profile.audienceScore > 0.08 ? "positive" : "neutral";
   }
@@ -288,13 +289,13 @@ function assessRisk(
   if (
     illegalRisk.level === "high" ||
     primaryReasons.length >= 2 ||
-    (sentimentScore < -0.45 && engagement > 250 && !playerBehaviorComplaint && !personalSkillShare && !playerHelpRequest)
+    (sentimentScore < -0.45 && engagement > 250 && !environmentInquiry && !playerBehaviorComplaint && !personalSkillShare && !playerHelpRequest)
   ) {
     level = "high";
   } else if (
     (illegalRisk.level === "medium" && !personalSkillShare) ||
     primaryReasons.length === 1 ||
-    (sentimentScore < -0.25 && !playerBehaviorComplaint && !personalSkillShare && !playerHelpRequest)
+    (sentimentScore < -0.25 && !environmentInquiry && !playerBehaviorComplaint && !personalSkillShare && !playerHelpRequest)
   ) {
     level = "medium";
   }
@@ -367,10 +368,14 @@ function isEnvironmentInquiry(content: string) {
   const environmentTopic = /环境|游戏环境|现状|生态|人多|人少|匹配|排位|服务器|还能玩|好玩/.test(content);
   const cheatEnvironmentQuestion = /(外挂|外卦|挂|科技|辅助|封号|封禁).{0,10}(多吗|多不多|严重吗|还多吗|有没有|环境|现状|情况|咋样|怎么样|[?？])/.test(content);
   const strongComplaint =
-    /(垃圾|破游戏|恶心|烂透|没救|倒闭|炸服|闪退|崩溃|白氪)/.test(content) ||
+    isStrongComplaint(content) ||
     /(外挂|外卦|挂|科技|辅助).{0,12}(泛滥|离谱|猖獗|满天飞|一堆|全是|太多|多到|遍地)/.test(content);
   if (strongComplaint && !returnIntent) return false;
   return (returnIntent && (environmentTopic || explicitQuestion || cheatEnvironmentQuestion)) || (environmentTopic && explicitQuestion) || cheatEnvironmentQuestion;
+}
+
+function isStrongComplaint(content: string) {
+  return /(垃圾|破游戏|恶心|烂透|没救|倒闭|炸服|闪退|崩溃|白氪|骗氪|退钱|退款|投诉)/.test(content);
 }
 
 function isPlayerBehaviorComplaint(content: string) {

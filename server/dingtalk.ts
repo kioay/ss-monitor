@@ -35,6 +35,7 @@ const stateRetentionMs = 30 * 24 * 3_600_000;
 const notificationBatchMs = 15 * 60 * 1000;
 const highHeatScoreThreshold = 800;
 const highNegativeScoreThreshold = -0.45;
+const discussionContextReasons = new Set(["回游/环境询问语境"]);
 const routinePlayerTopics = new Set(["个人技术分享", "玩家求助咨询", "玩家行为争议", "玩家日常分享"]);
 const pendingNotifications = new Map<GameId, MonitorResponse>();
 let notificationQueue: Promise<unknown> = Promise.resolve();
@@ -248,6 +249,7 @@ function dingTalkPushReason(item: MonitorItem) {
 }
 
 function isHighNegativeItem(item: MonitorItem) {
+  if (isContextualDiscussion(item)) return false;
   return item.sentiment === "negative" && item.sentimentScore <= highNegativeScoreThreshold;
 }
 
@@ -268,6 +270,10 @@ function engagementScore(item: MonitorItem) {
 
 function isRoutinePlayerContent(item: MonitorItem) {
   return item.riskLevel === "low" && !item.riskReasons.length && item.topics.some((topic) => routinePlayerTopics.has(topic));
+}
+
+function isContextualDiscussion(item: MonitorItem) {
+  return item.riskReasons.some((reason) => discussionContextReasons.has(reason)) || item.topics.some((topic) => routinePlayerTopics.has(topic));
 }
 
 function buildBaselineMarkdown(robot: DingTalkRobotConfig, items: MonitorItem[], response: MonitorResponse) {
