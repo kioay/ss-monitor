@@ -21,6 +21,15 @@ interface SentimentProfile {
   skillShowcase: boolean;
 }
 
+interface ContextProfile {
+  environmentInquiry: boolean;
+  playerBehaviorComplaint: boolean;
+  personalSkillShare: boolean;
+  playerHelpRequest: boolean;
+  routinePlayerShare: boolean;
+  eventUnlockDiscussion: boolean;
+}
+
 const audiencePartTypes = new Set<ContentPart["type"]>(["comment", "danmaku", "post"]);
 const authorPartTypes = new Set<ContentPart["type"]>(["title", "description", "subtitle"]);
 
@@ -104,23 +113,20 @@ export function analyzeItem(input: AnalyzeInput) {
   const topics = Object.entries(topicLexicon)
     .filter(([, words]) => words.some((word) => signalContent.includes(word)))
     .map(([topic]) => topic);
-  const personalSkillShare = isPersonalSkillShare(signalContent);
-  const playerHelpRequest = isPlayerHelpRequest(signalContent);
-  const routinePlayerShare = isRoutinePlayerShare(signalContent);
-  const eventUnlockDiscussion = isEventUnlockDiscussion(signalContent);
-  if (personalSkillShare) topics.unshift("个人技术分享");
-  if (playerHelpRequest || eventUnlockDiscussion) topics.unshift("玩家求助咨询");
-  if (routinePlayerShare) topics.unshift("玩家日常分享");
-  if (isPlayerBehaviorComplaint(signalContent)) topics.unshift("玩家行为争议");
+  const context = detectContext(signalContent);
+  if (context.personalSkillShare) topics.unshift("个人技术分享");
+  if (context.playerHelpRequest || context.eventUnlockDiscussion) topics.unshift("玩家求助咨询");
+  if (context.routinePlayerShare) topics.unshift("玩家日常分享");
+  if (context.playerBehaviorComplaint) topics.unshift("玩家行为争议");
   const currentVersionTerms =
     input.gameId === "ss1" ? uniq([...matchCurrentVersionTerms(content), ...matchCurrentVersionTerms(signalContent)]) : [];
   if (currentVersionTerms.length) topics.unshift("当前版本重点");
 
   const sentimentProfile = scoreSentiment(input.contentParts, input.gameId);
   const sentimentScore = sentimentProfile.score;
-  const sentiment = labelSentiment(sentimentProfile, signalContent);
+  const sentiment = labelSentiment(sentimentProfile, signalContent, context);
   const keywords = uniq([...currentVersionTerms, ...extractKeywords(signalContent, topics)]);
-  const risk = assessRisk(signalContent, sentimentProfile, input.metrics, currentVersionTerms);
+  const risk = assessRisk(signalContent, sentimentProfile, input.metrics, context, currentVersionTerms);
   const summary = summarizeContent(input.title, input.contentParts, topics, sentiment, sentimentProfile);
 
   return {
@@ -206,12 +212,12 @@ function normalizedScore(positive: number, negative: number) {
   return clamp((positive - negative) / Math.max(2, total), -1, 1);
 }
 
-function labelSentiment(profile: SentimentProfile, content: string): Sentiment {
+function labelSentiment(profile: SentimentProfile, content: string, context: ContextProfile): Sentiment {
   const hasPositive = positiveWords.some((word) => content.includes(word));
   const hasNegative = negativeWords.some((word) => content.includes(word));
   if (profile.audienceMentions >= 3 && profile.audienceScore > 0.15 && profile.score > -0.35) return "positive";
   if (profile.audienceMentions >= 3 && profile.audienceScore < -0.25 && profile.score < 0.2) return "negative";
-  if (isEnvironmentInquiry(content) && !isStrongComplaint(content)) return hasPositive && hasNegative ? "mixed" : "neutral";
+  if (isProtectedDiscussionContext(context) && !isStrongComplaint(content)) return hasPositive && hasNegative ? "mixed" : "neutral";
   if (profile.skillShowcase && profile.score > -0.35 && profile.audienceScore > -0.2) {
     return profile.score > 0.16 || profile.audienceScore > 0.08 ? "positive" : "neutral";
   }
@@ -236,6 +242,7 @@ function assessRisk(
   content: string,
   sentimentProfile: SentimentProfile,
   metrics: MonitorItem["metrics"],
+  context: ContextProfile,
   currentVersionTerms: string[] = []
 ) {
   const sentimentScore = sentimentProfile.score;
@@ -252,20 +259,12 @@ function assessRisk(
   primaryReasons.push(...illegalRisk.reasons);
   const audienceDefused = sentimentProfile.audienceMentions >= 3 && sentimentProfile.audienceScore > 0.12 && sentimentScore > -0.35;
   const skillDefused = sentimentProfile.skillShowcase && sentimentProfile.audienceScore > -0.15 && sentimentScore > -0.35;
-  const environmentInquiry = isEnvironmentInquiry(content);
-  const playerBehaviorComplaint = isPlayerBehaviorComplaint(content);
-  const personalSkillShare = isPersonalSkillShare(content);
-  const playerHelpRequest = isPlayerHelpRequest(content);
-  const eventUnlockDiscussion = isEventUnlockDiscussion(content);
+  const contextDefused = isProtectedDiscussionContext(context);
   if (
     sentimentScore < -0.35 &&
     !audienceDefused &&
     !skillDefused &&
-    !environmentInquiry &&
-    !playerBehaviorComplaint &&
-    !personalSkillShare &&
-    !playerHelpRequest &&
-    !eventUnlockDiscussion
+    !contextDefused
   ) {
     primaryReasons.push("负面表达集中");
   }
@@ -274,11 +273,7 @@ function assessRisk(
       !illegalRisk.reasons.length &&
       !audienceDefused &&
       !skillDefused &&
-      !environmentInquiry &&
-      !playerBehaviorComplaint &&
-      !personalSkillShare &&
-      !playerHelpRequest &&
-      !eventUnlockDiscussion
+      !contextDefused
     ) {
       primaryReasons.push("命中敏感风险词");
     }
@@ -296,24 +291,20 @@ function assessRisk(
     primaryReasons.length >= 2 ||
     (sentimentScore < -0.45 &&
       engagement > 250 &&
-      !environmentInquiry &&
-      !playerBehaviorComplaint &&
-      !personalSkillShare &&
-      !playerHelpRequest &&
-      !eventUnlockDiscussion)
+      !contextDefused)
   ) {
     level = "high";
   } else if (
-    (illegalRisk.level === "medium" && !personalSkillShare) ||
+    (illegalRisk.level === "medium" && !context.personalSkillShare) ||
     primaryReasons.length === 1 ||
-    (sentimentScore < -0.25 && !environmentInquiry && !playerBehaviorComplaint && !personalSkillShare && !playerHelpRequest && !eventUnlockDiscussion)
+    (sentimentScore < -0.25 && !contextDefused)
   ) {
     level = "medium";
   }
-  if (environmentInquiry && illegalRisk.level !== "high" && level === "high") level = "medium";
+  if (context.environmentInquiry && illegalRisk.level !== "high" && level === "high") level = "medium";
 
   const reasons = [...primaryReasons];
-  if (environmentInquiry && illegalRisk.level !== "high" && level !== "low") reasons.push("回游/环境询问语境");
+  if (context.environmentInquiry && illegalRisk.level !== "high" && level !== "low") reasons.push("回游/环境询问语境");
   if (level !== "low" && engagement > 800) reasons.push("互动量较高");
 
   return { level, reasons: uniq(reasons).slice(0, 4) };
@@ -383,6 +374,28 @@ function isEnvironmentInquiry(content: string) {
     /(外挂|外卦|挂|科技|辅助).{0,12}(泛滥|离谱|猖獗|满天飞|一堆|全是|太多|多到|遍地)/.test(content);
   if (strongComplaint && !returnIntent) return false;
   return (returnIntent && (environmentTopic || explicitQuestion || cheatEnvironmentQuestion)) || (environmentTopic && explicitQuestion) || cheatEnvironmentQuestion;
+}
+
+function detectContext(content: string): ContextProfile {
+  return {
+    environmentInquiry: isEnvironmentInquiry(content),
+    playerBehaviorComplaint: isPlayerBehaviorComplaint(content),
+    personalSkillShare: isPersonalSkillShare(content),
+    playerHelpRequest: isPlayerHelpRequest(content),
+    routinePlayerShare: isRoutinePlayerShare(content),
+    eventUnlockDiscussion: isEventUnlockDiscussion(content)
+  };
+}
+
+function isProtectedDiscussionContext(context: ContextProfile) {
+  return (
+    context.environmentInquiry ||
+    context.playerBehaviorComplaint ||
+    context.personalSkillShare ||
+    context.playerHelpRequest ||
+    context.routinePlayerShare ||
+    context.eventUnlockDiscussion
+  );
 }
 
 function isStrongComplaint(content: string) {
