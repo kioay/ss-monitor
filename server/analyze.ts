@@ -350,10 +350,13 @@ function isSkillShowcase(content: string) {
 }
 
 function maskDomainSafeTerms(content: string, gameId: GameId) {
-  if (gameId !== "ss1") return content;
-  let masked = content;
-  for (const term of ss1WeaponNames) {
-    masked = masked.replaceAll(term, "武器名");
+  let masked = content
+    .replaceAll("@无端科技", "官方账号")
+    .replaceAll("无端科技", "厂商名称");
+  if (gameId === "ss1") {
+    for (const term of ss1WeaponNames) {
+      masked = masked.replaceAll(term, "武器名");
+    }
   }
   return masked;
 }
