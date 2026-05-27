@@ -134,12 +134,14 @@ export function analyzeItem(input: AnalyzeInput) {
   const sentimentProfile = scoreSentiment(input.contentParts, input.gameId);
   const sentimentScore = sentimentProfile.score;
   const sentiment = labelSentiment(sentimentProfile, signalContent, context);
-  const keywords = uniq([...currentVersionTerms, ...extractKeywords(signalContent, topics)]);
   const risk = assessRisk(signalContent, sentimentProfile, input.metrics, context, currentVersionTerms);
-  const summary = summarizeContent(input.title, input.contentParts, topics, sentiment, sentimentProfile);
+  if (hasIllegalRiskReason(risk.reasons)) topics.unshift("外挂公平");
+  const finalTopics = uniq(topics);
+  const keywords = uniq([...currentVersionTerms, ...extractKeywords(signalContent, finalTopics)]);
+  const summary = summarizeContent(input.title, input.contentParts, finalTopics, sentiment, sentimentProfile);
 
   return {
-    topics: topics.length ? topics : ["综合讨论"],
+    topics: finalTopics.length ? finalTopics : ["综合讨论"],
     sentiment,
     sentimentScore,
     keywords,
@@ -248,6 +250,10 @@ function extractKeywords(content: string, topics: string[]) {
   return uniq([...topics, ...matched, ...english, ...numbers])
     .filter((word) => word.length > 1)
     .slice(0, 10);
+}
+
+function hasIllegalRiskReason(reasons: string[]) {
+  return reasons.some((reason) => reason.includes("外挂"));
 }
 
 function assessRisk(
@@ -558,7 +564,11 @@ function hasHighRiskToolContext(windows: Array<{ text: string }>) {
 }
 
 function hasCheatGovernanceContext(windows: Array<{ text: string }>) {
-  return windows.some(({ text }) => hasAnyIllegalTerm(text) && (illegalGovernancePattern.test(text) || illegalComplaintPattern.test(text)));
+  return windows.some(({ text }) => {
+    if (!illegalGovernancePattern.test(text) && !illegalComplaintPattern.test(text)) return false;
+    if (hasStrongIllegalAnchor(text)) return true;
+    return illegalAmbiguousTermPattern.test(text) && !legalAmbiguousTermPattern.test(text) && illegalCommercialPattern.test(text);
+  });
 }
 
 function hasCheatQuestionContext(windows: Array<{ text: string }>) {
