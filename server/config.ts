@@ -38,6 +38,8 @@ export const runtimeConfig = {
   monitorSnapshotPath: process.env.MONITOR_SNAPSHOT_PATH || "data/monitor-snapshot.json",
   douyinImportDir: process.env.DOUYIN_IMPORT_DIR || "data/douyin-imports",
   douyinAuthorizedSourcesPath: process.env.DOUYIN_AUTHORIZED_SOURCES_PATH || "data/douyin-authorized-sources.json",
+  bettaFishBaseUrl: normalizeOptionalBaseUrl(process.env.BETTAFISH_BASE_URL || ""),
+  bettaFishImportDir: process.env.BETTAFISH_IMPORT_DIR || "data/bettafish-imports",
   dingTalkWebhook: process.env.DINGTALK_WEBHOOK || "",
   dingTalkSecret: process.env.DINGTALK_SECRET || "",
   dingTalkSs1ExtraWebhooks: process.env.DINGTALK_SS1_EXTRA_WEBHOOKS || "",
@@ -53,6 +55,7 @@ export const runtimeConfig = {
   maxVideosToDeepParsePerGame: 8,
   maxDouyinItemsPerGame: 18,
   maxDouyinImportedItemsPerGame: Math.max(1, Number(process.env.MAX_DOUYIN_IMPORTED_ITEMS_PER_GAME || 80)),
+  maxBettaFishImportedItemsPerGame: Math.max(1, Number(process.env.MAX_BETTAFISH_IMPORTED_ITEMS_PER_GAME || 80)),
   maxTiebaThreadsPerBar: 30,
   maxTiebaThreadsToDeepParse: 8
 };
@@ -82,6 +85,16 @@ function isNightHour(hour: number) {
 function clampHour(value: number) {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.min(23, Math.trunc(value)));
+}
+
+function normalizeOptionalBaseUrl(value: string) {
+  const trimmed = value.trim().replace(/\/+$/, "");
+  if (!trimmed) return "";
+  try {
+    return new URL(trimmed).toString().replace(/\/+$/, "");
+  } catch {
+    return trimmed;
+  }
 }
 
 function formatInterval(seconds: number) {

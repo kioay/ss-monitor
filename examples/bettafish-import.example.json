@@ -1,0 +1,32 @@
+{
+  "items": [
+    {
+      "gameId": "ss1",
+      "sourcePlatform": "douyin_aweme",
+      "aweme_id": "example-aweme-id",
+      "title": "生死狙击玩家反馈示例",
+      "desc": "BettaFish 或 MindSpider 导出的正文/描述会进入本平台分析。",
+      "aweme_url": "https://www.douyin.com/video/example-aweme-id",
+      "nickname": "Authorized export",
+      "create_time": 1780000000,
+      "liked_count": 120,
+      "comment_count": 18,
+      "share_count": 5,
+      "source_keyword": "生死狙击",
+      "comments": ["评论一", "评论二"]
+    },
+    {
+      "gameId": "ss2",
+      "sourcePlatform": "xhs_note",
+      "note_id": "example-note-id",
+      "title": "生死狙击2社区讨论示例",
+      "desc": "支持 xhs_note、weibo_note、bilibili_video、tieba_note、zhihu_content 等常见 BettaFish/MindSpider 字段。",
+      "note_url": "https://example.com/note/example-note-id",
+      "user_nickname": "Authorized export",
+      "time": 1780000000,
+      "liked_count": 64,
+      "comment_count": 9,
+      "tag_list": ["生死狙击2", "反馈"]
+    }
+  ]
+}

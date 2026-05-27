@@ -2,6 +2,7 @@ import { z } from "zod";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { collectBilibili } from "./collectors/bilibili";
+import { collectBettaFish } from "./collectors/bettafish";
 import { collectDouyin } from "./collectors/douyin";
 import { collectTieba } from "./collectors/tieba";
 import { gameById, games, getUpdatePolicy, runtimeConfig } from "./config";
@@ -277,7 +278,8 @@ async function collectAll(selectedGames: GameConfig[], cutoff: Date) {
   const tasks = selectedGames.flatMap((game) => [
     { source: "bilibili" as const, game, run: () => collectBilibili(game, cutoff) },
     { source: "tieba" as const, game, run: () => collectTieba(game, cutoff) },
-    { source: "douyin" as const, game, run: () => collectDouyin(game, cutoff) }
+    { source: "douyin" as const, game, run: () => collectDouyin(game, cutoff) },
+    { source: "bettafish" as const, game, run: () => collectBettaFish(game, cutoff) }
   ]);
   const results = await Promise.allSettled(tasks.map((task) => task.run()));
 
@@ -308,6 +310,7 @@ async function collectAll(selectedGames: GameConfig[], cutoff: Date) {
 function sourceLabel(source: SourceType) {
   if (source === "bilibili") return "B站视频";
   if (source === "douyin") return "抖音视频";
+  if (source === "bettafish") return "BettaFish";
   return "百度贴吧";
 }
 
@@ -321,6 +324,7 @@ function makeStats(items: MonitorItem[]): MonitorStats {
     bilibili: items.filter((item) => item.source === "bilibili").length,
     tieba: items.filter((item) => item.source === "tieba").length,
     douyin: items.filter((item) => item.source === "douyin").length,
+    bettafish: items.filter((item) => item.source === "bettafish").length,
     freshestAt: items[0]?.publishedAt
   };
 }

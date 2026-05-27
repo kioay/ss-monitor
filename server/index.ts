@@ -22,7 +22,7 @@ app.get("/api/config", (_request, response) => {
     games,
     defaultWindowHours: runtimeConfig.defaultWindowHours,
     updatePolicy: getUpdatePolicy(),
-    sources: ["bilibili", "tieba", "douyin"]
+    sources: ["bilibili", "tieba", "douyin", "bettafish"]
   });
 });
 
@@ -32,7 +32,8 @@ app.get("/api/health", (_request, response) => {
     generatedAt: new Date().toISOString(),
     updatePolicy: getUpdatePolicy(),
     hasBilibiliCookie: Boolean(runtimeConfig.bilibiliCookie),
-    hasBaiduCookie: Boolean(runtimeConfig.baiduCookie)
+    hasBaiduCookie: Boolean(runtimeConfig.baiduCookie),
+    hasBettaFishBaseUrl: Boolean(runtimeConfig.bettaFishBaseUrl)
   });
 });
 

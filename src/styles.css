@@ -354,6 +354,7 @@ button.metric:focus-visible {
 .split-metric {
   display: inline-flex;
   align-items: baseline;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -397,7 +398,7 @@ button.metric:focus-visible {
 
 .health-row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
   padding: 0 0 8px;
 }

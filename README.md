@@ -110,3 +110,14 @@ Notes:
 - Douyin Open Platform access requires app approval, user authorization, and the relevant scopes such as comment/data permissions.
 - 巨量算数 and third-party vendors should provide an authorized API or export endpoint; map their response fields through `fieldMap`.
 - The monitor only reads authorized JSON endpoints. It does not perform login automation, captcha handling, private signature generation, or anti-bot bypass.
+
+## BettaFish / MindSpider integration
+
+BettaFish is a full Python public-opinion system with its own Flask app, Streamlit agents, MindSpider crawler, database, and GPL-2.0 licensing. This platform integrates it as an optional external data source instead of vendoring its code.
+
+1. Run and maintain BettaFish separately, with its own database, LLM keys, cookies, and crawler login state.
+2. Export authorized BettaFish or MindSpider rows as `.json` or `.csv` into `data/bettafish-imports/`, or set `BETTAFISH_IMPORT_DIR` to another ignored directory.
+3. Optionally set `BETTAFISH_BASE_URL=http://127.0.0.1:5000` so the monitor can show BettaFish `/api/status` health. The monitor does not start BettaFish or trigger crawlers.
+4. Refresh `/api/monitor?...&force=1`. Rows matching SS1/SS2 terms are merged as `bettafish` items and passed through the same sentiment/risk analyzer.
+
+See `examples/bettafish-import.example.json` for supported fields. Common MindSpider tables such as `douyin_aweme`, `bilibili_video`, `xhs_note`, `weibo_note`, `tieba_note`, and `zhihu_content` are mapped by alias.

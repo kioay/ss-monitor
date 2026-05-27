@@ -291,7 +291,7 @@ function App() {
           onClick={() => jumpToFeed({ sentiment: "negative" })}
         />
         <Metric
-          label="B站 / 贴吧 / 抖音"
+          label="B站 / 贴吧 / 抖音 / BettaFish"
           tone="blue"
           hint="分别跳到来源条目"
           value={
@@ -301,6 +301,8 @@ function App() {
               <button onClick={() => jumpToFeed({ source: "tieba" })}>{data?.stats.tieba ?? 0}</button>
               <i>/</i>
               <button onClick={() => jumpToFeed({ source: "douyin" })}>{data?.stats.douyin ?? 0}</button>
+              <i>/</i>
+              <button onClick={() => jumpToFeed({ source: "bettafish" })}>{data?.stats.bettafish ?? 0}</button>
             </span>
           }
         />
@@ -393,6 +395,7 @@ function App() {
             <option value="bilibili">B站</option>
             <option value="tieba">贴吧</option>
             <option value="douyin">抖音</option>
+            <option value="bettafish">BettaFish</option>
           </select>
           <select value={risk} onChange={(event) => setRisk(event.target.value as "all" | RiskLevel)}>
             <option value="all">全部风险</option>
@@ -699,6 +702,9 @@ function metricLine(item: MonitorItem) {
   if (item.source === "douyin") {
     return "公开搜索";
   }
+  if (item.source === "bettafish") {
+    return "授权导入";
+  }
   return `${formatNumber(item.metrics.replies)} 回复`;
 }
 
@@ -735,7 +741,7 @@ function makeVisibleHealth(health: SourceHealth[], aggregateBySource: boolean) {
   for (const entry of health) {
     bySource.set(entry.source, [...(bySource.get(entry.source) || []), entry]);
   }
-  const sourceOrder: SourceType[] = ["bilibili", "tieba", "douyin"];
+  const sourceOrder: SourceType[] = ["bilibili", "tieba", "douyin", "bettafish"];
   return Array.from(bySource.values())
     .map((entries) => {
       const [first] = entries;

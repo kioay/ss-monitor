@@ -1,5 +1,5 @@
 export type GameId = "ss1" | "ss2";
-export type SourceType = "bilibili" | "tieba" | "douyin";
+export type SourceType = "bilibili" | "tieba" | "douyin" | "bettafish";
 export type Sentiment = "positive" | "neutral" | "negative" | "mixed";
 export type RiskLevel = "low" | "medium" | "high";
 
@@ -73,6 +73,7 @@ export interface MonitorStats {
   bilibili: number;
   tieba: number;
   douyin: number;
+  bettafish: number;
   freshestAt?: string;
 }
 
