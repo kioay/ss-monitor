@@ -400,6 +400,11 @@ function countPositiveSignalOccurrences(content: string, word: string) {
     const index = content.indexOf(word, cursor);
     if (index < 0) break;
     const prefix = content.slice(Math.max(0, index - 4), index);
+    const suffix = content.slice(index + word.length, index + word.length + 4);
+    if (isFalsePositivePraiseContext(prefix, suffix, word)) {
+      cursor = index + word.length;
+      continue;
+    }
     if (isNeutralPositiveQuestion(prefix, word)) {
       cursor = index + word.length;
       continue;
@@ -414,6 +419,15 @@ function countPositiveSignalOccurrences(content: string, word: string) {
 function isNeutralPositiveQuestion(prefix: string, word: string) {
   if (word !== "可以" && word !== "好玩" && word !== "值得") return false;
   return /(是不是|是否|能不能|可不可以|要不要|该不该|值不值)$/.test(prefix);
+}
+
+function isFalsePositivePraiseContext(prefix: string, suffix: string, word: string) {
+  if (word === "强") {
+    if (/(加|增|变|削)$/.test(prefix)) return true;
+    if (/^(行|制|迫|绑|开|化|度|调|求)/.test(suffix)) return true;
+  }
+  if (word === "爽" && /^(约|文|局)/.test(suffix)) return true;
+  return false;
 }
 
 function partWeight(type: ContentPart["type"]) {
