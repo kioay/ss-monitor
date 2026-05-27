@@ -135,9 +135,10 @@ export function analyzeItem(input: AnalyzeInput) {
   const sentimentScore = sentimentProfile.score;
   const sentiment = labelSentiment(sentimentProfile, signalContent, context);
   const risk = assessRisk(signalContent, sentimentProfile, input.metrics, context, currentVersionTerms);
-  if (hasIllegalRiskReason(risk.reasons)) topics.unshift("外挂公平");
+  if (!hasIllegalTopicContext(signalContent, risk.reasons)) removeTopic(topics, "外挂公平");
+  else if (hasIllegalRiskReason(risk.reasons)) topics.unshift("外挂公平");
   const finalTopics = uniq(topics);
-  const keywords = uniq([...currentVersionTerms, ...extractKeywords(signalContent, finalTopics)]);
+  const keywords = uniq([...currentVersionTerms, ...extractKeywords(signalContent, finalTopics, finalTopics.includes("外挂公平"))]);
   const summary = summarizeContent(input.title, input.contentParts, finalTopics, sentiment, sentimentProfile);
 
   return {
@@ -241,9 +242,10 @@ function labelSentiment(profile: SentimentProfile, content: string, context: Con
   return "neutral";
 }
 
-function extractKeywords(content: string, topics: string[]) {
+function extractKeywords(content: string, topics: string[], includeIllegalKeywords = true) {
   const domainWords = uniq(Object.values(topicLexicon).flat());
-  const matched = domainWords.filter((word) => content.includes(word));
+  const illegalWords = new Set(topicLexicon.外挂公平 || []);
+  const matched = domainWords.filter((word) => content.includes(word) && (includeIllegalKeywords || !illegalWords.has(word)));
   const english = content.match(/[A-Za-z][A-Za-z0-9+-]{1,12}/g) || [];
   const numbers = content.match(/\d{1,4}(?:\.\d+)?(?:月|日|版本|战力|元)?/g) || [];
 
@@ -254,6 +256,26 @@ function extractKeywords(content: string, topics: string[]) {
 
 function hasIllegalRiskReason(reasons: string[]) {
   return reasons.some((reason) => reason.includes("外挂"));
+}
+
+function hasIllegalTopicContext(content: string, reasons: string[]) {
+  if (hasIllegalRiskReason(reasons)) return true;
+  const windows = illegalContextWindows(content);
+  return (
+    hasCheatPromotionContext(windows) ||
+    hasCheatDemoContext(windows) ||
+    hasHighRiskToolContext(windows) ||
+    hasCheatGovernanceContext(windows) ||
+    hasCheatQuestionContext(windows)
+  );
+}
+
+function removeTopic(topics: string[], topic: string) {
+  let index = topics.indexOf(topic);
+  while (index >= 0) {
+    topics.splice(index, 1);
+    index = topics.indexOf(topic);
+  }
 }
 
 function assessRisk(
@@ -281,8 +303,9 @@ function assessRisk(
   const isolatedCheatMention = isIsolatedCheatMention(content, sentimentProfile, illegalRisk);
   const illegalRiskOnly = illegalRisk.level === "high" && !isStrongComplaint(content) && !illegalComplaintPattern.test(content) && !isOfficialImpactComplaint(content);
   const negativeSignal = sentimentScore < -0.35 && !audienceDefused && !skillDefused && !contextDefused && !isolatedCheatMention && !illegalRiskOnly;
+  const officialImpactSignal = isOfficialImpactComplaint(content);
   const sensitiveSignal =
-    /(倒闭|破游戏|没救|白氪|BUG|bug|炸服|闪退)/.test(content) &&
+    hasContextualSensitiveSignal(content, sentimentProfile, officialImpactSignal) &&
     !illegalRisk.reasons.length &&
     !audienceDefused &&
     !skillDefused &&
@@ -290,7 +313,6 @@ function assessRisk(
     !isolatedCheatMention;
   const governanceSignal = /(水军|诈骗|未成年|退款|投诉)/.test(content);
   const versionSignal = currentVersionTerms.length > 0 && (sentimentScore < -0.18 || isCurrentVersionComplaint(content));
-  const officialImpactSignal = isOfficialImpactComplaint(content);
   const highEngagementSignal = engagement > 800;
   const elevatedEngagementSignal = engagement > 250;
 
@@ -378,11 +400,20 @@ function countPositiveSignalOccurrences(content: string, word: string) {
     const index = content.indexOf(word, cursor);
     if (index < 0) break;
     const prefix = content.slice(Math.max(0, index - 4), index);
+    if (isNeutralPositiveQuestion(prefix, word)) {
+      cursor = index + word.length;
+      continue;
+    }
     if (!word.startsWith("不") && /不|没|無|无|难/.test(prefix)) negated += 1;
     else positive += 1;
     cursor = index + word.length;
   }
   return { positive, negated };
+}
+
+function isNeutralPositiveQuestion(prefix: string, word: string) {
+  if (word !== "可以" && word !== "好玩" && word !== "值得") return false;
+  return /(是不是|是否|能不能|可不可以|要不要|该不该|值不值)$/.test(prefix);
 }
 
 function partWeight(type: ContentPart["type"]) {
@@ -499,6 +530,19 @@ function isCurrentVersionComplaint(content: string) {
   return /(太弱|弱了|削弱|手感.{0,6}差|很差|没用|不好用|难用|垃圾|恶心|离谱|问题|bug|BUG|卡顿|异常|不生效)/.test(content);
 }
 
+function hasContextualSensitiveSignal(content: string, sentimentProfile: SentimentProfile, officialImpactSignal: boolean) {
+  const strongSensitive = /(倒闭|破游戏|没救|白氪|骗氪|炸服|闪退|崩溃)/.test(content);
+  if (strongSensitive) return officialImpactSignal || isStrongComplaint(content) || sentimentProfile.score < -0.15;
+
+  const issueMatches = content.match(/BUG|bug|卡顿|掉帧|延迟|掉线|异常|卡死|用不了|打不开|进不去/g)?.length || 0;
+  if (!issueMatches) return false;
+  const issueComplaint =
+    /(BUG|bug|卡顿|掉帧|延迟|掉线|异常).{0,12}(严重|离谱|一直|频繁|用不了|打不开|进不去|修|不修|影响|卡死|崩|炸|难受)/.test(content) ||
+    /(用不了|打不开|进不去|卡死|修|不修).{0,12}(BUG|bug|问题|卡顿|掉帧|延迟|掉线|异常)/.test(content);
+
+  return officialImpactSignal || (issueMatches >= 2 && sentimentProfile.score < -0.15) || (issueComplaint && sentimentProfile.score < -0.2);
+}
+
 function detectIllegalBehavior(content: string, context: ContextProfile): { level: RiskLevel; reasons: string[] } {
   const reasons: string[] = [];
   let level: RiskLevel = "low";
@@ -527,8 +571,11 @@ function illegalContextWindows(content: string) {
   let match: RegExpExecArray | null;
   while ((match = illegalContextTermPattern.exec(content))) {
     const term = match[0];
-    const start = Math.max(0, match.index - 32);
-    const end = Math.min(content.length, match.index + term.length + 32);
+    const lineStart = content.lastIndexOf("\n", Math.max(0, match.index - 1)) + 1;
+    const nextLineBreak = content.indexOf("\n", match.index + term.length);
+    const lineEnd = nextLineBreak >= 0 ? nextLineBreak : content.length;
+    const start = Math.max(lineStart, match.index - 32);
+    const end = Math.min(lineEnd, match.index + term.length + 32);
     windows.push({ term, text: content.slice(start, end) });
     if (illegalContextTermPattern.lastIndex === match.index) illegalContextTermPattern.lastIndex += 1;
   }
