@@ -77,31 +77,40 @@ const skillShowcaseWords = [
   "钻石"
 ];
 
-const illegalBehaviorRules = [
-  {
-    reason: "疑似外挂宣传引流",
-    level: "high" as const,
-    pattern:
-      /(外挂|外卦|科技|辅助|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|DMA|驱动|过检测|免封).{0,24}(QQ群|群号|加群|进群|q群|qq|QQ|企鹅|微信|VX|vx|私信|主页|购买|售卖|卡密|代理|月卡|周卡|日卡|接单|体验群|交流群)|(QQ群|群号|加群|进群|q群|qq|QQ|企鹅|微信|VX|vx|私信|主页|购买|售卖|卡密|代理|月卡|周卡|日卡|接单|体验群|交流群).{0,24}(外挂|外卦|科技|辅助|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|DMA|驱动|过检测|免封)/
-  },
-  {
-    reason: "疑似外挂演示内容",
-    level: "high" as const,
-    pattern:
-      /(外挂|外卦|科技|辅助|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|DMA|驱动|过检测|免封).{0,18}(演示|展示|实测|测试|效果|教程|教学|视频|录屏|第一视角)|(演示|展示|实测|测试|效果|教程|教学|视频|录屏|第一视角).{0,18}(外挂|外卦|科技|辅助|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|DMA|驱动|过检测|免封)/
-  },
-  {
-    reason: "命中外挂/脚本高危词",
-    level: "high" as const,
-    pattern: /(内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|穿墙|无后座|无后坐|DMA|驱动挂|过检测|免封|辅助售卖|外挂售卖|科技售卖)/
-  },
-  {
-    reason: "命中外挂治理线索",
-    level: "medium" as const,
-    pattern:
-      /(外挂|外卦|开挂|挂狗|作弊|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|穿墙|无后座|无后坐|DMA|驱动挂|过检测|免封|辅助售卖|外挂售卖|科技售卖)|(封号|封禁|举报).{0,12}(外挂|外卦|开挂|挂狗|作弊|科技|辅助|脚本|自瞄|锁头|透视)|(外挂|外卦|开挂|挂狗|作弊|科技|辅助|脚本|自瞄|锁头|透视).{0,12}(封号|封禁|举报)/
-  }
+const illegalCoreTermPattern = /(外挂|外卦|开挂|挂狗|作弊)/i;
+const illegalToolTermPattern = /(内存宏|鼠标宏|压枪宏|自瞄|锁头|穿墙|无后座|无后坐|DMA|驱动挂|驱动级|过检测|免封)/i;
+const illegalAmbiguousTermPattern = /(科技|辅助|脚本|透视|驱动)/i;
+const illegalAnyTermPattern =
+  /(外挂|外卦|开挂|挂狗|作弊|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|穿墙|无后座|无后坐|DMA|驱动挂|驱动级|过检测|免封|科技|辅助|驱动)/i;
+const illegalContextTermPattern =
+  /(外挂|外卦|开挂|挂狗|作弊|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|穿墙|无后座|无后坐|DMA|驱动挂|驱动级|过检测|免封|科技|辅助|驱动)/gi;
+const illegalPromotionPattern =
+  /(QQ群|群号|加群|进群|q群|qq|企鹅|微信|VX|vx|私信|主页|联系|购买|售卖|卖挂|卡密|代理|月卡|周卡|日卡|天卡|包天|包月|接单|体验群|交流群|发卡|下单|价格|收费|多少钱)/i;
+const illegalCommercialPattern = /(购买|售卖|卖挂|卡密|代理|月卡|周卡|日卡|天卡|包天|包月|接单|发卡|下单|价格|收费|多少钱)/;
+const illegalStrongDemoPattern = /(外挂演示|外卦演示|开挂演示|作弊演示|功能展示|效果展示|实测|测试效果|演示|展示|录屏|试用|试挂)/;
+const illegalWeakDemoPattern = /(教程|教学|视频|第一视角|实战|全程|效果|测试)/;
+const illegalGovernancePattern = /(封号|封禁|举报|反挂|外挂治理|封挂|官方检测|检测机制|检测系统|打击|制裁|处理|清理|禁赛)/;
+const illegalComplaintPattern = /(泛滥|离谱|猖獗|满天飞|一堆|全是|太多|多到|遍地|横行|严重|恶心|破坏环境|影响公平|没人管|不管|管管|举报不动)/;
+const illegalQuestionPattern = /(多吗|多不多|严重吗|还多吗|有没有|环境|现状|情况|咋样|怎么样|问一下|求问|[?？])/;
+const legalAmbiguousTermPattern = /(辅助瞄准|瞄准辅助|辅助线|辅助设置|辅助功能|新手辅助|任务辅助|剧情脚本|脚本剧情|脚本杀|科技感|高科技|驱动程序|显卡驱动)/;
+const illegalHighRiskToolWords = [
+  "内存宏",
+  "鼠标宏",
+  "压枪宏",
+  "自瞄",
+  "锁头",
+  "透视",
+  "穿墙",
+  "无后座",
+  "无后坐",
+  "DMA",
+  "驱动挂",
+  "驱动级",
+  "过检测",
+  "免封"
 ];
+const tagListSeparatorPattern = /[,\n，、#|/]/g;
+const skillTagContextPattern = /(集锦|高光|精彩操作|个人|玩家|UP主|主播|全局|第一视角|全程无剪辑|身法|击杀|连杀|排位|单排|四排|五排|操作|FPS)/;
 
 export function analyzeItem(input: AnalyzeInput) {
   const content = input.contentParts
@@ -223,6 +232,7 @@ function labelSentiment(profile: SentimentProfile, content: string, context: Con
   if (profile.skillShowcase && profile.score > -0.35 && profile.audienceScore > -0.2) {
     return profile.score > 0.16 || profile.audienceScore > 0.08 ? "positive" : "neutral";
   }
+  if (isLowContextCheatMention(content, profile)) return "neutral";
   if (hasPositive && hasNegative && Math.abs(profile.score) < 0.25) return "mixed";
   if (profile.score > 0.18) return "positive";
   if (profile.score < -0.18) return "negative";
@@ -248,7 +258,7 @@ function assessRisk(
   currentVersionTerms: string[] = []
 ) {
   const sentimentScore = sentimentProfile.score;
-  const illegalRisk = detectIllegalBehavior(content);
+  const illegalRisk = detectIllegalBehavior(content, context);
   const engagement =
     (metrics.views || 0) * 0.002 +
     (metrics.replies || 0) * 2 +
@@ -262,13 +272,16 @@ function assessRisk(
   const audienceDefused = sentimentProfile.audienceMentions >= 3 && sentimentProfile.audienceScore > 0.12 && sentimentScore > -0.35;
   const skillDefused = sentimentProfile.skillShowcase && sentimentProfile.audienceScore > -0.15 && sentimentScore > -0.35;
   const contextDefused = isProtectedDiscussionContext(context);
-  const negativeSignal = sentimentScore < -0.35 && !audienceDefused && !skillDefused && !contextDefused;
+  const isolatedCheatMention = isIsolatedCheatMention(content, sentimentProfile, illegalRisk);
+  const illegalRiskOnly = illegalRisk.level === "high" && !isStrongComplaint(content) && !illegalComplaintPattern.test(content) && !isOfficialImpactComplaint(content);
+  const negativeSignal = sentimentScore < -0.35 && !audienceDefused && !skillDefused && !contextDefused && !isolatedCheatMention && !illegalRiskOnly;
   const sensitiveSignal =
-    /(外挂|倒闭|破游戏|没救|白氪|BUG|bug|炸服|闪退)/.test(content) &&
+    /(倒闭|破游戏|没救|白氪|BUG|bug|炸服|闪退)/.test(content) &&
     !illegalRisk.reasons.length &&
     !audienceDefused &&
     !skillDefused &&
-    !contextDefused;
+    !contextDefused &&
+    !isolatedCheatMention;
   const governanceSignal = /(水军|诈骗|未成年|退款|投诉)/.test(content);
   const versionSignal = currentVersionTerms.length > 0 && (sentimentScore < -0.18 || isCurrentVersionComplaint(content));
   const officialImpactSignal = isOfficialImpactComplaint(content);
@@ -480,18 +493,122 @@ function isCurrentVersionComplaint(content: string) {
   return /(太弱|弱了|削弱|手感.{0,6}差|很差|没用|不好用|难用|垃圾|恶心|离谱|问题|bug|BUG|卡顿|异常|不生效)/.test(content);
 }
 
-function detectIllegalBehavior(content: string) {
+function detectIllegalBehavior(content: string, context: ContextProfile): { level: RiskLevel; reasons: string[] } {
   const reasons: string[] = [];
   let level: RiskLevel = "low";
+  const windows = illegalContextWindows(content);
+  if (!windows.length) return { level, reasons };
 
-  for (const rule of illegalBehaviorRules) {
-    if (!rule.pattern.test(content)) continue;
-    reasons.push(rule.reason);
-    if (rule.level === "high") level = "high";
+  function addReason(reason: string, nextLevel: RiskLevel) {
+    reasons.push(reason);
+    if (nextLevel === "high") level = "high";
     else if (level !== "high") level = "medium";
   }
 
+  if (hasCheatPromotionContext(windows)) addReason("疑似外挂宣传引流", "high");
+  if (hasCheatDemoContext(windows)) addReason("疑似外挂演示内容", "high");
+  if (hasHighRiskToolContext(windows)) addReason("命中外挂/脚本高危词", "high");
+  if (hasCheatGovernanceContext(windows) || (context.environmentInquiry && hasCheatQuestionContext(windows))) {
+    addReason("命中外挂治理线索", "medium");
+  }
+
   return { level, reasons };
+}
+
+function illegalContextWindows(content: string) {
+  const windows: Array<{ term: string; text: string }> = [];
+  illegalContextTermPattern.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = illegalContextTermPattern.exec(content))) {
+    const term = match[0];
+    const start = Math.max(0, match.index - 32);
+    const end = Math.min(content.length, match.index + term.length + 32);
+    windows.push({ term, text: content.slice(start, end) });
+    if (illegalContextTermPattern.lastIndex === match.index) illegalContextTermPattern.lastIndex += 1;
+  }
+  illegalContextTermPattern.lastIndex = 0;
+  return windows;
+}
+
+function hasCheatPromotionContext(windows: Array<{ text: string }>) {
+  return windows.some(({ text }) => {
+    if (!illegalPromotionPattern.test(text)) return false;
+    if (hasStrongIllegalAnchor(text)) return true;
+    return illegalAmbiguousTermPattern.test(text) && !legalAmbiguousTermPattern.test(text);
+  });
+}
+
+function hasCheatDemoContext(windows: Array<{ text: string }>) {
+  return windows.some(({ text }) => {
+    if (isLikelyTagOnlyContext(text)) return false;
+    if (!hasStrongIllegalAnchor(text) && !hasMultipleHighRiskToolTerms(text)) return false;
+    if (illegalStrongDemoPattern.test(text)) return true;
+    return illegalWeakDemoPattern.test(text) && (illegalToolTermPattern.test(text) || /功能|效果|测试|试用|试挂/.test(text));
+  });
+}
+
+function hasHighRiskToolContext(windows: Array<{ text: string }>) {
+  return windows.some(({ text }) => {
+    if (isLikelyTagOnlyContext(text)) return false;
+    if (legalAmbiguousTermPattern.test(text)) return false;
+    if (/(辅助|外挂|外卦|科技).{0,6}(售卖|卖挂|卡密|月卡|周卡|日卡|天卡|包天|包月|过检测|免封)/.test(text)) return true;
+    if (/(售卖|卖挂|卡密|月卡|周卡|日卡|天卡|包天|包月|过检测|免封).{0,6}(辅助|外挂|外卦|科技)/.test(text)) return true;
+    return hasMultipleHighRiskToolTerms(text);
+  });
+}
+
+function hasCheatGovernanceContext(windows: Array<{ text: string }>) {
+  return windows.some(({ text }) => hasAnyIllegalTerm(text) && (illegalGovernancePattern.test(text) || illegalComplaintPattern.test(text)));
+}
+
+function hasCheatQuestionContext(windows: Array<{ text: string }>) {
+  return windows.some(({ text }) => hasStrongIllegalAnchor(text) && illegalQuestionPattern.test(text));
+}
+
+function hasStrongIllegalAnchor(text: string) {
+  return illegalCoreTermPattern.test(text) || illegalToolTermPattern.test(text);
+}
+
+function hasAnyIllegalTerm(text: string) {
+  return illegalAnyTermPattern.test(text);
+}
+
+function hasMultipleHighRiskToolTerms(text: string) {
+  const matched = illegalHighRiskToolWords.filter((word) => text.includes(word));
+  return uniq(matched).length >= 2;
+}
+
+function isLikelyTagOnlyContext(text: string) {
+  const separatorCount = text.match(tagListSeparatorPattern)?.length || 0;
+  return separatorCount >= 3 && skillTagContextPattern.test(text) && !illegalCommercialPattern.test(text) && !illegalGovernancePattern.test(text) && !illegalComplaintPattern.test(text);
+}
+
+function isIsolatedCheatMention(
+  content: string,
+  sentimentProfile: SentimentProfile,
+  illegalRisk: { level: RiskLevel; reasons: string[] }
+) {
+  return (
+    !illegalRisk.reasons.length &&
+    hasAnyIllegalTerm(content) &&
+    sentimentProfile.negative <= 1.6 &&
+    !isStrongComplaint(content) &&
+    !illegalGovernancePattern.test(content) &&
+    !illegalComplaintPattern.test(content)
+  );
+}
+
+function isLowContextCheatMention(content: string, sentimentProfile: SentimentProfile) {
+  return (
+    hasAnyIllegalTerm(content) &&
+    sentimentProfile.negative <= 1.6 &&
+    !isStrongComplaint(content) &&
+    !illegalPromotionPattern.test(content) &&
+    !illegalCommercialPattern.test(content) &&
+    !illegalStrongDemoPattern.test(content) &&
+    !illegalGovernancePattern.test(content) &&
+    !illegalComplaintPattern.test(content)
+  );
 }
 
 function maskContactInfo(text: string) {
