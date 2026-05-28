@@ -130,6 +130,7 @@ export interface MonitorResponse {
 }
 
 export type BettaFishProbeStatus = "ok" | "warning" | "error" | "skipped";
+export type BettaFishOperationSafety = "read" | "manual" | "side-effect";
 
 export interface BettaFishEndpointProbe {
   id: string;
@@ -165,16 +166,80 @@ export interface BettaFishImportPreview {
   samples: MonitorItem[];
 }
 
+export interface BettaFishRuntimeStatus {
+  actionsEnabled: boolean;
+  repoConfigured: boolean;
+  repoDir?: string;
+  python: string;
+  localProcessRunning: boolean;
+  baseUrlConfigured: boolean;
+  startCommandConfigured: boolean;
+  deployCommandConfigured: boolean;
+  sentimentCommandConfigured: boolean;
+}
+
+export interface BettaFishLoginStateCandidate {
+  label: string;
+  path: string;
+  exists: boolean;
+  fileCount?: number;
+  latestModifiedAt?: string;
+}
+
+export interface BettaFishMindSpiderStatus {
+  repoAvailable: boolean;
+  dbDirectConfigured: boolean;
+  crawlerPlatforms: string[];
+  tables: string[];
+  loginStateCandidates: BettaFishLoginStateCandidate[];
+}
+
+export interface BettaFishSentimentStatus {
+  localModelsAvailable: boolean;
+  commandConfigured: boolean;
+  modelCandidates: Array<{
+    name: string;
+    path: string;
+    kind: string;
+  }>;
+}
+
+export interface BettaFishOperation {
+  id: string;
+  group: "agents" | "forum" | "report" | "mindspider" | "sentiment" | "runtime";
+  label: string;
+  description: string;
+  safety: BettaFishOperationSafety;
+  enabled: boolean;
+  disabledReason?: string;
+  target?: string;
+}
+
 export interface BettaFishLabResponse {
   generatedAt: string;
-  mode: "read-only";
+  mode: "test-lab";
   windowHours: number;
   freshnessCutoff: string;
   importDir: string;
   baseUrlConfigured: boolean;
   baseUrl?: string;
+  runtime: BettaFishRuntimeStatus;
+  mindSpider: BettaFishMindSpiderStatus;
+  sentiment: BettaFishSentimentStatus;
+  operations: BettaFishOperation[];
   importPreviews: BettaFishImportPreview[];
   endpointProbes: BettaFishEndpointProbe[];
   capabilities: BettaFishCapability[];
   recommendations: string[];
+}
+
+export interface BettaFishActionResponse {
+  ok: boolean;
+  action: string;
+  generatedAt: string;
+  message: string;
+  target?: string;
+  taskId?: string;
+  result?: unknown;
+  output?: string[];
 }

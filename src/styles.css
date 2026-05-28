@@ -368,6 +368,202 @@ h2 {
   border-top: 1px solid var(--line);
 }
 
+.action-console {
+  padding-top: 14px;
+}
+
+.lab-status-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.status-fact,
+.action-panel,
+.action-result {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 253, 248, 0.96), rgba(250, 251, 246, 0.9)),
+    var(--paper);
+  box-shadow: var(--shadow-soft);
+}
+
+.status-fact {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.status-fact > span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 680;
+}
+
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.action-panel {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 14px;
+}
+
+.action-panel h3 {
+  color: var(--ink-strong);
+  font-size: 16px;
+}
+
+.mini-button-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mini-button-grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.lab-action-button {
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.lab-action-button.read {
+  border-color: rgba(63, 120, 168, 0.3);
+  background: var(--blue-soft);
+  color: #345f87;
+}
+
+.lab-action-button.manual {
+  border-color: rgba(182, 138, 51, 0.38);
+  background: var(--gold-soft);
+  color: #7a5414;
+}
+
+.lab-action-button.side-effect {
+  border-color: rgba(199, 91, 72, 0.26);
+}
+
+.lab-action-button:hover:not(:disabled),
+.lab-action-button:focus-visible:not(:disabled) {
+  border-color: rgba(47, 143, 112, 0.34);
+  box-shadow: 0 8px 20px rgba(38, 48, 43, 0.08);
+}
+
+.lab-action-button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.lab-input {
+  display: grid;
+  gap: 6px;
+}
+
+.lab-input span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.lab-input input,
+.lab-input textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: rgba(255, 253, 248, 0.9);
+  color: var(--ink);
+  outline: 0;
+  resize: vertical;
+}
+
+.lab-input input:focus,
+.lab-input textarea:focus {
+  border-color: rgba(47, 143, 112, 0.42);
+  box-shadow: 0 0 0 3px rgba(47, 143, 112, 0.12);
+}
+
+.lab-inline-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px 92px;
+  gap: 8px;
+}
+
+.candidate-list {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.candidate-list span {
+  border-radius: 999px;
+  background: rgba(237, 242, 237, 0.88);
+  padding: 4px 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.action-result {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 14px;
+  border-left: 4px solid var(--green);
+}
+
+.action-result.error {
+  border-left-color: var(--red);
+}
+
+.action-result div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.action-result strong {
+  color: var(--ink-strong);
+}
+
+.action-result span,
+.action-result p {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.action-result pre {
+  max-height: 320px;
+  overflow: auto;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #18231f;
+  color: #ecf4ee;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
 .capability-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -1337,7 +1533,9 @@ button.metric:focus-visible {
   .metrics-grid,
   .workspace-grid,
   .capability-grid,
-  .import-grid {
+  .import-grid,
+  .action-grid,
+  .lab-status-strip {
     grid-template-columns: 1fr 1fr;
   }
 
@@ -1383,7 +1581,15 @@ button.metric:focus-visible {
   .health-row,
   .capability-grid,
   .import-grid,
+  .action-grid,
+  .lab-status-strip,
   .lab-item-row {
+    grid-template-columns: 1fr;
+  }
+
+  .lab-inline-fields,
+  .mini-button-grid,
+  .mini-button-grid.three {
     grid-template-columns: 1fr;
   }
 

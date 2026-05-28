@@ -7,7 +7,7 @@ import type { ReadableStream as NodeReadableStream } from "node:stream/web";
 import { fileURLToPath } from "node:url";
 import { games, getUpdatePolicy, runtimeConfig } from "./config";
 import { sendDingTalkDailyReport, sendDingTalkTest } from "./dingtalk";
-import { getBettaFishLabResponse } from "./bettafishLab";
+import { getBettaFishLabResponse, runBettaFishLabAction } from "./bettafishLab";
 import { getMonitorResponse } from "./monitor";
 import type { GameId } from "../src/shared";
 
@@ -97,6 +97,20 @@ app.get("/api/bettafish/lab", async (request, response) => {
     response.json(data);
   } catch (error) {
     response.status(500).json({
+      message: error instanceof Error ? error.message : "未知错误"
+    });
+  }
+});
+
+app.post("/api/bettafish/lab/action", async (request, response) => {
+  try {
+    const result = await runBettaFishLabAction(request.body);
+    response.status(result.ok ? 200 : 400).json(result);
+  } catch (error) {
+    response.status(500).json({
+      ok: false,
+      action: "unknown",
+      generatedAt: new Date().toISOString(),
       message: error instanceof Error ? error.message : "未知错误"
     });
   }

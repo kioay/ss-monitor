@@ -17,8 +17,10 @@ import {
   Waves
 } from "lucide-react";
 import type {
+  BettaFishActionResponse,
   BettaFishCapability,
   BettaFishLabResponse,
+  BettaFishOperation,
   BettaFishProbeStatus,
   GameConfig,
   GameId,
@@ -35,7 +37,8 @@ import "./styles.css";
 const api = {
   config: "/api/config",
   monitor: "/api/monitor",
-  bettafishLab: "/api/bettafish/lab"
+  bettafishLab: "/api/bettafish/lab",
+  bettafishLabAction: "/api/bettafish/lab/action"
 };
 const clientCacheMaxAgeMs = 4 * 3_600_000;
 
@@ -480,6 +483,8 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
   const [data, setData] = React.useState<BettaFishLabResponse>();
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
+  const [actionLoading, setActionLoading] = React.useState("");
+  const [actionResult, setActionResult] = React.useState<BettaFishActionResponse>();
 
   const loadLab = React.useCallback(async () => {
     setLoading(true);
@@ -499,6 +504,30 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
     }
   }, [windowHours]);
 
+  const runAction = React.useCallback(
+    async (payload: Record<string, unknown>) => {
+      const action = String(payload.action || "");
+      setActionLoading(action);
+      setError("");
+      try {
+        const response = await fetch(api.bettafishLabAction, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const result = (await response.json()) as BettaFishActionResponse;
+        setActionResult(result);
+        if (!response.ok || !result.ok) setError(result.message || `Action ${response.status}`);
+        await loadLab();
+      } catch (reason) {
+        setError(reason instanceof Error ? reason.message : String(reason));
+      } finally {
+        setActionLoading("");
+      }
+    },
+    [loadLab]
+  );
+
   React.useEffect(() => {
     loadLab();
   }, [loadLab]);
@@ -516,7 +545,7 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
           <h2>测试接入分页</h2>
           <p>
             {data
-              ? `只读模式 · ${data.baseUrlConfigured ? data.baseUrl : "未配置 BettaFish Base URL"} · 导入目录 ${data.importDir}`
+              ? `测试模式 · ${data.baseUrlConfigured ? data.baseUrl : "未配置 BettaFish Base URL"} · 导入目录 ${data.importDir}`
               : "准备读取 BettaFish 测试状态"}
           </p>
         </div>
@@ -541,6 +570,8 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
 
       {data ? (
         <>
+          <LabActionPanel data={data} loadingAction={actionLoading} actionResult={actionResult} onAction={runAction} />
+
           <section className="lab-section">
             <div className="section-title">
               <Plug size={18} />
@@ -627,6 +658,202 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
           </section>
         </>
       ) : null}
+    </div>
+  );
+}
+
+function LabActionPanel({
+  data,
+  loadingAction,
+  actionResult,
+  onAction
+}: {
+  data: BettaFishLabResponse;
+  loadingAction: string;
+  actionResult?: BettaFishActionResponse;
+  onAction: (payload: Record<string, unknown>) => void;
+}) {
+  const [agentQuery, setAgentQuery] = React.useState("生死狙击最近玩家最主要的不满点是什么？");
+  const [reportQuery, setReportQuery] = React.useState("生死狙击近 72 小时舆情复盘");
+  const [reportTaskId, setReportTaskId] = React.useState("");
+  const [sentimentText, setSentimentText] = React.useState("这次更新匹配体验变差了，外挂也有点多，希望官方尽快处理。");
+  const [platformsText, setPlatformsText] = React.useState("xhs");
+  const [maxKeywords, setMaxKeywords] = React.useState(3);
+  const [maxNotes, setMaxNotes] = React.useState(5);
+  const operations = React.useMemo(() => new Map(data.operations.map((operation) => [operation.id, operation])), [data.operations]);
+  const op = React.useCallback((id: string) => operations.get(id), [operations]);
+  const isBusy = Boolean(loadingAction);
+
+  React.useEffect(() => {
+    if (actionResult?.taskId) setReportTaskId(actionResult.taskId);
+  }, [actionResult?.taskId]);
+
+  const run = (payload: Record<string, unknown>) => onAction(payload);
+  const crawlerPlatforms = platformsText.split(/[,，\s]+/).map((item) => item.trim()).filter(Boolean);
+
+  return (
+    <section className="lab-section action-console">
+      <div className="section-title">
+        <TestTube2 size={18} />
+        <h2>手动接入动作</h2>
+      </div>
+
+      <div className="lab-status-strip">
+        <StatusFact label="动作开关" value={data.runtime.actionsEnabled ? "已开启" : "未开启"} tone={data.runtime.actionsEnabled ? "ok" : "warning"} />
+        <StatusFact label="BettaFish URL" value={data.runtime.baseUrlConfigured ? "已配置" : "未配置"} tone={data.runtime.baseUrlConfigured ? "ok" : "skipped"} />
+        <StatusFact label="Repo" value={data.runtime.repoConfigured ? "已配置" : "未配置"} tone={data.runtime.repoConfigured ? "ok" : "skipped"} />
+        <StatusFact label="本地进程" value={data.runtime.localProcessRunning ? "运行中" : "未运行"} tone={data.runtime.localProcessRunning ? "ok" : "skipped"} />
+      </div>
+
+      <div className="action-grid">
+        <div className="action-panel">
+          <h3>Query / Media / Insight Agent</h3>
+          <div className="mini-button-grid">
+            {(["insight", "media", "query"] as const).map((name) => (
+              <React.Fragment key={name}>
+                <ActionButton operation={op(`agent.start.${name}`)} busy={loadingAction === `agent.start.${name}`} disabled={isBusy} onClick={() => run({ action: `agent.start.${name}` })} />
+                <ActionButton operation={op(`agent.stop.${name}`)} busy={loadingAction === `agent.stop.${name}`} disabled={isBusy} onClick={() => run({ action: `agent.stop.${name}` })} />
+              </React.Fragment>
+            ))}
+          </div>
+          <label className="lab-input">
+            <span>Agent 问题</span>
+            <textarea value={agentQuery} onChange={(event) => setAgentQuery(event.target.value)} rows={3} />
+          </label>
+          <ActionButton operation={op("agent.search")} busy={loadingAction === "agent.search"} disabled={isBusy} onClick={() => run({ action: "agent.search", query: agentQuery })} />
+        </div>
+
+        <div className="action-panel">
+          <h3>ForumEngine</h3>
+          <div className="mini-button-grid three">
+            <ActionButton operation={op("forum.start")} busy={loadingAction === "forum.start"} disabled={isBusy} onClick={() => run({ action: "forum.start" })} />
+            <ActionButton operation={op("forum.stop")} busy={loadingAction === "forum.stop"} disabled={isBusy} onClick={() => run({ action: "forum.stop" })} />
+            <ActionButton operation={op("forum.log")} busy={loadingAction === "forum.log"} disabled={isBusy} onClick={() => run({ action: "forum.log" })} />
+          </div>
+          <div className="candidate-list">
+            {data.mindSpider.loginStateCandidates.map((candidate) => (
+              <span key={candidate.path}>{candidate.label}: {candidate.exists ? `${candidate.fileCount || 0} 文件` : "未发现"}</span>
+            ))}
+          </div>
+        </div>
+
+        <div className="action-panel">
+          <h3>ReportEngine</h3>
+          <label className="lab-input">
+            <span>报告主题</span>
+            <input value={reportQuery} onChange={(event) => setReportQuery(event.target.value)} />
+          </label>
+          <ActionButton operation={op("report.generate")} busy={loadingAction === "report.generate"} disabled={isBusy} onClick={() => run({ action: "report.generate", query: reportQuery })} />
+          <label className="lab-input">
+            <span>Task ID</span>
+            <input value={reportTaskId} onChange={(event) => setReportTaskId(event.target.value)} placeholder="report_..." />
+          </label>
+          <div className="mini-button-grid three">
+            <ActionButton operation={op("report.progress")} busy={loadingAction === "report.progress"} disabled={isBusy} onClick={() => run({ action: "report.progress", taskId: reportTaskId })} />
+            <ActionButton operation={op("report.resultJson")} busy={loadingAction === "report.resultJson"} disabled={isBusy} onClick={() => run({ action: "report.resultJson", taskId: reportTaskId })} />
+            <ActionButton operation={op("report.cancel")} busy={loadingAction === "report.cancel"} disabled={isBusy} onClick={() => run({ action: "report.cancel", taskId: reportTaskId })} />
+          </div>
+        </div>
+
+        <div className="action-panel">
+          <h3>MindSpider</h3>
+          <div className="mini-button-grid">
+            <ActionButton operation={op("mindspider.status")} busy={loadingAction === "mindspider.status"} disabled={isBusy} onClick={() => run({ action: "mindspider.status" })} />
+            <ActionButton operation={op("mindspider.dbProbe")} busy={loadingAction === "mindspider.dbProbe"} disabled={isBusy} onClick={() => run({ action: "mindspider.dbProbe" })} />
+            <ActionButton operation={op("mindspider.initDb")} busy={loadingAction === "mindspider.initDb"} disabled={isBusy} onClick={() => run({ action: "mindspider.initDb" })} />
+          </div>
+          <div className="lab-inline-fields">
+            <label className="lab-input">
+              <span>平台</span>
+              <input value={platformsText} onChange={(event) => setPlatformsText(event.target.value)} />
+            </label>
+            <label className="lab-input">
+              <span>关键词</span>
+              <input type="number" min={1} max={50} value={maxKeywords} onChange={(event) => setMaxKeywords(Number(event.target.value))} />
+            </label>
+            <label className="lab-input">
+              <span>条数</span>
+              <input type="number" min={1} max={50} value={maxNotes} onChange={(event) => setMaxNotes(Number(event.target.value))} />
+            </label>
+          </div>
+          <ActionButton
+            operation={op("mindspider.crawlTest")}
+            busy={loadingAction === "mindspider.crawlTest"}
+            disabled={isBusy}
+            onClick={() => run({ action: "mindspider.crawlTest", platforms: crawlerPlatforms, maxKeywords, maxNotes })}
+          />
+        </div>
+
+        <div className="action-panel">
+          <h3>情感模型 / LLM</h3>
+          <div className="candidate-list">
+            <span>模型候选：{data.sentiment.modelCandidates.length}</span>
+            <span>命令：{data.sentiment.commandConfigured ? "已配置" : "未配置"}</span>
+          </div>
+          <label className="lab-input">
+            <span>待分析文本</span>
+            <textarea value={sentimentText} onChange={(event) => setSentimentText(event.target.value)} rows={4} />
+          </label>
+          <ActionButton operation={op("sentiment.analyze")} busy={loadingAction === "sentiment.analyze"} disabled={isBusy} onClick={() => run({ action: "sentiment.analyze", text: sentimentText })} />
+        </div>
+
+        <div className="action-panel">
+          <h3>自动启动 / 控制 / 部署</h3>
+          <div className="mini-button-grid">
+            <ActionButton operation={op("runtime.localStart")} busy={loadingAction === "runtime.localStart"} disabled={isBusy} onClick={() => run({ action: "runtime.localStart" })} />
+            <ActionButton operation={op("runtime.localStop")} busy={loadingAction === "runtime.localStop"} disabled={isBusy} onClick={() => run({ action: "runtime.localStop" })} />
+            <ActionButton operation={op("runtime.systemStart")} busy={loadingAction === "runtime.systemStart"} disabled={isBusy} onClick={() => run({ action: "runtime.systemStart" })} />
+            <ActionButton operation={op("runtime.systemShutdown")} busy={loadingAction === "runtime.systemShutdown"} disabled={isBusy} onClick={() => run({ action: "runtime.systemShutdown" })} />
+          </div>
+          <ActionButton operation={op("runtime.deploy")} busy={loadingAction === "runtime.deploy"} disabled={isBusy} onClick={() => run({ action: "runtime.deploy" })} />
+        </div>
+      </div>
+
+      {actionResult ? <ActionResultView result={actionResult} /> : null}
+    </section>
+  );
+}
+
+function ActionButton({
+  operation,
+  busy,
+  disabled,
+  onClick
+}: {
+  operation?: BettaFishOperation;
+  busy: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  if (!operation) return null;
+  const isDisabled = disabled || !operation.enabled;
+  return (
+    <button className={`lab-action-button ${operation.safety}`} type="button" disabled={isDisabled} onClick={onClick} title={operation.disabledReason || operation.description}>
+      {busy ? "执行中..." : operation.label}
+    </button>
+  );
+}
+
+function StatusFact({ label, value, tone }: { label: string; value: string; tone: BettaFishProbeStatus }) {
+  return (
+    <div className="status-fact">
+      <span>{label}</span>
+      <StatusPill status={tone} label={value} />
+    </div>
+  );
+}
+
+function ActionResultView({ result }: { result: BettaFishActionResponse }) {
+  const body = result.output?.length ? result.output.join("\n") : JSON.stringify(result.result ?? result, null, 2);
+  return (
+    <div className={`action-result ${result.ok ? "ok" : "error"}`}>
+      <div>
+        <strong>{result.action}</strong>
+        <span>{result.message}</span>
+      </div>
+      {result.taskId ? <p>Task ID: {result.taskId}</p> : null}
+      {result.target ? <p>{result.target}</p> : null}
+      <pre>{body}</pre>
     </div>
   );
 }

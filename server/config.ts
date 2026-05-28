@@ -40,6 +40,12 @@ export const runtimeConfig = {
   douyinAuthorizedSourcesPath: process.env.DOUYIN_AUTHORIZED_SOURCES_PATH || "data/douyin-authorized-sources.json",
   bettaFishBaseUrl: normalizeOptionalBaseUrl(process.env.BETTAFISH_BASE_URL || ""),
   bettaFishImportDir: process.env.BETTAFISH_IMPORT_DIR || "data/bettafish-imports",
+  bettaFishLabActionsEnabled: parseBoolean(process.env.BETTAFISH_LAB_ACTIONS_ENABLED || ""),
+  bettaFishRepoDir: process.env.BETTAFISH_REPO_DIR || "",
+  bettaFishPython: process.env.BETTAFISH_PYTHON || "python",
+  bettaFishStartCommand: process.env.BETTAFISH_START_COMMAND || "",
+  bettaFishDeployCommand: process.env.BETTAFISH_DEPLOY_COMMAND || "",
+  bettaFishSentimentCommand: process.env.BETTAFISH_SENTIMENT_COMMAND || "",
   dingTalkWebhook: process.env.DINGTALK_WEBHOOK || "",
   dingTalkSecret: process.env.DINGTALK_SECRET || "",
   dingTalkSs1ExtraWebhooks: process.env.DINGTALK_SS1_EXTRA_WEBHOOKS || "",
@@ -95,6 +101,10 @@ function normalizeOptionalBaseUrl(value: string) {
   } catch {
     return trimmed;
   }
+}
+
+function parseBoolean(value: string) {
+  return /^(1|true|yes|on)$/i.test(value.trim());
 }
 
 function formatInterval(seconds: number) {

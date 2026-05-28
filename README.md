@@ -58,7 +58,8 @@ B站或贴吧触发风控时，把浏览器中对应站点的 Cookie 放入 `.en
 - `GET /api/config`
 - `GET /api/health`
 - `GET /api/monitor?games=ss1,ss2&windowHours=72&limit=120&force=1`
-- `GET /api/bettafish/lab?windowHours=72`：BettaFish 只读测试台数据，不触发搜索、爬虫、报告生成或 DingTalk 通知。
+- `GET /api/bettafish/lab?windowHours=72`：BettaFish 测试台状态、能力覆盖、导入预览和只读探测。
+- `POST /api/bettafish/lab/action`：BettaFish 测试台手动动作代理。默认被 `BETTAFISH_LAB_ACTIONS_ENABLED=false` 禁用。
 
 ## Douyin authorized import
 
@@ -123,4 +124,13 @@ BettaFish is a full Python public-opinion system with its own Flask app, Streaml
 
 See `examples/bettafish-import.example.json` for supported fields. Common MindSpider tables such as `douyin_aweme`, `bilibili_video`, `xhs_note`, `weibo_note`, `tieba_note`, and `zhihu_content` are mapped by alias.
 
-The frontend also has a separate `BettaFish 测试台` tab. It is intentionally read-only: it previews imported rows, shows semantic analysis samples, and probes safe BettaFish status/log/template endpoints. It does not call BettaFish search, crawler start/stop, report generation, or forum start/stop endpoints.
+The frontend also has a separate `BettaFish 测试台` tab. It keeps BettaFish outside the main monitor pipeline, but can now test every major integration surface:
+
+- Query / Media / Insight Agent start, stop, output probing, and `/api/search`.
+- ForumEngine start, stop, and log reading.
+- ReportEngine status, template/log probing, report generation, progress, result JSON, and cancellation.
+- MindSpider export import, login-state directory inspection, CLI status, database table/stat probing, DB initialization, and test-mode crawler scheduling.
+- BettaFish sentiment model or LLM analysis through `BETTAFISH_SENTIMENT_COMMAND` or the running Agent stack.
+- Local BettaFish start/stop, full-system start/shutdown, and an optional fixed deploy command.
+
+Side-effect actions are blocked unless `BETTAFISH_LAB_ACTIONS_ENABLED=true` is set on the server. Keep it disabled for public production access, or protect the route at the network/auth layer before enabling.
