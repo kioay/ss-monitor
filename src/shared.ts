@@ -130,7 +130,7 @@ export interface MonitorResponse {
 }
 
 export type BettaFishProbeStatus = "ok" | "warning" | "error" | "skipped";
-export type BettaFishOperationSafety = "read" | "manual" | "side-effect";
+export type BettaFishOperationSafety = "read" | "manual" | "research";
 
 export interface BettaFishEndpointProbe {
   id: string;

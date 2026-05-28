@@ -59,7 +59,7 @@ B站或贴吧触发风控时，把浏览器中对应站点的 Cookie 放入 `.en
 - `GET /api/health`
 - `GET /api/monitor?games=ss1,ss2&windowHours=72&limit=120&force=1`
 - `GET /api/bettafish/lab?windowHours=72`：BettaFish 测试台状态、能力覆盖、导入预览和只读探测。
-- `POST /api/bettafish/lab/action`：BettaFish 测试台手动动作代理。默认被 `BETTAFISH_LAB_ACTIONS_ENABLED=false` 禁用。
+- `POST /api/bettafish/lab/action`：BettaFish 测试台固定研究操作代理。默认启用；设置 `BETTAFISH_LAB_ACTIONS_ENABLED=false` 可关闭。
 
 ## Douyin authorized import
 
@@ -134,4 +134,4 @@ The frontend also has a separate `BettaFish 测试台` tab. It keeps BettaFish o
 - BettaFish sentiment model or LLM analysis through `BETTAFISH_SENTIMENT_COMMAND` or the running Agent stack.
 - Local BettaFish start/stop, full-system start/shutdown, and an optional fixed deploy command.
 
-Read-only lab actions such as log/progress/status probes can run when their target is configured. Side-effect actions are blocked unless `BETTAFISH_LAB_ACTIONS_ENABLED=true` is set on the server. Keep it disabled for public production access, or protect the route at the network/auth layer before enabling.
+The test lab exposes only fixed research operations defined by the server, such as log/progress/status probes, Agent start/search, MindSpider test crawling, report generation, and optional deployment. These operations are enabled by default for the academic research test bench; set `BETTAFISH_LAB_ACTIONS_ENABLED=false` to close the operation surface on a deployment that should be read-only.

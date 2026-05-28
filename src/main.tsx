@@ -832,11 +832,11 @@ function LabActionPanel({
     <section className="lab-section action-console">
       <div className="section-title">
         <TestTube2 size={18} />
-        <h2>手动接入动作</h2>
+        <h2>研究操作测试台</h2>
       </div>
 
       <div className="lab-status-strip">
-        <StatusFact label="动作开关" value={data.runtime.actionsEnabled ? "已开启" : "未开启"} tone={data.runtime.actionsEnabled ? "ok" : "warning"} />
+        <StatusFact label="研究操作" value={data.runtime.actionsEnabled ? "已开启" : "未开启"} tone={data.runtime.actionsEnabled ? "ok" : "warning"} />
         <StatusFact label="BettaFish URL" value={baseUrlValue} tone={data.runtime.baseUrlConfigured ? "ok" : "skipped"} />
         <StatusFact label="Repo" value={repoValue} tone={data.runtime.repoConfigured ? "ok" : "skipped"} />
         <StatusFact label="Python" value={pythonValue} tone={data.runtime.pythonAvailable ? "ok" : "error"} />

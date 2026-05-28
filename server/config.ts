@@ -50,7 +50,7 @@ export const runtimeConfig = {
   bettaFishBaseUrl,
   bettaFishBaseUrlAutoConfigured: Boolean(bettaFishBaseUrl && !process.env.BETTAFISH_BASE_URL),
   bettaFishImportDir: process.env.BETTAFISH_IMPORT_DIR || "data/bettafish-imports",
-  bettaFishLabActionsEnabled: parseBoolean(process.env.BETTAFISH_LAB_ACTIONS_ENABLED || ""),
+  bettaFishLabActionsEnabled: parseBoolean(process.env.BETTAFISH_LAB_ACTIONS_ENABLED || "true"),
   bettaFishRepoDir: detectedBettaFishRepoDir,
   bettaFishRepoAutoDetected,
   bettaFishPython,

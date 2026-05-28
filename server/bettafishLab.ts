@@ -44,13 +44,6 @@ const actionSchema = z.object({
 
 const appNames = ["insight", "media", "query"] as const;
 const crawlerPlatforms = ["xhs", "dy", "ks", "bili", "wb", "tieba", "zhihu"];
-const readOnlyActionIds = new Set([
-  "forum.log",
-  "report.progress",
-  "report.resultJson",
-  "mindspider.status",
-  "mindspider.dbProbe"
-]);
 const mindSpiderTables = [
   "daily_news",
   "daily_topics",
@@ -186,8 +179,8 @@ export async function runBettaFishLabAction(rawBody: unknown): Promise<BettaFish
   const body = actionSchema.parse(rawBody);
   const action = body.action;
 
-  if (!runtimeConfig.bettaFishLabActionsEnabled && !readOnlyActionIds.has(action)) {
-    return actionResponse(action, false, "测试台动作未启用。设置 BETTAFISH_LAB_ACTIONS_ENABLED=true 后才能执行启动、搜索、爬取、报告或部署动作。");
+  if (!runtimeConfig.bettaFishLabActionsEnabled) {
+    return actionResponse(action, false, "测试台研究操作已被配置关闭。设置 BETTAFISH_LAB_ACTIONS_ENABLED=true 后可执行启动、搜索、爬取、报告和部署研究操作。");
   }
 
   if (action.startsWith("agent.start.")) return proxyBettaFish(action, `/api/start/${appNameFromAction(action)}`, { method: "GET" });
@@ -240,7 +233,7 @@ export async function runBettaFishLabAction(rawBody: unknown): Promise<BettaFish
     case "runtime.deploy":
       return runDeployCommand(action);
     default:
-      return actionResponse(action, false, `未知测试台动作: ${action}`);
+      return actionResponse(action, false, `未知测试台研究操作: ${action}`);
   }
 }
 
@@ -393,40 +386,40 @@ function makeOperations(
   const baseUrlReason = runtime.baseUrlConfigured ? "" : "需要 BETTAFISH_BASE_URL";
   const repoReason = runtime.repoConfigured ? "" : "需要 BETTAFISH_REPO_DIR";
   const pythonReason = runtime.pythonAvailable ? "" : `需要可用的 ${runtime.python}`;
-  const actionsReason = runtime.actionsEnabled ? "" : "需要 BETTAFISH_LAB_ACTIONS_ENABLED=true";
+  const actionsReason = runtime.actionsEnabled ? "" : "研究操作开关未开启";
   const httpEnabled = runtime.actionsEnabled && runtime.baseUrlConfigured;
-  const httpReadEnabled = runtime.baseUrlConfigured;
+  const httpReadEnabled = runtime.actionsEnabled && runtime.baseUrlConfigured;
   const repoEnabled = runtime.actionsEnabled && runtime.repoConfigured && mindSpider.repoAvailable && runtime.pythonAvailable;
-  const repoReadEnabled = runtime.repoConfigured && mindSpider.repoAvailable && runtime.pythonAvailable;
+  const repoReadEnabled = runtime.actionsEnabled && runtime.repoConfigured && mindSpider.repoAvailable && runtime.pythonAvailable;
   const localStartEnabled = runtime.actionsEnabled && runtime.repoConfigured && runtime.pythonAvailable;
   const deployEnabled = runtime.actionsEnabled && runtime.repoConfigured && runtime.deployCommandConfigured;
   const sentimentEnabled = runtime.actionsEnabled && (runtime.sentimentCommandConfigured || runtime.baseUrlConfigured);
   const operations: BettaFishOperation[] = [];
 
   for (const appName of appNames) {
-    operations.push(operation(`agent.start.${appName}`, "agents", `启动 ${appName} Agent`, `调用 BettaFish /api/start/${appName}`, "side-effect", httpEnabled, disabledReason(actionsReason, baseUrlReason), `/api/start/${appName}`));
-    operations.push(operation(`agent.stop.${appName}`, "agents", `停止 ${appName} Agent`, `调用 BettaFish /api/stop/${appName}`, "side-effect", httpEnabled, disabledReason(actionsReason, baseUrlReason), `/api/stop/${appName}`));
+    operations.push(operation(`agent.start.${appName}`, "agents", `启动 ${appName} Agent`, `调用 BettaFish /api/start/${appName}`, "research", httpEnabled, disabledReason(actionsReason, baseUrlReason), `/api/start/${appName}`));
+    operations.push(operation(`agent.stop.${appName}`, "agents", `停止 ${appName} Agent`, `调用 BettaFish /api/stop/${appName}`, "research", httpEnabled, disabledReason(actionsReason, baseUrlReason), `/api/stop/${appName}`));
   }
 
   operations.push(
-    operation("agent.search", "agents", "Agent 搜索/分析", "调用 BettaFish /api/search，让运行中的 Query/Media/Insight Agent 处理同一个问题", "side-effect", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/search"),
-    operation("forum.start", "forum", "启动 ForumEngine", "调用 BettaFish /api/forum/start", "side-effect", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/forum/start"),
-    operation("forum.stop", "forum", "停止 ForumEngine", "调用 BettaFish /api/forum/stop", "side-effect", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/forum/stop"),
-    operation("forum.log", "forum", "读取 ForumEngine 日志", "调用 BettaFish /api/forum/log", "read", httpReadEnabled, disabledReason(baseUrlReason), "/api/forum/log"),
-    operation("report.generate", "report", "生成报告", "调用 BettaFish /api/report/generate", "side-effect", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/report/generate"),
-    operation("report.progress", "report", "查询报告进度", "调用 BettaFish /api/report/progress/<taskId>", "read", httpReadEnabled, disabledReason(baseUrlReason), "/api/report/progress/<taskId>"),
-    operation("report.resultJson", "report", "读取报告结果", "调用 BettaFish /api/report/result/<taskId>/json", "read", httpReadEnabled, disabledReason(baseUrlReason), "/api/report/result/<taskId>/json"),
-    operation("report.cancel", "report", "取消报告任务", "调用 BettaFish /api/report/cancel/<taskId>", "side-effect", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/report/cancel/<taskId>"),
-    operation("mindspider.status", "mindspider", "MindSpider 状态", "执行 MindSpider/main.py --status", "read", repoReadEnabled, disabledReason(repoReason, pythonReason), "MindSpider/main.py --status"),
-    operation("mindspider.dbProbe", "mindspider", "数据库直连检查", "执行 MindSpider/schema/db_manager.py --tables --stats", "read", repoReadEnabled, disabledReason(repoReason, pythonReason), "MindSpider/schema/db_manager.py --tables --stats"),
-    operation("mindspider.initDb", "mindspider", "初始化数据库", "执行 MindSpider/main.py --init-db", "side-effect", repoEnabled, disabledReason(actionsReason, repoReason, pythonReason), "MindSpider/main.py --init-db"),
-    operation("mindspider.crawlTest", "mindspider", "测试爬虫调度", "执行 MindSpider/main.py --deep-sentiment --test", "side-effect", repoEnabled, disabledReason(actionsReason, repoReason, pythonReason), "MindSpider/main.py --deep-sentiment --test"),
-    operation("sentiment.analyze", "sentiment", "情感模型/LLM 分析", "优先执行 BETTAFISH_SENTIMENT_COMMAND，否则通过 BettaFish Agent 搜索发起 LLM 判定", "side-effect", sentimentEnabled, disabledReason(actionsReason, runtime.sentimentCommandConfigured || runtime.baseUrlConfigured ? "" : "需要 BETTAFISH_SENTIMENT_COMMAND 或 BETTAFISH_BASE_URL"), "sentiment"),
-    operation("runtime.systemStart", "runtime", "启动完整 BettaFish 系统", "调用 BettaFish /api/system/start", "side-effect", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/system/start"),
-    operation("runtime.systemShutdown", "runtime", "关闭 BettaFish 系统", "调用 BettaFish /api/system/shutdown", "side-effect", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/system/shutdown"),
-    operation("runtime.localStart", "runtime", "本地启动 BettaFish", "用 BETTAFISH_REPO_DIR 与 BETTAFISH_START_COMMAND/python app.py 启动 BettaFish", "side-effect", localStartEnabled, disabledReason(actionsReason, repoReason, pythonReason), "local process"),
-    operation("runtime.localStop", "runtime", "停止本地启动进程", "停止由本测试台启动的 BettaFish 子进程", "side-effect", runtime.actionsEnabled, actionsReason || undefined, "local process"),
-    operation("runtime.deploy", "runtime", "执行部署命令", "执行 BETTAFISH_DEPLOY_COMMAND", "side-effect", deployEnabled, disabledReason(actionsReason, repoReason, runtime.deployCommandConfigured ? "" : "需要 BETTAFISH_DEPLOY_COMMAND"), "deploy command")
+    operation("agent.search", "agents", "Agent 搜索/分析", "调用 BettaFish /api/search，让运行中的 Query/Media/Insight Agent 处理同一个问题", "research", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/search"),
+    operation("forum.start", "forum", "启动 ForumEngine", "调用 BettaFish /api/forum/start", "research", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/forum/start"),
+    operation("forum.stop", "forum", "停止 ForumEngine", "调用 BettaFish /api/forum/stop", "research", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/forum/stop"),
+    operation("forum.log", "forum", "读取 ForumEngine 日志", "调用 BettaFish /api/forum/log", "read", httpReadEnabled, disabledReason(actionsReason, baseUrlReason), "/api/forum/log"),
+    operation("report.generate", "report", "生成报告", "调用 BettaFish /api/report/generate", "research", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/report/generate"),
+    operation("report.progress", "report", "查询报告进度", "调用 BettaFish /api/report/progress/<taskId>", "read", httpReadEnabled, disabledReason(actionsReason, baseUrlReason), "/api/report/progress/<taskId>"),
+    operation("report.resultJson", "report", "读取报告结果", "调用 BettaFish /api/report/result/<taskId>/json", "read", httpReadEnabled, disabledReason(actionsReason, baseUrlReason), "/api/report/result/<taskId>/json"),
+    operation("report.cancel", "report", "取消报告任务", "调用 BettaFish /api/report/cancel/<taskId>", "research", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/report/cancel/<taskId>"),
+    operation("mindspider.status", "mindspider", "MindSpider 状态", "执行 MindSpider/main.py --status", "read", repoReadEnabled, disabledReason(actionsReason, repoReason, pythonReason), "MindSpider/main.py --status"),
+    operation("mindspider.dbProbe", "mindspider", "数据库直连检查", "执行 MindSpider/schema/db_manager.py --tables --stats", "read", repoReadEnabled, disabledReason(actionsReason, repoReason, pythonReason), "MindSpider/schema/db_manager.py --tables --stats"),
+    operation("mindspider.initDb", "mindspider", "初始化数据库", "执行 MindSpider/main.py --init-db", "research", repoEnabled, disabledReason(actionsReason, repoReason, pythonReason), "MindSpider/main.py --init-db"),
+    operation("mindspider.crawlTest", "mindspider", "测试爬虫调度", "执行 MindSpider/main.py --deep-sentiment --test", "research", repoEnabled, disabledReason(actionsReason, repoReason, pythonReason), "MindSpider/main.py --deep-sentiment --test"),
+    operation("sentiment.analyze", "sentiment", "情感模型/LLM 分析", "优先执行 BETTAFISH_SENTIMENT_COMMAND，否则通过 BettaFish Agent 搜索发起 LLM 判定", "research", sentimentEnabled, disabledReason(actionsReason, runtime.sentimentCommandConfigured || runtime.baseUrlConfigured ? "" : "需要 BETTAFISH_SENTIMENT_COMMAND 或 BETTAFISH_BASE_URL"), "sentiment"),
+    operation("runtime.systemStart", "runtime", "启动完整 BettaFish 系统", "调用 BettaFish /api/system/start", "research", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/system/start"),
+    operation("runtime.systemShutdown", "runtime", "关闭 BettaFish 系统", "调用 BettaFish /api/system/shutdown", "research", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/system/shutdown"),
+    operation("runtime.localStart", "runtime", "本地启动 BettaFish", "用 BETTAFISH_REPO_DIR 与 BETTAFISH_START_COMMAND/python app.py 启动 BettaFish", "research", localStartEnabled, disabledReason(actionsReason, repoReason, pythonReason), "local process"),
+    operation("runtime.localStop", "runtime", "停止本地启动进程", "停止由本测试台启动的 BettaFish 子进程", "research", runtime.actionsEnabled, actionsReason || undefined, "local process"),
+    operation("runtime.deploy", "runtime", "执行部署命令", "执行 BETTAFISH_DEPLOY_COMMAND", "research", deployEnabled, disabledReason(actionsReason, repoReason, runtime.deployCommandConfigured ? "" : "需要 BETTAFISH_DEPLOY_COMMAND"), "deploy command")
   );
 
   return operations;
@@ -547,11 +540,11 @@ function makeCapabilities(
       id: "runtime",
       name: "BettaFish 自动启动 / 控制 / 部署",
       goal: "把 BettaFish 作为外部系统可控地纳入测试流程",
-      currentProjectUse: "测试台接入本地启动、系统启动/关闭和可配置部署命令；默认不开启动作",
-      testCoverage: "可通过开关启用手动动作，执行本地进程启动、/api/system/start、/api/system/shutdown、部署命令",
+      currentProjectUse: "测试台接入本地启动、系统启动/关闭和可配置部署命令；固定研究操作默认开启",
+      testCoverage: "可执行固定研究操作：本地进程启动、/api/system/start、/api/system/shutdown、部署命令",
       status: runtime.actionsEnabled ? "ok" : "warning",
       evidence: [
-        `动作开关：${runtime.actionsEnabled ? "已开启" : "未开启"}`,
+        `研究操作：${runtime.actionsEnabled ? "已开启" : "未开启"}`,
         `Repo：${runtime.repoConfigured ? "已配置" : "未配置"}`,
         `Python：${runtime.pythonAvailable ? runtime.pythonVersion || "可用" : `${runtime.python} 不可用`}`,
         `部署命令：${runtime.deployCommandConfigured ? "已配置" : "未配置"}`
@@ -585,7 +578,7 @@ async function proxyBettaFish(
       ok,
       action,
       generatedAt: new Date().toISOString(),
-      message: ok ? "BettaFish 动作执行完成" : `BettaFish 动作返回异常: HTTP ${response.status}`,
+      message: ok ? "BettaFish 研究操作执行完成" : `BettaFish 研究操作返回异常: HTTP ${response.status}`,
       target,
       ...(options.pickTaskId && isRecord(result) && typeof result.task_id === "string" ? { taskId: result.task_id } : {}),
       result
@@ -849,7 +842,7 @@ function makeRecommendations(
   if (monitorTotal === 0) recommendations.push("测试台 SS1/SS2 监控暂未拿到新鲜条目；先检查来源健康、采集缓存和关键词覆盖。");
   if (gameMonitors.some((monitor) => monitor.status === "error")) recommendations.push("有游戏监控快照生成失败，优先查看对应来源健康错误和服务日志。");
   if (!runtime.baseUrlConfigured) recommendations.push("配置 BETTAFISH_BASE_URL 后，测试台可代理 Query/Media/Insight、ForumEngine、ReportEngine 和系统控制接口。");
-  if (!runtime.actionsEnabled) recommendations.push("动作控件已接入但默认禁用；需要执行启动/搜索/爬取/报告/部署时设置 BETTAFISH_LAB_ACTIONS_ENABLED=true。");
+  if (!runtime.actionsEnabled) recommendations.push("研究操作被配置关闭；需要执行启动/搜索/爬取/报告/部署时设置 BETTAFISH_LAB_ACTIONS_ENABLED=true。");
   if (!mindSpider.repoAvailable) recommendations.push("配置 BETTAFISH_REPO_DIR 后，测试台可检查 MindSpider 登录态候选目录、数据库直连和测试爬虫调度。");
   if (!sentiment.commandConfigured && sentiment.localModelsAvailable) recommendations.push("已发现 BettaFish 情感模型候选；配置 BETTAFISH_SENTIMENT_COMMAND 后可直接调用本地模型。");
   if (totalItems === 0) recommendations.push("把 BettaFish/MindSpider 授权导出放入 BETTAFISH_IMPORT_DIR，先形成可复盘的导入样本集。");
@@ -857,7 +850,7 @@ function makeRecommendations(
   if (capabilities.find((capability) => capability.id === "sentiment")?.status === "ok") {
     recommendations.push("用同一批文本并排比较 BettaFish 语义输出与本平台 analyzeItem 输出，稳定后再进入主链路。");
   }
-  recommendations.push("所有副作用动作只留在测试台，主看板继续只读取导入结果和现有监控数据。");
+  recommendations.push("启动、爬取、部署等研究操作只留在测试台，主看板继续只读取导入结果和现有监控数据。");
   return recommendations;
 }
 
