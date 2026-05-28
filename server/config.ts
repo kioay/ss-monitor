@@ -155,7 +155,10 @@ function detectPythonCommand() {
 }
 
 function commandExists(command: string) {
-  const result = spawnSync(command, ["--version"], { stdio: "ignore", windowsHide: true });
+  const result = spawnSync(command, ["-c", "import sys; raise SystemExit(0 if sys.version_info >= (3, 9) else 1)"], {
+    stdio: "ignore",
+    windowsHide: true
+  });
   return !result.error && result.status === 0;
 }
 
