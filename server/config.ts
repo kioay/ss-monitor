@@ -1,4 +1,6 @@
 import "dotenv/config";
+import fs from "node:fs";
+import path from "node:path";
 import type { GameConfig, GameId } from "../src/shared";
 
 export const games: GameConfig[] = [
@@ -22,6 +24,13 @@ export const games: GameConfig[] = [
 
 export const gameById = new Map<GameId, GameConfig>(games.map((game) => [game.id, game]));
 
+const detectedBettaFishRepoDir = resolveBettaFishRepoDir(process.env.BETTAFISH_REPO_DIR || "");
+const bettaFishRepoAutoDetected = Boolean(detectedBettaFishRepoDir && !process.env.BETTAFISH_REPO_DIR);
+const bettaFishPython = process.env.BETTAFISH_PYTHON || (process.platform === "win32" ? "python" : "python3");
+const bettaFishStartCommand = process.env.BETTAFISH_START_COMMAND || (detectedBettaFishRepoDir ? `${quoteShell(bettaFishPython)} app.py` : "");
+const bettaFishDeployCommand = process.env.BETTAFISH_DEPLOY_COMMAND || (detectedBettaFishRepoDir ? "git pull --ff-only" : "");
+const bettaFishBaseUrl = normalizeOptionalBaseUrl(process.env.BETTAFISH_BASE_URL || (detectedBettaFishRepoDir ? "http://127.0.0.1:5000" : ""));
+
 export const runtimeConfig = {
   port: Number(process.env.PORT || 8787),
   host: process.env.HOST || "127.0.0.1",
@@ -38,13 +47,17 @@ export const runtimeConfig = {
   monitorSnapshotPath: process.env.MONITOR_SNAPSHOT_PATH || "data/monitor-snapshot.json",
   douyinImportDir: process.env.DOUYIN_IMPORT_DIR || "data/douyin-imports",
   douyinAuthorizedSourcesPath: process.env.DOUYIN_AUTHORIZED_SOURCES_PATH || "data/douyin-authorized-sources.json",
-  bettaFishBaseUrl: normalizeOptionalBaseUrl(process.env.BETTAFISH_BASE_URL || ""),
+  bettaFishBaseUrl,
+  bettaFishBaseUrlAutoConfigured: Boolean(bettaFishBaseUrl && !process.env.BETTAFISH_BASE_URL),
   bettaFishImportDir: process.env.BETTAFISH_IMPORT_DIR || "data/bettafish-imports",
   bettaFishLabActionsEnabled: parseBoolean(process.env.BETTAFISH_LAB_ACTIONS_ENABLED || ""),
-  bettaFishRepoDir: process.env.BETTAFISH_REPO_DIR || "",
-  bettaFishPython: process.env.BETTAFISH_PYTHON || "python",
-  bettaFishStartCommand: process.env.BETTAFISH_START_COMMAND || "",
-  bettaFishDeployCommand: process.env.BETTAFISH_DEPLOY_COMMAND || "",
+  bettaFishRepoDir: detectedBettaFishRepoDir,
+  bettaFishRepoAutoDetected,
+  bettaFishPython,
+  bettaFishStartCommand,
+  bettaFishStartCommandAutoConfigured: Boolean(bettaFishStartCommand && !process.env.BETTAFISH_START_COMMAND),
+  bettaFishDeployCommand,
+  bettaFishDeployCommandAutoConfigured: Boolean(bettaFishDeployCommand && !process.env.BETTAFISH_DEPLOY_COMMAND),
   bettaFishSentimentCommand: process.env.BETTAFISH_SENTIMENT_COMMAND || "",
   dingTalkWebhook: process.env.DINGTALK_WEBHOOK || "",
   dingTalkSecret: process.env.DINGTALK_SECRET || "",
@@ -105,6 +118,32 @@ function normalizeOptionalBaseUrl(value: string) {
 
 function parseBoolean(value: string) {
   return /^(1|true|yes|on)$/i.test(value.trim());
+}
+
+function resolveBettaFishRepoDir(explicitPath: string) {
+  const explicit = explicitPath.trim();
+  if (explicit && isBettaFishRepo(explicit)) return path.resolve(explicit);
+
+  const candidates = [
+    path.resolve(process.cwd(), "..", "BettaFish"),
+    path.resolve(process.cwd(), "..", "..", "BettaFish"),
+    path.resolve(process.env.USERPROFILE || "", "Documents", "BettaFish"),
+    path.resolve(process.env.HOME || "", "BettaFish"),
+    "/home/yq/BettaFish",
+    "/opt/BettaFish"
+  ];
+
+  return candidates.find(isBettaFishRepo) || explicit;
+}
+
+function isBettaFishRepo(candidate: string) {
+  if (!candidate) return false;
+  return fs.existsSync(path.join(candidate, "app.py")) && fs.existsSync(path.join(candidate, "MindSpider", "main.py"));
+}
+
+function quoteShell(value: string) {
+  if (!/\s/.test(value)) return value;
+  return process.platform === "win32" ? `"${value.replace(/"/g, '\\"')}"` : `'${value.replace(/'/g, "'\\''")}'`;
 }
 
 function formatInterval(seconds: number) {

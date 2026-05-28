@@ -177,12 +177,16 @@ export interface BettaFishGameMonitor {
 export interface BettaFishRuntimeStatus {
   actionsEnabled: boolean;
   repoConfigured: boolean;
+  repoAutoDetected: boolean;
   repoDir?: string;
   python: string;
   localProcessRunning: boolean;
   baseUrlConfigured: boolean;
+  baseUrlAutoConfigured: boolean;
   startCommandConfigured: boolean;
+  startCommandAutoConfigured: boolean;
   deployCommandConfigured: boolean;
+  deployCommandAutoConfigured: boolean;
   sentimentCommandConfigured: boolean;
 }
 

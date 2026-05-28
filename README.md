@@ -119,13 +119,14 @@ BettaFish is a full Python public-opinion system with its own Flask app, Streaml
 
 1. Run and maintain BettaFish separately, with its own database, LLM keys, cookies, and crawler login state.
 2. Export authorized BettaFish or MindSpider rows as `.json` or `.csv` into `data/bettafish-imports/`, or set `BETTAFISH_IMPORT_DIR` to another ignored directory.
-3. Optionally set `BETTAFISH_BASE_URL=http://127.0.0.1:5000` so the monitor can show BettaFish `/api/status` health. The monitor does not start BettaFish or trigger crawlers.
+3. Optionally set `BETTAFISH_BASE_URL=http://127.0.0.1:5000` so the monitor can show BettaFish `/api/status` health. If a sibling BettaFish repo is present, the test lab auto-detects the repo and defaults the base URL to local port `5000`.
 4. Refresh `/api/monitor?...&force=1`. Rows matching SS1/SS2 terms are merged as `bettafish` items and passed through the same sentiment/risk analyzer.
 
 See `examples/bettafish-import.example.json` for supported fields. Common MindSpider tables such as `douyin_aweme`, `bilibili_video`, `xhs_note`, `weibo_note`, `tieba_note`, and `zhihu_content` are mapped by alias.
 
 The frontend also has a separate `BettaFish 测试台` tab. It keeps BettaFish outside the main monitor pipeline, but can now test every major integration surface:
 
+- SS1/SS2 game monitoring snapshots that reuse the current collector, semantic analysis, risk classification, source health, topics, alerts, and latest-feed logic without sending notifications.
 - Query / Media / Insight Agent start, stop, output probing, and `/api/search`.
 - ForumEngine start, stop, and log reading.
 - ReportEngine status, template/log probing, report generation, progress, result JSON, and cancellation.
@@ -133,4 +134,4 @@ The frontend also has a separate `BettaFish 测试台` tab. It keeps BettaFish o
 - BettaFish sentiment model or LLM analysis through `BETTAFISH_SENTIMENT_COMMAND` or the running Agent stack.
 - Local BettaFish start/stop, full-system start/shutdown, and an optional fixed deploy command.
 
-Side-effect actions are blocked unless `BETTAFISH_LAB_ACTIONS_ENABLED=true` is set on the server. Keep it disabled for public production access, or protect the route at the network/auth layer before enabling.
+Read-only lab actions such as log/progress/status probes can run when their target is configured. Side-effect actions are blocked unless `BETTAFISH_LAB_ACTIONS_ENABLED=true` is set on the server. Keep it disabled for public production access, or protect the route at the network/auth layer before enabling.
