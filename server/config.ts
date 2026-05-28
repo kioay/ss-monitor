@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import type { GameConfig, GameId } from "../src/shared";
@@ -26,7 +27,7 @@ export const gameById = new Map<GameId, GameConfig>(games.map((game) => [game.id
 
 const detectedBettaFishRepoDir = resolveBettaFishRepoDir(process.env.BETTAFISH_REPO_DIR || "");
 const bettaFishRepoAutoDetected = Boolean(detectedBettaFishRepoDir && !process.env.BETTAFISH_REPO_DIR);
-const bettaFishPython = process.env.BETTAFISH_PYTHON || (process.platform === "win32" ? "python" : "python3");
+const bettaFishPython = process.env.BETTAFISH_PYTHON || detectPythonCommand();
 const bettaFishStartCommand = process.env.BETTAFISH_START_COMMAND || (detectedBettaFishRepoDir ? `${quoteShell(bettaFishPython)} app.py` : "");
 const bettaFishDeployCommand = process.env.BETTAFISH_DEPLOY_COMMAND || (detectedBettaFishRepoDir ? "git pull --ff-only" : "");
 const bettaFishBaseUrl = normalizeOptionalBaseUrl(process.env.BETTAFISH_BASE_URL || (detectedBettaFishRepoDir ? "http://127.0.0.1:5000" : ""));
@@ -139,6 +140,23 @@ function resolveBettaFishRepoDir(explicitPath: string) {
 function isBettaFishRepo(candidate: string) {
   if (!candidate) return false;
   return fs.existsSync(path.join(candidate, "app.py")) && fs.existsSync(path.join(candidate, "MindSpider", "main.py"));
+}
+
+function detectPythonCommand() {
+  if (process.platform === "win32") {
+    if (commandExists("python")) return "python";
+    if (commandExists("py")) return "py";
+    return "python";
+  }
+
+  if (commandExists("python3")) return "python3";
+  if (commandExists("python")) return "python";
+  return "python3";
+}
+
+function commandExists(command: string) {
+  const result = spawnSync(command, ["--version"], { stdio: "ignore", windowsHide: true });
+  return !result.error && result.status === 0;
 }
 
 function quoteShell(value: string) {
