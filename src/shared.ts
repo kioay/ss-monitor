@@ -166,6 +166,14 @@ export interface BettaFishImportPreview {
   samples: MonitorItem[];
 }
 
+export interface BettaFishGameMonitor {
+  gameId: GameId;
+  gameName: string;
+  status: BettaFishProbeStatus;
+  message: string;
+  response?: MonitorResponse;
+}
+
 export interface BettaFishRuntimeStatus {
   actionsEnabled: boolean;
   repoConfigured: boolean;
@@ -227,6 +235,7 @@ export interface BettaFishLabResponse {
   mindSpider: BettaFishMindSpiderStatus;
   sentiment: BettaFishSentimentStatus;
   operations: BettaFishOperation[];
+  gameMonitors: BettaFishGameMonitor[];
   importPreviews: BettaFishImportPreview[];
   endpointProbes: BettaFishEndpointProbe[];
   capabilities: BettaFishCapability[];

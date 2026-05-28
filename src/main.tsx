@@ -19,6 +19,7 @@ import {
 import type {
   BettaFishActionResponse,
   BettaFishCapability,
+  BettaFishGameMonitor,
   BettaFishLabResponse,
   BettaFishOperation,
   BettaFishProbeStatus,
@@ -486,13 +487,15 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
   const [actionLoading, setActionLoading] = React.useState("");
   const [actionResult, setActionResult] = React.useState<BettaFishActionResponse>();
 
-  const loadLab = React.useCallback(async () => {
+  const loadLab = React.useCallback(async (forceMonitor = false) => {
     setLoading(true);
     setError("");
     try {
       const params = new URLSearchParams({
         windowHours: String(windowHours),
-        sampleLimit: "4"
+        sampleLimit: "4",
+        monitorLimit: "80",
+        ...(forceMonitor ? { forceMonitor: "1" } : {})
       });
       const response = await fetch(`${api.bettafishLab}?${params.toString()}`);
       if (!response.ok) throw new Error(`API ${response.status}`);
@@ -529,11 +532,13 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
   );
 
   React.useEffect(() => {
-    loadLab();
+    loadLab(false);
   }, [loadLab]);
 
   const totalRows = data ? Math.max(0, ...data.importPreviews.map((preview) => preview.rowCount)) : 0;
   const totalItems = data?.importPreviews.reduce((sum, preview) => sum + preview.matchedItems, 0) ?? 0;
+  const totalMonitorItems = data?.gameMonitors.reduce((sum, monitor) => sum + (monitor.response?.stats.total ?? 0), 0) ?? 0;
+  const totalMonitorAlerts = data?.gameMonitors.reduce((sum, monitor) => sum + (monitor.response?.stats.highRisk ?? 0), 0) ?? 0;
   const reachableEndpoints = data?.endpointProbes.filter((probe) => probe.status === "ok").length ?? 0;
   const readyCapabilities = data?.capabilities.filter((capability) => capability.status === "ok").length ?? 0;
 
@@ -545,13 +550,13 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
           <h2>测试接入分页</h2>
           <p>
             {data
-              ? `测试模式 · ${data.baseUrlConfigured ? data.baseUrl : "未配置 BettaFish Base URL"} · 导入目录 ${data.importDir}`
+              ? `测试模式 · ${data.baseUrlConfigured ? data.baseUrl : "未配置 BettaFish Base URL"} · 监控 ${totalMonitorItems} 条 · 导入目录 ${data.importDir}`
               : "准备读取 BettaFish 测试状态"}
           </p>
         </div>
         <div className="lab-actions">
           {data ? <StatusPill status={data.baseUrlConfigured ? "ok" : "skipped"} label={data.baseUrlConfigured ? "外部服务已配置" : "仅导入预览"} /> : null}
-          <button className="icon-button primary" type="button" onClick={loadLab} disabled={loading} title="刷新测试台">
+          <button className="icon-button primary" type="button" onClick={() => loadLab(true)} disabled={loading} title="刷新测试台和舆情监控">
             <RefreshCw size={18} className={loading ? "spin" : ""} />
           </button>
         </div>
@@ -560,6 +565,7 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
       {error ? <div className="error-strip">{error}</div> : null}
 
       <section className="metrics-grid lab-metrics">
+        <Metric label="监控条目" value={totalMonitorItems} tone="green" hint={`${totalMonitorAlerts} 条高风险`} />
         <Metric label="导入命中" value={totalItems} tone="green" hint={`${totalRows} 行导出数据`} />
         <Metric label="只读端点" value={`${reachableEndpoints}/${data?.endpointProbes.length ?? 0}`} tone="blue" hint="不触发搜索/爬虫/报告生成" />
         <Metric label="能力就绪" value={`${readyCapabilities}/${data?.capabilities.length ?? 0}`} tone="gold" hint="测试层覆盖情况" />
@@ -570,6 +576,8 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
 
       {data ? (
         <>
+          <LabGameMonitorSection monitors={data.gameMonitors} loading={loading} onRefresh={() => loadLab(true)} />
+
           <LabActionPanel data={data} loadingAction={actionLoading} actionResult={actionResult} onAction={runAction} />
 
           <section className="lab-section">
@@ -658,6 +666,131 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
           </section>
         </>
       ) : null}
+    </div>
+  );
+}
+
+function LabGameMonitorSection({
+  monitors,
+  loading,
+  onRefresh
+}: {
+  monitors: BettaFishGameMonitor[];
+  loading: boolean;
+  onRefresh: () => void;
+}) {
+  return (
+    <section className="lab-section game-monitor-section">
+      <div className="section-title monitor-section-title">
+        <div>
+          <Waves size={18} />
+          <h2>生死1 / 生死2 舆情监测</h2>
+        </div>
+        <button className="lab-action-button manual compact-button" type="button" onClick={onRefresh} disabled={loading} title="刷新两个游戏的测试台监控快照">
+          {loading ? "刷新中..." : "刷新监控"}
+        </button>
+      </div>
+      <div className="game-monitor-grid">
+        {monitors.map((monitor) => (
+          <LabGameMonitorCard monitor={monitor} key={monitor.gameId} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function LabGameMonitorCard({ monitor }: { monitor: BettaFishGameMonitor }) {
+  const response = monitor.response;
+  const stats = response?.stats;
+  const sourceIssues = response?.health.filter((entry) => !entry.ok || entry.blocked) ?? [];
+  const latestItems = response?.items.slice(0, 5) ?? [];
+  const alerts = response?.alerts.slice(0, 3) ?? [];
+  const topics = response?.topicStats.slice(0, 6) ?? [];
+
+  return (
+    <article className={`game-monitor-card ${monitor.status}`}>
+      <div className="game-monitor-head">
+        <div>
+          <strong>{monitor.gameName}</strong>
+          <span>{monitor.message}</span>
+        </div>
+        <StatusPill status={monitor.status} />
+      </div>
+
+      {response && stats ? (
+        <>
+          <div className="game-monitor-summary">
+            <GameMonitorStat label="总声量" value={stats.total} />
+            <GameMonitorStat label="高风险" value={stats.highRisk} />
+            <GameMonitorStat label="负面占比" value={formatPercent(stats.negativeRate)} />
+            <GameMonitorStat label="BettaFish" value={stats.bettafish} />
+          </div>
+
+          <div className="game-monitor-subgrid">
+            <div className="game-monitor-block">
+              <h4>来源健康</h4>
+              <div className="source-health-list compact">
+                {response.health.map((health) => (
+                  <div className="source-health-row" key={`${monitor.gameId}-${health.source}-${health.gameId || "all"}`}>
+                    <span>{health.sourceLabel}</span>
+                    <b>{health.itemCount} 条</b>
+                    <StatusPill status={health.ok && !health.blocked ? "ok" : "warning"} label={health.ok && !health.blocked ? "正常" : "需检查"} />
+                  </div>
+                ))}
+              </div>
+              {sourceIssues.length ? <p className="monitor-note">{sourceIssues.map((entry) => entry.message).join(" / ")}</p> : null}
+            </div>
+
+            <div className="game-monitor-block">
+              <h4>主题分布</h4>
+              <div className="topic-chip-row">
+                {topics.length ? (
+                  topics.map((topic) => (
+                    <span key={topic.topic}>{topic.topic} {topic.count}</span>
+                  ))
+                ) : (
+                  <span>暂无主题</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="game-monitor-block">
+            <h4>风险预警</h4>
+            <div className="lab-alert-list">
+              {alerts.length ? (
+                alerts.map((alert) => (
+                  <a className={`lab-alert-row ${alert.riskLevel}`} href={alert.url} target="_blank" rel="noreferrer" key={alert.id}>
+                    <span>{riskText(alert.riskLevel)}</span>
+                    <strong>{alert.title}</strong>
+                    <small>{formatAgo(alert.publishedAt)}</small>
+                  </a>
+                ))
+              ) : (
+                <p className="empty compact">暂无中高风险预警</p>
+              )}
+            </div>
+          </div>
+
+          <div className="game-monitor-block">
+            <h4>最新条目</h4>
+            <div className="lab-sample-list">
+              {latestItems.length ? latestItems.map((item) => <LabItemRow item={item} key={item.id} />) : <p className="empty compact">暂无新鲜条目</p>}
+            </div>
+          </div>
+        </>
+      ) : (
+        <p className="empty compact">{monitor.message}</p>
+      )}
+    </article>
+  );
+}
+
+function GameMonitorStat({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="game-monitor-stat">
+      <span>{label}</span>
+      <strong>{value}</strong>
     </div>
   );
 }
@@ -1208,6 +1341,10 @@ function formatNumber(value?: number) {
   if (!value) return "0";
   if (value >= 10000) return `${(value / 10000).toFixed(1)}万`;
   return String(value);
+}
+
+function formatPercent(value: number) {
+  return `${Math.round(value * 100)}%`;
 }
 
 function formatDateTime(value: string) {

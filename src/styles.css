@@ -363,6 +363,225 @@ h2 {
   padding-bottom: 12px;
 }
 
+.monitor-section-title {
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.monitor-section-title > div {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.compact-button {
+  width: auto;
+  min-width: 110px;
+  padding: 0 12px;
+}
+
+.game-monitor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.game-monitor-card {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--neutral);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 253, 248, 0.96), rgba(250, 251, 246, 0.9)),
+    var(--paper);
+  box-shadow: var(--shadow-soft);
+}
+
+.game-monitor-card.ok {
+  border-top-color: var(--green);
+}
+
+.game-monitor-card.warning {
+  border-top-color: var(--gold);
+}
+
+.game-monitor-card.error {
+  border-top-color: var(--red);
+}
+
+.game-monitor-card.skipped {
+  border-top-color: var(--blue);
+}
+
+.game-monitor-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.game-monitor-head div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.game-monitor-head strong {
+  color: var(--ink-strong);
+  font-size: 17px;
+}
+
+.game-monitor-head span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.game-monitor-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.game-monitor-stat {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.game-monitor-stat span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.game-monitor-stat strong {
+  color: var(--ink-strong);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.game-monitor-subgrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: 14px;
+}
+
+.game-monitor-block {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.game-monitor-block h4 {
+  margin: 0;
+  color: var(--ink-strong);
+  font-size: 14px;
+}
+
+.source-health-list {
+  display: grid;
+  gap: 8px;
+}
+
+.source-health-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.source-health-row span,
+.source-health-row b,
+.monitor-note {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.source-health-row b {
+  color: var(--ink);
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.monitor-note {
+  line-height: 1.5;
+}
+
+.topic-chip-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.topic-chip-row span {
+  border-radius: 999px;
+  background: rgba(237, 242, 237, 0.88);
+  padding: 5px 9px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.lab-alert-list {
+  display: grid;
+  gap: 8px;
+}
+
+.lab-alert-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  color: inherit;
+  text-decoration: none;
+}
+
+.lab-alert-row span {
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.lab-alert-row.high span {
+  background: var(--red-soft);
+  color: #9c3020;
+}
+
+.lab-alert-row.medium span {
+  background: var(--gold-soft);
+  color: #7a5414;
+}
+
+.lab-alert-row strong {
+  min-width: 0;
+  color: var(--ink-strong);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lab-alert-row small {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .lab-section {
   padding: 20px 0;
   border-top: 1px solid var(--line);
@@ -1533,6 +1752,7 @@ button.metric:focus-visible {
   .metrics-grid,
   .workspace-grid,
   .capability-grid,
+  .game-monitor-grid,
   .import-grid,
   .action-grid,
   .lab-status-strip {
@@ -1571,7 +1791,8 @@ button.metric:focus-visible {
   .topbar,
   .chart-heading,
   .feed-toolbar,
-  .lab-head {
+  .lab-head,
+  .monitor-section-title {
     align-items: flex-start;
     flex-direction: column;
   }
@@ -1580,11 +1801,26 @@ button.metric:focus-visible {
   .workspace-grid,
   .health-row,
   .capability-grid,
+  .game-monitor-grid,
+  .game-monitor-subgrid,
   .import-grid,
   .action-grid,
   .lab-status-strip,
   .lab-item-row {
     grid-template-columns: 1fr;
+  }
+
+  .game-monitor-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .lab-alert-row {
+    grid-template-columns: 1fr;
+    align-items: flex-start;
+  }
+
+  .lab-alert-row strong {
+    white-space: normal;
   }
 
   .lab-inline-fields,

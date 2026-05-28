@@ -4,10 +4,12 @@ import path from "node:path";
 import { z } from "zod";
 import { games, runtimeConfig } from "./config";
 import { previewBettaFishImportedItems, probeBettaFishStatus } from "./collectors/bettafish";
+import { getMonitorResponse } from "./monitor";
 import type {
   BettaFishActionResponse,
   BettaFishCapability,
   BettaFishEndpointProbe,
+  BettaFishGameMonitor,
   BettaFishImportPreview,
   BettaFishLabResponse,
   BettaFishLoginStateCandidate,
@@ -21,7 +23,12 @@ import type {
 
 const labQuerySchema = z.object({
   windowHours: z.coerce.number().int().min(1).max(24 * 30).default(runtimeConfig.defaultWindowHours),
-  sampleLimit: z.coerce.number().int().min(1).max(12).default(4)
+  sampleLimit: z.coerce.number().int().min(1).max(12).default(4),
+  monitorLimit: z.coerce.number().int().min(20).max(160).default(80),
+  forceMonitor: z
+    .string()
+    .optional()
+    .transform((value) => value === "1" || value === "true")
 });
 
 const actionSchema = z.object({
@@ -72,7 +79,8 @@ export async function getBettaFishLabResponse(rawQuery: unknown): Promise<BettaF
   const generatedAt = new Date();
   const cutoff = new Date(generatedAt.getTime() - query.windowHours * 3_600_000);
 
-  const [importPreviews, endpointProbes, nativeStatus, mindSpider, sentiment] = await Promise.all([
+  const [gameMonitors, importPreviews, endpointProbes, nativeStatus, mindSpider, sentiment] = await Promise.all([
+    collectGameMonitors(query),
     Promise.all(
       games.map(async (game) => {
         const preview = await previewBettaFishImportedItems(game, cutoff);
@@ -100,7 +108,7 @@ export async function getBettaFishLabResponse(rawQuery: unknown): Promise<BettaF
 
   const runtime = makeRuntimeStatus();
   const operations = makeOperations(runtime, mindSpider, sentiment);
-  const capabilities = makeCapabilities(importPreviews, endpointProbes, nativeStatus, runtime, mindSpider, sentiment);
+  const capabilities = makeCapabilities(gameMonitors, importPreviews, endpointProbes, nativeStatus, runtime, mindSpider, sentiment);
   return {
     generatedAt: generatedAt.toISOString(),
     mode: "test-lab",
@@ -113,11 +121,58 @@ export async function getBettaFishLabResponse(rawQuery: unknown): Promise<BettaF
     mindSpider,
     sentiment,
     operations,
+    gameMonitors,
     importPreviews,
     endpointProbes,
     capabilities,
-    recommendations: makeRecommendations(importPreviews, endpointProbes, capabilities, runtime, mindSpider, sentiment)
+    recommendations: makeRecommendations(gameMonitors, importPreviews, endpointProbes, capabilities, runtime, mindSpider, sentiment)
   };
+}
+
+async function collectGameMonitors(query: z.infer<typeof labQuerySchema>): Promise<BettaFishGameMonitor[]> {
+  const results = await Promise.allSettled(
+    games.map(async (game) => {
+      const response = await getMonitorResponse({
+        games: game.id,
+        windowHours: String(query.windowHours),
+        limit: String(query.monitorLimit),
+        notify: "0",
+        ...(query.forceMonitor ? { force: "1" } : {})
+      });
+      return {
+        gameId: game.id,
+        gameName: game.name,
+        status: monitorStatus(response),
+        message: monitorMessage(response),
+        response
+      } satisfies BettaFishGameMonitor;
+    })
+  );
+
+  return results.map((result, index) => {
+    if (result.status === "fulfilled") return result.value;
+    const game = games[index];
+    return {
+      gameId: game.id,
+      gameName: game.name,
+      status: "error",
+      message: messageOf(result.reason)
+    };
+  });
+}
+
+function monitorStatus(response: NonNullable<BettaFishGameMonitor["response"]>): BettaFishProbeStatus {
+  if (!response.health.length) return response.stats.total ? "warning" : "error";
+  if (response.health.every((entry) => !entry.ok)) return "error";
+  if (response.stats.total === 0 || response.stats.highRisk > 0 || response.health.some((entry) => !entry.ok || entry.blocked)) return "warning";
+  return "ok";
+}
+
+function monitorMessage(response: NonNullable<BettaFishGameMonitor["response"]>) {
+  const sourceIssues = response.health.filter((entry) => !entry.ok || entry.blocked).length;
+  const negativeRate = `${Math.round(response.stats.negativeRate * 100)}%`;
+  const issueText = sourceIssues ? `，${sourceIssues} 个来源需检查` : "";
+  return `监控完成：${response.stats.total} 条，${response.stats.highRisk} 高风险，负面占比 ${negativeRate}${issueText}`;
 }
 
 export async function runBettaFishLabAction(rawBody: unknown): Promise<BettaFishActionResponse> {
@@ -374,6 +429,7 @@ function operation(
 }
 
 function makeCapabilities(
+  gameMonitors: BettaFishGameMonitor[],
   importPreviews: BettaFishImportPreview[],
   endpointProbes: BettaFishEndpointProbe[],
   nativeStatus: { configured: boolean; ok: boolean; message: string },
@@ -389,8 +445,21 @@ function makeCapabilities(
   const forumProbe = endpointProbes.find((probe) => probe.id === "forum-log");
   const agentProbe = bestProbe(endpointProbes, ["insight-output", "media-output", "query-output"]);
   const engineStatus = probeStatusFrom(nativeStatus.configured ? nativeStatus.ok : undefined);
+  const monitorStats = gameMonitors
+    .map((monitor) => `${monitor.gameName}: ${monitor.response?.stats.total ?? 0} 条 / ${monitor.response?.stats.highRisk ?? 0} 高风险`)
+    .join("；");
 
   return [
+    {
+      id: "game-monitoring",
+      name: "生死1 / 生死2 舆情监测",
+      goal: "在测试台独立复用采集、语义判定、风险分析和来源健康检查",
+      currentProjectUse: "测试台已接入两个游戏的监控快照；不会发送钉钉通知，也不改变主看板筛选状态",
+      testCoverage: "可查看 SS1/SS2 的总声量、高风险、负面占比、来源健康、主题、预警和最新条目",
+      status: aggregateMonitorStatus(gameMonitors),
+      evidence: uniqueStrings([monitorStats, ...gameMonitors.map((monitor) => monitor.message)].filter(Boolean)),
+      nextStep: "用测试台监控结果校验 BettaFish 导入、现有来源和语义判定是否覆盖同一批重点舆情。"
+    },
     {
       id: "agents",
       name: "Query / Media / Insight Agent",
@@ -707,6 +776,14 @@ function combineStatus(left: BettaFishProbeStatus, right: BettaFishProbeStatus):
   return statusRank(left) >= statusRank(right) ? left : right;
 }
 
+function aggregateMonitorStatus(monitors: BettaFishGameMonitor[]): BettaFishProbeStatus {
+  const statuses = monitors.map((monitor) => monitor.status);
+  if (statuses.includes("error")) return "error";
+  if (statuses.includes("warning")) return "warning";
+  if (statuses.includes("ok")) return "ok";
+  return "skipped";
+}
+
 function probeStatusFrom(value: boolean | undefined): BettaFishProbeStatus {
   if (value === undefined) return "skipped";
   return value ? "ok" : "error";
@@ -720,6 +797,7 @@ function statusRank(status: BettaFishProbeStatus) {
 }
 
 function makeRecommendations(
+  gameMonitors: BettaFishGameMonitor[],
   importPreviews: BettaFishImportPreview[],
   endpointProbes: BettaFishEndpointProbe[],
   capabilities: BettaFishCapability[],
@@ -729,6 +807,9 @@ function makeRecommendations(
 ) {
   const recommendations: string[] = [];
   const totalItems = importPreviews.reduce((sum, preview) => sum + preview.matchedItems, 0);
+  const monitorTotal = gameMonitors.reduce((sum, monitor) => sum + (monitor.response?.stats.total ?? 0), 0);
+  if (monitorTotal === 0) recommendations.push("测试台 SS1/SS2 监控暂未拿到新鲜条目；先检查来源健康、采集缓存和关键词覆盖。");
+  if (gameMonitors.some((monitor) => monitor.status === "error")) recommendations.push("有游戏监控快照生成失败，优先查看对应来源健康错误和服务日志。");
   if (!runtime.baseUrlConfigured) recommendations.push("配置 BETTAFISH_BASE_URL 后，测试台可代理 Query/Media/Insight、ForumEngine、ReportEngine 和系统控制接口。");
   if (!runtime.actionsEnabled) recommendations.push("动作控件已接入但默认禁用；需要执行启动/搜索/爬取/报告/部署时设置 BETTAFISH_LAB_ACTIONS_ENABLED=true。");
   if (!mindSpider.repoAvailable) recommendations.push("配置 BETTAFISH_REPO_DIR 后，测试台可检查 MindSpider 登录态候选目录、数据库直连和测试爬虫调度。");
