@@ -74,6 +74,15 @@ const readOnlyProbeTargets = [
 let localBettaFishProcess: ChildProcessWithoutNullStreams | undefined;
 let localBettaFishOutput: string[] = [];
 
+function isLocalBettaFishProcessRunning() {
+  return Boolean(
+    localBettaFishProcess
+      && !localBettaFishProcess.killed
+      && localBettaFishProcess.exitCode === null
+      && localBettaFishProcess.signalCode === null
+  );
+}
+
 export async function getBettaFishLabResponse(rawQuery: unknown): Promise<BettaFishLabResponse> {
   const query = labQuerySchema.parse(rawQuery);
   const generatedAt = new Date();
@@ -367,7 +376,7 @@ function makeRuntimeStatus(): BettaFishRuntimeStatus {
     python: runtimeConfig.bettaFishPython,
     pythonAvailable: python.ok,
     ...(python.version ? { pythonVersion: python.version } : {}),
-    localProcessRunning: Boolean(localBettaFishProcess && !localBettaFishProcess.killed),
+    localProcessRunning: isLocalBettaFishProcessRunning(),
     baseUrlConfigured: Boolean(runtimeConfig.bettaFishBaseUrl),
     baseUrlAutoConfigured: runtimeConfig.bettaFishBaseUrlAutoConfigured,
     startCommandConfigured: Boolean(runtimeConfig.bettaFishStartCommand),
@@ -592,7 +601,7 @@ async function proxyBettaFish(
 
 function startLocalBettaFish(action: string): BettaFishActionResponse {
   if (!runtimeConfig.bettaFishRepoDir) return actionResponse(action, false, "BETTAFISH_REPO_DIR 未配置");
-  if (localBettaFishProcess && !localBettaFishProcess.killed) {
+  if (isLocalBettaFishProcessRunning()) {
     return actionResponse(action, true, "BettaFish 本地进程已经由测试台启动", { output: localBettaFishOutput.slice(-20) });
   }
   const command = runtimeConfig.bettaFishStartCommand || `${quoteShell(runtimeConfig.bettaFishPython)} app.py`;
@@ -603,6 +612,7 @@ function startLocalBettaFish(action: string): BettaFishActionResponse {
     windowsHide: true,
     env: { ...process.env }
   });
+  const child = localBettaFishProcess;
   const pushOutput = (chunk: Buffer) => {
     localBettaFishOutput.push(...chunk.toString("utf-8").split(/\r?\n/).filter(Boolean));
     localBettaFishOutput = localBettaFishOutput.slice(-200);
@@ -611,15 +621,17 @@ function startLocalBettaFish(action: string): BettaFishActionResponse {
   localBettaFishProcess.stderr.on("data", pushOutput);
   localBettaFishProcess.on("exit", (code) => {
     localBettaFishOutput.push(`BettaFish exited with code ${code ?? "unknown"}`);
+    if (localBettaFishProcess === child) localBettaFishProcess = undefined;
   });
   return actionResponse(action, true, "已启动 BettaFish 本地进程", { target: command });
 }
 
 function stopLocalBettaFish(action: string): BettaFishActionResponse {
-  if (!localBettaFishProcess || localBettaFishProcess.killed) {
+  const child = localBettaFishProcess;
+  if (!child || !isLocalBettaFishProcessRunning()) {
     return actionResponse(action, true, "没有由测试台启动的 BettaFish 本地进程");
   }
-  localBettaFishProcess.kill();
+  child.kill();
   localBettaFishProcess = undefined;
   return actionResponse(action, true, "已停止 BettaFish 本地进程", { output: localBettaFishOutput.slice(-20) });
 }
