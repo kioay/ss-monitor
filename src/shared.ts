@@ -128,3 +128,53 @@ export interface MonitorResponse {
   health: SourceHealth[];
   items: MonitorItem[];
 }
+
+export type BettaFishProbeStatus = "ok" | "warning" | "error" | "skipped";
+
+export interface BettaFishEndpointProbe {
+  id: string;
+  label: string;
+  method: "GET";
+  path: string;
+  target?: string;
+  status: BettaFishProbeStatus;
+  latencyMs: number;
+  message: string;
+  checkedAt: string;
+}
+
+export interface BettaFishCapability {
+  id: string;
+  name: string;
+  goal: string;
+  currentProjectUse: string;
+  testCoverage: string;
+  status: BettaFishProbeStatus;
+  evidence: string[];
+  nextStep: string;
+}
+
+export interface BettaFishImportPreview {
+  gameId: GameId;
+  gameName: string;
+  fileCount: number;
+  rowCount: number;
+  matchedItems: number;
+  staleDropped: number;
+  errors: string[];
+  samples: MonitorItem[];
+}
+
+export interface BettaFishLabResponse {
+  generatedAt: string;
+  mode: "read-only";
+  windowHours: number;
+  freshnessCutoff: string;
+  importDir: string;
+  baseUrlConfigured: boolean;
+  baseUrl?: string;
+  importPreviews: BettaFishImportPreview[];
+  endpointProbes: BettaFishEndpointProbe[];
+  capabilities: BettaFishCapability[];
+  recommendations: string[];
+}

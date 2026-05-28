@@ -7,7 +7,7 @@ import type { ContentPart, GameConfig, GameId, MonitorItem, SourceHealth } from 
 
 type ImportedRow = Record<string, unknown>;
 
-interface ImportParseResult {
+export interface ImportParseResult {
   items: MonitorItem[];
   staleDropped: number;
   errors: string[];
@@ -15,7 +15,7 @@ interface ImportParseResult {
   rowCount: number;
 }
 
-interface BettaFishStatus {
+export interface BettaFishStatus {
   configured: boolean;
   ok: boolean;
   message: string;
@@ -67,6 +67,14 @@ export async function collectBettaFish(game: GameConfig, cutoff: Date) {
   };
 
   return { items: imported.items, health };
+}
+
+export function previewBettaFishImportedItems(game: GameConfig, cutoff: Date) {
+  return collectImportedBettaFishItems(game, cutoff);
+}
+
+export function probeBettaFishStatus() {
+  return fetchBettaFishStatus();
 }
 
 async function collectImportedBettaFishItems(game: GameConfig, cutoff: Date): Promise<ImportParseResult> {

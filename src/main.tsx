@@ -4,23 +4,42 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock3,
+  Database,
   ExternalLink,
+  FileText,
   Filter,
+  Plug,
   RefreshCw,
   Search,
   ShieldAlert,
+  TestTube2,
   Video,
   Waves
 } from "lucide-react";
-import type { GameConfig, GameId, MonitorItem, MonitorResponse, RiskLevel, Sentiment, SourceHealth, SourceType, TrendPoint } from "./shared";
+import type {
+  BettaFishCapability,
+  BettaFishLabResponse,
+  BettaFishProbeStatus,
+  GameConfig,
+  GameId,
+  MonitorItem,
+  MonitorResponse,
+  RiskLevel,
+  Sentiment,
+  SourceHealth,
+  SourceType,
+  TrendPoint
+} from "./shared";
 import "./styles.css";
 
 const api = {
   config: "/api/config",
-  monitor: "/api/monitor"
+  monitor: "/api/monitor",
+  bettafishLab: "/api/bettafish/lab"
 };
 const clientCacheMaxAgeMs = 4 * 3_600_000;
 
+type AppPage = "monitor" | "bettafish-lab";
 type TrendSeries = "negative" | "neutral" | "positive" | "total";
 type TrendSeriesVisibility = Record<TrendSeries, boolean>;
 type TrendLineSample = { point: TrendPoint; x: number; value: number };
@@ -72,6 +91,7 @@ function App() {
     defaultWindowHours: number;
     updatePolicy: MonitorResponse["updatePolicy"];
   }>();
+  const [activePage, setActivePage] = React.useState<AppPage>("monitor");
   const [selectedGames, setSelectedGames] = React.useState<GameId[]>(["ss1", "ss2"]);
   const [windowHours, setWindowHours] = React.useState(72);
   const [source, setSource] = React.useState<"all" | SourceType>("all");
@@ -239,6 +259,26 @@ function App() {
           <h1>生死狙击舆情监测</h1>
         </div>
         <div className="top-actions">
+          <nav className="page-tabs" aria-label="页面切换">
+            <button
+              className={activePage === "monitor" ? "active" : ""}
+              type="button"
+              onClick={() => setActivePage("monitor")}
+              title="监测看板"
+            >
+              <Waves size={16} />
+              监测看板
+            </button>
+            <button
+              className={activePage === "bettafish-lab" ? "active" : ""}
+              type="button"
+              onClick={() => setActivePage("bettafish-lab")}
+              title="BettaFish 测试台"
+            >
+              <TestTube2 size={16} />
+              BettaFish 测试台
+            </button>
+          </nav>
           <span className="timestamp">
             <Clock3 size={16} />
             {data ? formatDateTime(data.generatedAt) : "等待采集"}
@@ -250,6 +290,8 @@ function App() {
         </div>
       </section>
 
+      {activePage === "monitor" ? (
+        <>
       <div className="control-sentinel" ref={controlSentinelRef} aria-hidden="true" />
       <section className={`control-band ${isControlFloating ? "is-floating" : ""}`}>
         <div className="segmented">
@@ -426,8 +468,220 @@ function App() {
         ))}
         {!loading && data && filteredItems.length === 0 ? <p className="empty">当前筛选下没有新鲜条目</p> : null}
       </section>
+        </>
+      ) : (
+        <BettaFishLabPage windowHours={windowHours} />
+      )}
     </main>
   );
+}
+
+function BettaFishLabPage({ windowHours }: { windowHours: number }) {
+  const [data, setData] = React.useState<BettaFishLabResponse>();
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState("");
+
+  const loadLab = React.useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const params = new URLSearchParams({
+        windowHours: String(windowHours),
+        sampleLimit: "4"
+      });
+      const response = await fetch(`${api.bettafishLab}?${params.toString()}`);
+      if (!response.ok) throw new Error(`API ${response.status}`);
+      setData((await response.json()) as BettaFishLabResponse);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setLoading(false);
+    }
+  }, [windowHours]);
+
+  React.useEffect(() => {
+    loadLab();
+  }, [loadLab]);
+
+  const totalRows = data ? Math.max(0, ...data.importPreviews.map((preview) => preview.rowCount)) : 0;
+  const totalItems = data?.importPreviews.reduce((sum, preview) => sum + preview.matchedItems, 0) ?? 0;
+  const reachableEndpoints = data?.endpointProbes.filter((probe) => probe.status === "ok").length ?? 0;
+  const readyCapabilities = data?.capabilities.filter((capability) => capability.status === "ok").length ?? 0;
+
+  return (
+    <div className="lab-page">
+      <section className="lab-head">
+        <div>
+          <p className="eyebrow">BettaFish Lab</p>
+          <h2>测试接入分页</h2>
+          <p>
+            {data
+              ? `只读模式 · ${data.baseUrlConfigured ? data.baseUrl : "未配置 BettaFish Base URL"} · 导入目录 ${data.importDir}`
+              : "准备读取 BettaFish 测试状态"}
+          </p>
+        </div>
+        <div className="lab-actions">
+          {data ? <StatusPill status={data.baseUrlConfigured ? "ok" : "skipped"} label={data.baseUrlConfigured ? "外部服务已配置" : "仅导入预览"} /> : null}
+          <button className="icon-button primary" type="button" onClick={loadLab} disabled={loading} title="刷新测试台">
+            <RefreshCw size={18} className={loading ? "spin" : ""} />
+          </button>
+        </div>
+      </section>
+
+      {error ? <div className="error-strip">{error}</div> : null}
+
+      <section className="metrics-grid lab-metrics">
+        <Metric label="导入命中" value={totalItems} tone="green" hint={`${totalRows} 行导出数据`} />
+        <Metric label="只读端点" value={`${reachableEndpoints}/${data?.endpointProbes.length ?? 0}`} tone="blue" hint="不触发搜索/爬虫/报告生成" />
+        <Metric label="能力就绪" value={`${readyCapabilities}/${data?.capabilities.length ?? 0}`} tone="gold" hint="测试层覆盖情况" />
+        <Metric label="测试窗口" value={`${data?.windowHours ?? windowHours}h`} tone="red" hint={data ? `截止 ${formatDateTime(data.freshnessCutoff)}` : "沿用看板窗口"} />
+      </section>
+
+      {!data && loading ? <p className="empty">读取 BettaFish 测试状态...</p> : null}
+
+      {data ? (
+        <>
+          <section className="lab-section">
+            <div className="section-title">
+              <Plug size={18} />
+              <h2>未接入能力测试</h2>
+            </div>
+            <div className="capability-grid">
+              {data.capabilities.map((capability) => (
+                <CapabilityCard capability={capability} key={capability.id} />
+              ))}
+            </div>
+          </section>
+
+          <section className="lab-section">
+            <div className="section-title">
+              <Database size={18} />
+              <h2>导入解析测试</h2>
+            </div>
+            <div className="import-grid">
+              {data.importPreviews.map((preview) => (
+                <div className="import-preview" key={preview.gameId}>
+                  <div className="import-preview-head">
+                    <div>
+                      <strong>{preview.gameName}</strong>
+                      <span>{preview.fileCount} 文件 · {preview.rowCount} 行 · 旧 {preview.staleDropped}</span>
+                    </div>
+                    <StatusPill status={preview.matchedItems ? "ok" : preview.rowCount ? "warning" : "skipped"} label={`${preview.matchedItems} 命中`} />
+                  </div>
+                  {preview.errors.length ? (
+                    <div className="lab-warning-list">
+                      {preview.errors.map((item) => (
+                        <span key={item}>{item}</span>
+                      ))}
+                    </div>
+                  ) : null}
+                  <div className="lab-sample-list">
+                    {preview.samples.length ? (
+                      preview.samples.map((item) => <LabItemRow item={item} key={item.id} />)
+                    ) : (
+                      <p className="empty compact">暂无可展示样本</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="lab-section">
+            <div className="section-title">
+              <FileText size={18} />
+              <h2>只读端点探测</h2>
+            </div>
+            <div className="endpoint-list">
+              {data.endpointProbes.map((probe) => (
+                <div className="endpoint-row" key={probe.id}>
+                  <div>
+                    <strong>{probe.label}</strong>
+                    <span>{probe.method} {probe.path}</span>
+                  </div>
+                  <p>{probe.message}</p>
+                  <div className="endpoint-side">
+                    <StatusPill status={probe.status} />
+                    <span>{probe.latencyMs} ms</span>
+                    {probe.target ? (
+                      <a href={probe.target} target="_blank" rel="noreferrer" title="打开 BettaFish 端点">
+                        <ExternalLink size={16} />
+                      </a>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="lab-section recommendations">
+            <div className="section-title">
+              <ShieldAlert size={18} />
+              <h2>接入建议</h2>
+            </div>
+            <div className="recommendation-list">
+              {data.recommendations.map((item) => (
+                <p key={item}>{item}</p>
+              ))}
+            </div>
+          </section>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function CapabilityCard({ capability }: { capability: BettaFishCapability }) {
+  return (
+    <article className={`capability-card ${capability.status}`}>
+      <div className="capability-head">
+        <strong>{capability.name}</strong>
+        <StatusPill status={capability.status} />
+      </div>
+      <p>{capability.goal}</p>
+      <dl>
+        <div>
+          <dt>当前接入</dt>
+          <dd>{capability.currentProjectUse}</dd>
+        </div>
+        <div>
+          <dt>测试覆盖</dt>
+          <dd>{capability.testCoverage}</dd>
+        </div>
+        <div>
+          <dt>下一步</dt>
+          <dd>{capability.nextStep}</dd>
+        </div>
+      </dl>
+      <div className="capability-evidence">
+        {capability.evidence.slice(0, 3).map((item) => (
+          <span key={item}>{item}</span>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function LabItemRow({ item }: { item: MonitorItem }) {
+  return (
+    <a className={`lab-item-row ${item.riskLevel}`} href={item.url} target="_blank" rel="noreferrer">
+      <div>
+        <strong>{item.title}</strong>
+        <span>{item.sourceItemId} · {formatAgo(item.publishedAt)} · {item.parsedContentCount} 段解析</span>
+      </div>
+      <div className="lab-item-tags">
+        <span className={`risk-pill ${item.riskLevel}`}>{riskText(item.riskLevel)}</span>
+        <span className={`sentiment-pill ${item.sentiment}`}>{sentimentText(item.sentiment)}</span>
+        {item.topics.slice(0, 2).map((topic) => (
+          <span key={topic}>{topic}</span>
+        ))}
+      </div>
+    </a>
+  );
+}
+
+function StatusPill({ status, label }: { status: BettaFishProbeStatus; label?: string }) {
+  return <span className={`status-pill ${status}`}>{label || statusText(status)}</span>;
 }
 
 function Metric({
@@ -710,6 +964,13 @@ function metricLine(item: MonitorItem) {
 
 function riskText(level: RiskLevel) {
   return level === "high" ? "高风险" : level === "medium" ? "中风险" : "低风险";
+}
+
+function statusText(status: BettaFishProbeStatus) {
+  if (status === "ok") return "可用";
+  if (status === "warning") return "待完善";
+  if (status === "error") return "异常";
+  return "未配置";
 }
 
 function sentimentText(value: Sentiment) {

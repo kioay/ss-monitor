@@ -58,6 +58,7 @@ B站或贴吧触发风控时，把浏览器中对应站点的 Cookie 放入 `.en
 - `GET /api/config`
 - `GET /api/health`
 - `GET /api/monitor?games=ss1,ss2&windowHours=72&limit=120&force=1`
+- `GET /api/bettafish/lab?windowHours=72`：BettaFish 只读测试台数据，不触发搜索、爬虫、报告生成或 DingTalk 通知。
 
 ## Douyin authorized import
 
@@ -121,3 +122,5 @@ BettaFish is a full Python public-opinion system with its own Flask app, Streaml
 4. Refresh `/api/monitor?...&force=1`. Rows matching SS1/SS2 terms are merged as `bettafish` items and passed through the same sentiment/risk analyzer.
 
 See `examples/bettafish-import.example.json` for supported fields. Common MindSpider tables such as `douyin_aweme`, `bilibili_video`, `xhs_note`, `weibo_note`, `tieba_note`, and `zhihu_content` are mapped by alias.
+
+The frontend also has a separate `BettaFish 测试台` tab. It is intentionally read-only: it previews imported rows, shows semantic analysis samples, and probes safe BettaFish status/log/template endpoints. It does not call BettaFish search, crawler start/stop, report generation, or forum start/stop endpoints.
