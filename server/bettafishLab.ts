@@ -311,7 +311,10 @@ async function probeEndpoint(target: { id: string; label: string; path: string }
 }
 
 function isExpectedNotReadyProbe(id: string, status: number, text: string) {
-  return id === "report-templates" && status === 500 && /Report Engine.*未初始化/.test(text);
+  return id === "report-templates"
+    && status === 500
+    && text.includes("Report Engine")
+    && (text.includes("未初始化") || text.includes("\\u672a\\u521d\\u59cb\\u5316"));
 }
 
 async function inspectMindSpiderStatus(): Promise<BettaFishMindSpiderStatus> {
