@@ -277,16 +277,21 @@ async function probeEndpoint(target: { id: string; label: string; path: string }
     });
     const text = await response.text();
     const latencyMs = Date.now() - started;
+    const expectedNotReady = isExpectedNotReadyProbe(target.id, response.status, text);
     return {
       id: target.id,
       label: target.label,
       method: "GET",
       path: target.path,
       target: url,
-      status: response.ok ? "ok" : "error",
+      status: response.ok ? "ok" : expectedNotReady ? "warning" : "error",
       latencyMs,
       checkedAt,
-      message: response.ok ? summarizeEndpointPayload(target.id, text) : `HTTP ${response.status}: ${compactText(text || response.statusText, 140)}`
+      message: response.ok
+        ? summarizeEndpointPayload(target.id, text)
+        : expectedNotReady
+          ? compactText(text || response.statusText, 140)
+          : `HTTP ${response.status}: ${compactText(text || response.statusText, 140)}`
     };
   } catch (error) {
     return {
@@ -303,6 +308,10 @@ async function probeEndpoint(target: { id: string; label: string; path: string }
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function isExpectedNotReadyProbe(id: string, status: number, text: string) {
+  return id === "report-templates" && status === 500 && /Report Engine.*未初始化/.test(text);
 }
 
 async function inspectMindSpiderStatus(): Promise<BettaFishMindSpiderStatus> {
