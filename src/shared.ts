@@ -180,6 +180,8 @@ export interface BettaFishRuntimeStatus {
   repoAutoDetected: boolean;
   repoDir?: string;
   python: string;
+  pythonAvailable: boolean;
+  pythonVersion?: string;
   localProcessRunning: boolean;
   baseUrlConfigured: boolean;
   baseUrlAutoConfigured: boolean;
