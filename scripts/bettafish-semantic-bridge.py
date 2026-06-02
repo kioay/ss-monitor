@@ -137,7 +137,7 @@ def fallback_processing(text: str) -> str:
     return " ".join(re.findall(r"[A-Za-z0-9_]+|[\u4e00-\u9fff]", text))
 
 
-def predict_item(item_id: str, text: str, models: list[LoadedModel], processing: Callable[[str], str]) -> dict[str, Any]:
+def predict_item(item_id: str, text: str, models: List[LoadedModel], processing: Callable[[str], str]) -> Dict[str, Any]:
     processed = processing(text[:2000])
     votes = []
     weighted_positive = 0.0
