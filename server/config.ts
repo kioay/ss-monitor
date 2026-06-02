@@ -154,7 +154,7 @@ function parseBoolean(value: string) {
 
 function resolveBettaFishRepoDir(explicitPath: string) {
   const explicit = explicitPath.trim();
-  if (explicit && isBettaFishRepo(explicit)) return path.resolve(explicit);
+  if (explicit) return path.resolve(explicit);
 
   const candidates = [
     path.resolve(process.cwd(), "..", "BettaFish"),
