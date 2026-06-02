@@ -31,6 +31,12 @@ const bettaFishPython = process.env.BETTAFISH_PYTHON || detectPythonCommand();
 const bettaFishStartCommand = process.env.BETTAFISH_START_COMMAND || (detectedBettaFishRepoDir ? `${quoteShell(bettaFishPython)} app.py` : "");
 const bettaFishDeployCommand = process.env.BETTAFISH_DEPLOY_COMMAND || (detectedBettaFishRepoDir ? "git pull --ff-only" : "");
 const bettaFishBaseUrl = normalizeOptionalBaseUrl(process.env.BETTAFISH_BASE_URL || (detectedBettaFishRepoDir ? "http://127.0.0.1:5000" : ""));
+const mindSpiderDouyinImportDir = process.env.MINDSPIDER_DOUYIN_IMPORT_DIR
+  || process.env.MINDSPIDER_IMPORT_DIR
+  || [
+    "data/mindspider-douyin-imports",
+    detectedBettaFishRepoDir ? path.join(detectedBettaFishRepoDir, "MindSpider", "DeepSentimentCrawling", "MediaCrawler", "data") : ""
+  ].filter(Boolean).join(path.delimiter);
 
 export const runtimeConfig = {
   port: Number(process.env.PORT || 8787),
@@ -62,7 +68,7 @@ export const runtimeConfig = {
   bettaFishDeployCommandAutoConfigured: Boolean(bettaFishDeployCommand && !process.env.BETTAFISH_DEPLOY_COMMAND),
   bettaFishSentimentCommand: process.env.BETTAFISH_SENTIMENT_COMMAND || "",
   mindSpiderDouyinEnabled: parseBoolean(process.env.MINDSPIDER_DOUYIN_ENABLED || "true"),
-  mindSpiderDouyinImportDir: process.env.MINDSPIDER_DOUYIN_IMPORT_DIR || process.env.MINDSPIDER_IMPORT_DIR || "data/mindspider-douyin-imports",
+  mindSpiderDouyinImportDir,
   mindSpiderEnvFile: process.env.MINDSPIDER_ENV_FILE || "",
   mindSpiderDouyinTable: process.env.MINDSPIDER_DOUYIN_TABLE || "douyin_aweme",
   mindSpiderDouyinCommentsTable: process.env.MINDSPIDER_DOUYIN_COMMENTS_TABLE || "douyin_aweme_comment",

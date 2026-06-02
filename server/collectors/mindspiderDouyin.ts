@@ -60,7 +60,8 @@ export async function collectMindSpiderDouyinItems(game: GameConfig, cutoff: Dat
 }
 
 async function collectMindSpiderExportItems(game: GameConfig, cutoff: Date): Promise<MindSpiderDouyinResult> {
-  const files = await listImportFiles(runtimeConfig.mindSpiderDouyinImportDir);
+  const roots = importRoots(runtimeConfig.mindSpiderDouyinImportDir);
+  const files = uniqueStrings((await Promise.all(roots.map((root) => listImportFiles(root)))).flat());
   const rows: Array<{ row: ImportedRow; label: string }> = [];
   const errors: string[] = [];
 
@@ -149,6 +150,14 @@ async function listImportFiles(root: string): Promise<string[]> {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
     throw error;
   }
+}
+
+function importRoots(value: string) {
+  return uniqueStrings(value.split(/[;,\n]/).flatMap((part) => part.split(path.delimiter)).map((part) => part.trim()).filter(Boolean));
+}
+
+function uniqueStrings(values: string[]) {
+  return Array.from(new Set(values));
 }
 
 async function readImportRows(file: string): Promise<ImportedRow[]> {
