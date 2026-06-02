@@ -6,6 +6,7 @@ import { collectBettaFish } from "./collectors/bettafish";
 import { collectDouyin } from "./collectors/douyin";
 import { collectTieba } from "./collectors/tieba";
 import { gameById, games, getUpdatePolicy, runtimeConfig } from "./config";
+import { refineItemsWithBettaFishSemantic } from "./bettafishSemantic";
 import { refreshCurrentVersionFocus } from "./currentVersion";
 import { queueDingTalkNotification } from "./dingtalk";
 import type {
@@ -304,7 +305,8 @@ async function collectAll(selectedGames: GameConfig[], cutoff: Date) {
       });
     }
   }
-  return { items, health };
+  const refinedItems = await refineItemsWithBettaFishSemantic(items);
+  return { items: refinedItems, health };
 }
 
 function sourceLabel(source: SourceType) {

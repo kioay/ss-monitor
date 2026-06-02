@@ -162,6 +162,26 @@ BettaFish is a full Python public-opinion system with its own Flask app, Streaml
 
 See `examples/bettafish-import.example.json` for supported fields. Common MindSpider tables such as `douyin_aweme`, `bilibili_video`, `xhs_note`, `weibo_note`, `tieba_note`, and `zhihu_content` are mapped by alias.
 
+### BettaFish semantic fusion
+
+The main monitor can now use BettaFish local sentiment models as an auxiliary semantic signal. This is a conservative fusion, not a replacement:
+
+- Existing SS1/SS2 domain rules still make the primary call for player skill shares, help posts, routine player sharing, player-behavior complaints, illegal cheat context, SS1 weapon names, and current-version focus.
+- BettaFish models are batch-run after collection through `scripts/bettafish-semantic-bridge.py`, so the model loads once per refresh instead of once per item.
+- BettaFish high-confidence positive/negative output can adjust sentiment score and add a supporting reason, but it cannot create high risk by itself.
+- If BettaFish, Python, or model dependencies are unavailable, the monitor logs the issue and falls back to the existing analyzer.
+
+Configuration:
+
+```bash
+BETTAFISH_SEMANTIC_ENABLED=true
+BETTAFISH_SEMANTIC_MODELS=bayes
+BETTAFISH_SEMANTIC_MAX_ITEMS=80
+BETTAFISH_SEMANTIC_TIMEOUT_MS=15000
+```
+
+`svm` and `xgboost` can be added to `BETTAFISH_SEMANTIC_MODELS` when the BettaFish Python environment has compatible `scikit-learn` / `xgboost` versions. The default keeps `bayes` only because it is the most stable lightweight model.
+
 The frontend also has a separate `BettaFish 测试台` tab. It keeps BettaFish outside the main monitor pipeline, but can now test every major integration surface:
 
 - SS1/SS2 game monitoring snapshots that reuse the current collector, semantic analysis, risk classification, source health, topics, alerts, and latest-feed logic without sending notifications.

@@ -27,7 +27,7 @@ export const gameById = new Map<GameId, GameConfig>(games.map((game) => [game.id
 
 const detectedBettaFishRepoDir = resolveBettaFishRepoDir(process.env.BETTAFISH_REPO_DIR || "");
 const bettaFishRepoAutoDetected = Boolean(detectedBettaFishRepoDir && !process.env.BETTAFISH_REPO_DIR);
-const bettaFishPython = process.env.BETTAFISH_PYTHON || detectPythonCommand();
+const bettaFishPython = process.env.BETTAFISH_PYTHON || detectBettaFishPython(detectedBettaFishRepoDir) || detectPythonCommand();
 const bettaFishStartCommand = process.env.BETTAFISH_START_COMMAND || (detectedBettaFishRepoDir ? `${quoteShell(bettaFishPython)} app.py` : "");
 const bettaFishDeployCommand = process.env.BETTAFISH_DEPLOY_COMMAND || (detectedBettaFishRepoDir ? "git pull --ff-only" : "");
 const bettaFishBaseUrl = normalizeOptionalBaseUrl(process.env.BETTAFISH_BASE_URL || (detectedBettaFishRepoDir ? "http://127.0.0.1:5000" : ""));
@@ -67,6 +67,15 @@ export const runtimeConfig = {
   bettaFishDeployCommand,
   bettaFishDeployCommandAutoConfigured: Boolean(bettaFishDeployCommand && !process.env.BETTAFISH_DEPLOY_COMMAND),
   bettaFishSentimentCommand: process.env.BETTAFISH_SENTIMENT_COMMAND || "",
+  bettaFishSemanticEnabled: parseBoolean(process.env.BETTAFISH_SEMANTIC_ENABLED || (detectedBettaFishRepoDir ? "true" : "false")),
+  bettaFishSemanticCommand: process.env.BETTAFISH_SEMANTIC_COMMAND || "",
+  bettaFishSemanticModels: process.env.BETTAFISH_SEMANTIC_MODELS || "bayes",
+  bettaFishSemanticMaxItems: Math.max(1, Number(process.env.BETTAFISH_SEMANTIC_MAX_ITEMS || 80)),
+  bettaFishSemanticTimeoutMs: Math.max(1000, Number(process.env.BETTAFISH_SEMANTIC_TIMEOUT_MS || 15_000)),
+  bettaFishSemanticMinConfidence: clampRatio(Number(process.env.BETTAFISH_SEMANTIC_MIN_CONFIDENCE || 0.56)),
+  bettaFishSemanticOverrideConfidence: clampRatio(Number(process.env.BETTAFISH_SEMANTIC_OVERRIDE_CONFIDENCE || 0.72)),
+  bettaFishSemanticRiskConfidence: clampRatio(Number(process.env.BETTAFISH_SEMANTIC_RISK_CONFIDENCE || 0.78)),
+  bettaFishSemanticFailureCooldownSeconds: Math.max(0, Number(process.env.BETTAFISH_SEMANTIC_FAILURE_COOLDOWN_SECONDS || 600)),
   mindSpiderDouyinEnabled: parseBoolean(process.env.MINDSPIDER_DOUYIN_ENABLED || "true"),
   mindSpiderDouyinImportDir,
   mindSpiderEnvFile: process.env.MINDSPIDER_ENV_FILE || "",
@@ -123,6 +132,11 @@ function clampHour(value: number) {
   return Math.max(0, Math.min(23, Math.trunc(value)));
 }
 
+function clampRatio(value: number) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(1, value));
+}
+
 function normalizeOptionalBaseUrl(value: string) {
   const trimmed = value.trim().replace(/\/+$/, "");
   if (!trimmed) return "";
@@ -168,6 +182,22 @@ function detectPythonCommand() {
   if (commandExists("python3")) return "python3";
   if (commandExists("python")) return "python";
   return "python3";
+}
+
+function detectBettaFishPython(repoDir: string) {
+  if (!repoDir) return "";
+  const candidates = process.platform === "win32"
+    ? [
+        path.join(repoDir, ".venv-mediacrawler", "Scripts", "python.exe"),
+        path.join(repoDir, ".venv", "Scripts", "python.exe"),
+        path.join(repoDir, "venv", "Scripts", "python.exe")
+      ]
+    : [
+        path.join(repoDir, ".venv-mediacrawler", "bin", "python"),
+        path.join(repoDir, ".venv", "bin", "python"),
+        path.join(repoDir, "venv", "bin", "python")
+      ];
+  return candidates.find((candidate) => fs.existsSync(candidate)) || "";
 }
 
 function commandExists(command: string) {

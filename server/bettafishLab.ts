@@ -551,7 +551,7 @@ function makeCapabilities(
       id: "sentiment",
       name: "BettaFish 情感模型 / LLM 分析",
       goal: "提升情绪、风险与语义判定能力",
-      currentProjectUse: "测试台可调用配置的本地模型命令，未配置时可通过 BettaFish Agent 发起 LLM 判定；主流程仍用现有规则",
+      currentProjectUse: "测试台可调用配置的本地模型命令，未配置时可通过 BettaFish Agent 发起 LLM 判定；主流程已接入 BettaFish 本地情感模型作保守辅助融合",
       testCoverage: "展示 SentimentAnalysisModel 候选 predict.py；可提交文本做模型/LLM 分析",
       status: sentiment.commandConfigured || llmAgentUsable ? "ok" : sentiment.localModelsAvailable || runtime.baseUrlConfigured ? "warning" : "skipped",
       evidence: [
