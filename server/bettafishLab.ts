@@ -4,6 +4,7 @@ import path from "node:path";
 import { z } from "zod";
 import { games, runtimeConfig } from "./config";
 import { previewBettaFishImportedItems, probeBettaFishStatus } from "./collectors/bettafish";
+import { loadMindSpiderDbConfig } from "./collectors/mindspiderDouyin";
 import { getMonitorResponse } from "./monitor";
 import type {
   BettaFishActionResponse,
@@ -322,9 +323,10 @@ async function inspectMindSpiderStatus(): Promise<BettaFishMindSpiderStatus> {
   const mindSpiderRoot = repo ? path.join(repo, "MindSpider") : "";
   const repoAvailable = Boolean(repo) && await pathExists(path.join(mindSpiderRoot, "main.py"));
   const loginStateCandidates = repoAvailable ? await inspectLoginStateCandidates(mindSpiderRoot) : [];
+  const dbConfig = await loadMindSpiderDbConfig();
   return {
     repoAvailable,
-    dbDirectConfigured: hasDbConfig(),
+    dbDirectConfigured: dbConfig.configured,
     crawlerPlatforms,
     tables: mindSpiderTables,
     loginStateCandidates
@@ -745,10 +747,6 @@ function actionResponse(
   return { ok, action, generatedAt: new Date().toISOString(), message, ...extra };
 }
 
-function hasDbConfig() {
-  return Boolean(process.env.DB_HOST && process.env.DB_USER && process.env.DB_NAME);
-}
-
 async function summarizePath(targetPath: string): Promise<Omit<BettaFishLoginStateCandidate, "label" | "path">> {
   try {
     const stat = await fs.stat(targetPath);
@@ -869,7 +867,7 @@ function makeRecommendations(
   if (!runtime.actionsEnabled) recommendations.push("研究操作被配置关闭；需要执行启动/搜索/爬取/报告/部署时设置 BETTAFISH_LAB_ACTIONS_ENABLED=true。");
   if (!mindSpider.repoAvailable) recommendations.push("配置 BETTAFISH_REPO_DIR 后，测试台可检查 MindSpider 登录态候选目录、数据库直连和测试爬虫调度。");
   if (!sentiment.commandConfigured && sentiment.localModelsAvailable) recommendations.push("已发现 BettaFish 情感模型候选；配置 BETTAFISH_SENTIMENT_COMMAND 后可直接调用本地模型。");
-  if (totalItems === 0) recommendations.push("把 BettaFish/MindSpider 授权导出放入 BETTAFISH_IMPORT_DIR，先形成可复盘的导入样本集。");
+  if (totalItems === 0) recommendations.push(`把 BettaFish 授权导出放入 BETTAFISH_IMPORT_DIR，或把 MindSpider 抖音实验导出放入 ${runtimeConfig.mindSpiderDouyinImportDir}，先形成可复盘的导入样本集。`);
   if (endpointProbes.some((probe) => probe.status === "error")) recommendations.push("有 BettaFish 只读端点不可达，先确认 BettaFish Flask 服务、ReportEngine Blueprint 和 ForumEngine 日志接口。");
   if (capabilities.find((capability) => capability.id === "sentiment")?.status === "ok") {
     recommendations.push("用同一批文本并排比较 BettaFish 语义输出与本平台 analyzeItem 输出，稳定后再进入主链路。");

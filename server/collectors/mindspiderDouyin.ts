@@ -88,7 +88,7 @@ async function collectMindSpiderExportItems(game: GameConfig, cutoff: Date): Pro
 }
 
 async function collectMindSpiderDbItems(game: GameConfig, cutoff: Date): Promise<MindSpiderDouyinResult> {
-  const dbConfig = await loadDbConfig();
+  const dbConfig = await loadMindSpiderDbConfig();
   if (!dbConfig.configured) {
     return {
       ...defaultResult(),
@@ -221,7 +221,7 @@ function parseCsv(raw: string) {
   return rows;
 }
 
-interface DbConfig {
+export interface MindSpiderDbConfig {
   configured: boolean;
   dialect: "mysql" | "postgresql";
   host: string;
@@ -232,7 +232,7 @@ interface DbConfig {
   charset: string;
 }
 
-async function loadDbConfig(): Promise<DbConfig> {
+export async function loadMindSpiderDbConfig(): Promise<MindSpiderDbConfig> {
   const envFiles = [
     runtimeConfig.mindSpiderEnvFile,
     runtimeConfig.bettaFishRepoDir ? path.join(runtimeConfig.bettaFishRepoDir, "MindSpider", ".env") : "",
@@ -283,7 +283,7 @@ function unquoteEnvValue(value: string) {
   return value;
 }
 
-function buildMindSpiderDbProbeScript(game: GameConfig, cutoff: Date, dbConfig: DbConfig) {
+function buildMindSpiderDbProbeScript(game: GameConfig, cutoff: Date, dbConfig: MindSpiderDbConfig) {
   const payload = {
     dbConfig,
     table: runtimeConfig.mindSpiderDouyinTable,
