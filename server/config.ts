@@ -72,6 +72,8 @@ export const runtimeConfig = {
   mindSpiderEnvFile: process.env.MINDSPIDER_ENV_FILE || "",
   mindSpiderDouyinTable: process.env.MINDSPIDER_DOUYIN_TABLE || "douyin_aweme",
   mindSpiderDouyinCommentsTable: process.env.MINDSPIDER_DOUYIN_COMMENTS_TABLE || "douyin_aweme_comment",
+  mindSpiderSqlitePath: process.env.MINDSPIDER_SQLITE_PATH || process.env.SQLITE_PATH || "",
+  mindSpiderSqliteCommand: process.env.MINDSPIDER_SQLITE_COMMAND || process.env.SQLITE3_COMMAND || "sqlite3",
   mindSpiderDbLimit: Math.max(1, Number(process.env.MINDSPIDER_DB_LIMIT || 200)),
   mindSpiderDbQueryTimeoutMs: Math.max(1000, Number(process.env.MINDSPIDER_DB_QUERY_TIMEOUT_MS || 12_000)),
   dingTalkWebhook: process.env.DINGTALK_WEBHOOK || "",

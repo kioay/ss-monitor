@@ -327,6 +327,8 @@ async function inspectMindSpiderStatus(): Promise<BettaFishMindSpiderStatus> {
   return {
     repoAvailable,
     dbDirectConfigured: dbConfig.configured,
+    dbDialect: dbConfig.dialect,
+    ...(dbConfig.dialect === "sqlite" && dbConfig.sqlitePath ? { sqlitePath: dbConfig.sqlitePath } : {}),
     crawlerPlatforms,
     tables: mindSpiderTables,
     loginStateCandidates
@@ -541,7 +543,7 @@ function makeCapabilities(
         `读取 ${totalRows} 行，命中 ${totalItems} 条 SS1/SS2 舆情`,
         `Repo: ${mindSpider.repoAvailable ? "可用" : "未配置"}`,
         `Python: ${runtime.pythonAvailable ? runtime.pythonVersion || "可用" : `${runtime.python} 不可用`}`,
-        `DB: ${mindSpider.dbDirectConfigured ? "已配置连接参数" : "未配置连接参数"}`
+        `DB: ${mindSpider.dbDirectConfigured ? `已配置 ${mindSpider.dbDialect || "连接参数"}` : "未配置连接参数"}`
       ],
       nextStep: "用测试模式先跑少量平台和关键词，确认登录态、DB 表、任务状态再扩大调度范围。"
     },

@@ -118,7 +118,7 @@ Notes:
 The main Douyin monitor now prefers experimental and authorized sources in this order:
 
 1. MindSpider / MediaCrawler experimental output from `MINDSPIDER_DOUYIN_IMPORT_DIR`. Multiple directories are supported; without an explicit value the monitor also checks BettaFish `MindSpider/DeepSentimentCrawling/MediaCrawler/data` when the repo is detected.
-2. MindSpider DB direct reads from `douyin_aweme` and `douyin_aweme_comment` when `MINDSPIDER_DB_*` or `DB_*` is configured.
+2. MindSpider DB direct reads from `douyin_aweme` and `douyin_aweme_comment` when `MINDSPIDER_DB_*` or `DB_*` is configured. MySQL, PostgreSQL, and SQLite are supported.
 3. Douyin authorized API sources.
 4. Douyin authorized local imports.
 
@@ -134,6 +134,17 @@ MINDSPIDER_DB_PORT=3306
 MINDSPIDER_DB_USER=...
 MINDSPIDER_DB_PASSWORD=...
 MINDSPIDER_DB_NAME=mindspider
+MINDSPIDER_DOUYIN_TABLE=douyin_aweme
+MINDSPIDER_DOUYIN_COMMENTS_TABLE=douyin_aweme_comment
+```
+
+For a production machine without a user-managed MySQL/PostgreSQL service, use the SQLite bridge instead:
+
+```bash
+MINDSPIDER_DOUYIN_ENABLED=true
+MINDSPIDER_DB_DIALECT=sqlite
+MINDSPIDER_SQLITE_PATH=/opt/ss-monitor/data/mindspider.sqlite
+MINDSPIDER_SQLITE_COMMAND=sqlite3
 MINDSPIDER_DOUYIN_TABLE=douyin_aweme
 MINDSPIDER_DOUYIN_COMMENTS_TABLE=douyin_aweme_comment
 ```

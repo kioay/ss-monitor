@@ -203,6 +203,8 @@ export interface BettaFishLoginStateCandidate {
 export interface BettaFishMindSpiderStatus {
   repoAvailable: boolean;
   dbDirectConfigured: boolean;
+  dbDialect?: "mysql" | "postgresql" | "sqlite";
+  sqlitePath?: string;
   crawlerPlatforms: string[];
   tables: string[];
   loginStateCandidates: BettaFishLoginStateCandidate[];

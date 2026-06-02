@@ -839,6 +839,11 @@ function LabActionPanel({
   const baseUrlValue = data.runtime.baseUrlConfigured ? (data.runtime.baseUrlAutoConfigured ? "默认 5000" : "已配置") : "未配置";
   const deployValue = data.runtime.deployCommandConfigured ? (data.runtime.deployCommandAutoConfigured ? "默认 git pull" : "已配置") : "未配置";
   const pythonValue = data.runtime.pythonAvailable ? data.runtime.pythonVersion || "可用" : "不可用";
+  const mindSpiderDbValue = data.mindSpider.dbDirectConfigured
+    ? data.mindSpider.dbDialect === "sqlite"
+      ? "SQLite 已接入"
+      : `${data.mindSpider.dbDialect || "DB"} 已配置`
+    : "未配置";
 
   React.useEffect(() => {
     if (actionResult?.taskId) setReportTaskId(actionResult.taskId);
@@ -859,6 +864,7 @@ function LabActionPanel({
         <StatusFact label="BettaFish URL" value={baseUrlValue} tone={data.runtime.baseUrlConfigured ? "ok" : "skipped"} />
         <StatusFact label="Repo" value={repoValue} tone={data.runtime.repoConfigured ? "ok" : "skipped"} />
         <StatusFact label="Python" value={pythonValue} tone={data.runtime.pythonAvailable ? "ok" : "error"} />
+        <StatusFact label="MindSpider DB" value={mindSpiderDbValue} tone={data.mindSpider.dbDirectConfigured ? "ok" : "warning"} />
         <StatusFact label="部署命令" value={deployValue} tone={data.runtime.deployCommandConfigured ? "ok" : "skipped"} />
         <StatusFact label="本地进程" value={data.runtime.localProcessRunning ? "运行中" : "未运行"} tone={data.runtime.localProcessRunning ? "ok" : "skipped"} />
       </div>
@@ -919,6 +925,13 @@ function LabActionPanel({
             <ActionButton operation={op("mindspider.status")} busy={loadingAction === "mindspider.status"} disabled={isBusy} onClick={() => run({ action: "mindspider.status" })} />
             <ActionButton operation={op("mindspider.dbProbe")} busy={loadingAction === "mindspider.dbProbe"} disabled={isBusy} onClick={() => run({ action: "mindspider.dbProbe" })} />
             <ActionButton operation={op("mindspider.initDb")} busy={loadingAction === "mindspider.initDb"} disabled={isBusy} onClick={() => run({ action: "mindspider.initDb" })} />
+          </div>
+          <div className="candidate-list">
+            <span>DB：{mindSpiderDbValue}</span>
+            {data.mindSpider.sqlitePath ? <span>SQLite：{data.mindSpider.sqlitePath}</span> : null}
+            {data.mindSpider.loginStateCandidates.map((candidate) => (
+              <span key={candidate.path}>{candidate.label}: {candidate.exists ? `${candidate.fileCount || 0} 文件` : "未发现"}</span>
+            ))}
           </div>
           <div className="lab-inline-fields">
             <label className="lab-input">

@@ -232,13 +232,15 @@ function parseCsv(raw: string) {
 
 export interface MindSpiderDbConfig {
   configured: boolean;
-  dialect: "mysql" | "postgresql";
+  dialect: "mysql" | "postgresql" | "sqlite";
   host: string;
   port: number;
   user: string;
   password: string;
   database: string;
   charset: string;
+  sqlitePath: string;
+  sqliteCommand: string;
 }
 
 export async function loadMindSpiderDbConfig(): Promise<MindSpiderDbConfig> {
@@ -256,18 +258,31 @@ export async function loadMindSpiderDbConfig(): Promise<MindSpiderDbConfig> {
   const port = Number(value("MINDSPIDER_DB_PORT", value("DB_PORT", "3306")));
   const dialect = value("MINDSPIDER_DB_DIALECT", value("DB_DIALECT", "mysql")).toLowerCase();
   const charset = value("MINDSPIDER_DB_CHARSET", value("DB_CHARSET", "utf8mb4"));
-  const configured = Boolean(host && user && password && database && !/^your_/i.test(host) && !/^your_/i.test(user) && !/^your_/i.test(password));
+  const sqlitePath = value("MINDSPIDER_SQLITE_PATH", value("SQLITE_PATH", runtimeConfig.mindSpiderSqlitePath));
+  const sqliteCommand = value("MINDSPIDER_SQLITE_COMMAND", value("SQLITE3_COMMAND", runtimeConfig.mindSpiderSqliteCommand));
+  const normalizedDialect = normalizeDbDialect(dialect);
+  const configured = normalizedDialect === "sqlite"
+    ? Boolean(sqlitePath && !/^your_/i.test(sqlitePath))
+    : Boolean(host && user && password && database && !/^your_/i.test(host) && !/^your_/i.test(user) && !/^your_/i.test(password));
 
   return {
     configured,
-    dialect: dialect === "postgres" || dialect === "postgresql" ? "postgresql" : "mysql",
+    dialect: normalizedDialect,
     host,
     port: Number.isFinite(port) ? port : 3306,
     user,
     password,
     database,
-    charset
+    charset,
+    sqlitePath,
+    sqliteCommand
   };
+}
+
+function normalizeDbDialect(value: string): MindSpiderDbConfig["dialect"] {
+  if (value === "postgres" || value === "postgresql") return "postgresql";
+  if (value === "sqlite" || value === "sqlite3") return "sqlite";
+  return "mysql";
 }
 
 async function readEnvFile(file: string) {
@@ -307,8 +322,8 @@ function buildMindSpiderDbProbeScript(game: GameConfig, cutoff: Date, dbConfig: 
 const payload = ${JSON.stringify(payload)};
 const mysql = payload.dbConfig.dialect === "mysql" ? await import("mysql2/promise").catch(() => undefined) : undefined;
 const pg = payload.dbConfig.dialect === "postgresql" ? await import("pg").catch(() => undefined) : undefined;
+const { spawn } = payload.dbConfig.dialect === "sqlite" ? await import("node:child_process") : { spawn: undefined };
 const cutoffSeconds = Math.floor(new Date(payload.cutoffIso).getTime() / 1000);
-const cutoffMillis = new Date(payload.cutoffIso).getTime();
 const likeTerms = payload.terms.map((term) => String(term || "").trim()).filter(Boolean);
 const select = [
   "aweme.id",
@@ -371,8 +386,67 @@ async function queryPostgres() {
     await conn.end();
   }
 }
+async function querySqlite() {
+  if (!spawn) throw new Error("child_process spawn unavailable");
+  const sqlitePath = String(payload.dbConfig.sqlitePath || "");
+  if (!sqlitePath) throw new Error("MINDSPIDER_SQLITE_PATH is empty");
+  const sql = buildSqliteSql();
+  const output = await runSqlite(payload.dbConfig.sqliteCommand || "sqlite3", ["-json", sqlitePath, sql]);
+  const parsed = JSON.parse(output || "[]");
+  if (!Array.isArray(parsed)) throw new Error("sqlite3 returned non-array JSON");
+  return parsed;
+}
+function buildSqliteSql() {
+  const termSql = likeTerms.length
+    ? " AND (" + likeTerms.map((term) => "COALESCE(aweme.title, '') || ' ' || COALESCE(aweme.desc, '') || ' ' || COALESCE(aweme.source_keyword, '') LIKE " + quoteSql("%" + term + "%")).join(" OR ") + ")"
+    : "";
+  return [
+    "SELECT",
+    "aweme.id AS id,",
+    "aweme.aweme_id AS sourceItemId,",
+    "aweme.title AS title,",
+    "aweme.desc AS description,",
+    "aweme.nickname AS author,",
+    "aweme.aweme_url AS url,",
+    "aweme.cover_url AS thumbnail,",
+    "aweme.create_time AS publishedAt,",
+    "aweme.add_ts AS collectedAt,",
+    "aweme.source_keyword AS tags,",
+    "aweme.liked_count AS likes,",
+    "aweme.comment_count AS commentsCount,",
+    "aweme.share_count AS shares,",
+    "aweme.collected_count AS favorites,",
+    "GROUP_CONCAT(comment.content, '\\\\n') AS comments",
+    "FROM " + quoteIdent(payload.table) + " aweme",
+    "LEFT JOIN " + quoteIdent(payload.commentsTable) + " comment ON comment.aweme_id = aweme.aweme_id",
+    "WHERE (aweme.create_time IS NULL OR aweme.create_time >= " + Number(cutoffSeconds) + ")" + termSql,
+    "GROUP BY aweme.id",
+    "ORDER BY COALESCE(aweme.create_time, aweme.add_ts, 0) DESC",
+    "LIMIT " + Number(payload.limit || 200)
+  ].join(" ") + ";";
+}
+function runSqlite(command, args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => { stdout += chunk.toString("utf-8"); });
+    child.stderr.on("data", (chunk) => { stderr += chunk.toString("utf-8"); });
+    child.on("error", reject);
+    child.on("exit", (code) => {
+      if (code === 0) resolve(stdout);
+      else reject(new Error(stderr || "sqlite3 exited with code " + code));
+    });
+  });
+}
+function quoteIdent(value) {
+  return '"' + String(value || "").replace(/"/g, '""') + '"';
+}
+function quoteSql(value) {
+  return "'" + String(value || "").replace(/'/g, "''") + "'";
+}
 try {
-  const rows = await Promise.race([payload.dbConfig.dialect === "postgresql" ? queryPostgres() : queryMysql(), timeout]);
+  const rows = await Promise.race([payload.dbConfig.dialect === "sqlite" ? querySqlite() : payload.dbConfig.dialect === "postgresql" ? queryPostgres() : queryMysql(), timeout]);
   const normalized = rows.map((row) => ({ gameId: "", ...row, publishedAt: normalizeTime(row.publishedAt), collectedAt: normalizeTime(row.collectedAt), platform: "douyin" }));
   process.stdout.write(JSON.stringify({ ok: true, rows: normalized }));
 } catch (error) {
