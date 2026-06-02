@@ -11,8 +11,6 @@ The bridge intentionally uses BettaFish local machine-learning sentiment models
 only. It does not call LLMs, remote APIs, crawlers, or browser automation.
 """
 
-from __future__ import annotations
-
 import argparse
 import contextlib
 import json
@@ -21,7 +19,7 @@ import pickle
 import re
 import sys
 import math
-from typing import Any, Callable
+from typing import Any, Callable, Dict, List, Tuple
 
 
 class LoadedModel:
@@ -93,14 +91,14 @@ def main() -> int:
       os.chdir(cwd)
 
 
-def load_models(ml_dir: str, names: list[str]) -> list[LoadedModel]:
-    loaders: dict[str, tuple[str, float, str]] = {
+def load_models(ml_dir: str, names: List[str]) -> List[LoadedModel]:
+    loaders: Dict[str, Tuple[str, float, str]] = {
       "svm": ("svm_model.pkl", 1.15, "sklearn"),
       "bayes": ("bayes_model.pkl", 0.9, "sklearn"),
       "xgboost": ("xgboost_model.pkl", 1.0, "xgboost"),
     }
 
-    loaded: list[LoadedModel] = []
+    loaded: List[LoadedModel] = []
     for name in names:
       if name not in loaders:
         continue
@@ -186,7 +184,7 @@ def predict_item(item_id: str, text: str, models: list[LoadedModel], processing:
     }
 
 
-def predict_with_model(model: LoadedModel, processed: str) -> tuple[int, float]:
+def predict_with_model(model: LoadedModel, processed: str) -> Tuple[int, float]:
     features = model.vectorizer.transform([processed])
     if model.kind == "xgboost":
       import xgboost as xgb  # type: ignore
