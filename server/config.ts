@@ -26,16 +26,17 @@ export const games: GameConfig[] = [
 export const gameById = new Map<GameId, GameConfig>(games.map((game) => [game.id, game]));
 
 const detectedBettaFishRepoDir = resolveBettaFishRepoDir(process.env.BETTAFISH_REPO_DIR || "");
-const bettaFishRepoAutoDetected = Boolean(detectedBettaFishRepoDir && !process.env.BETTAFISH_REPO_DIR);
+const bettaFishRuntimeRepoDetected = Boolean(detectedBettaFishRepoDir && isBettaFishRepo(detectedBettaFishRepoDir));
+const bettaFishRepoAutoDetected = Boolean(bettaFishRuntimeRepoDetected && !process.env.BETTAFISH_REPO_DIR);
 const bettaFishPython = process.env.BETTAFISH_PYTHON || detectBettaFishPython(detectedBettaFishRepoDir) || detectPythonCommand();
-const bettaFishStartCommand = process.env.BETTAFISH_START_COMMAND || (detectedBettaFishRepoDir ? `${quoteShell(bettaFishPython)} app.py` : "");
-const bettaFishDeployCommand = process.env.BETTAFISH_DEPLOY_COMMAND || (detectedBettaFishRepoDir ? "git pull --ff-only" : "");
-const bettaFishBaseUrl = normalizeOptionalBaseUrl(process.env.BETTAFISH_BASE_URL || (detectedBettaFishRepoDir ? "http://127.0.0.1:5000" : ""));
+const bettaFishStartCommand = process.env.BETTAFISH_START_COMMAND || (bettaFishRuntimeRepoDetected ? `${quoteShell(bettaFishPython)} app.py` : "");
+const bettaFishDeployCommand = process.env.BETTAFISH_DEPLOY_COMMAND || (bettaFishRuntimeRepoDetected ? "git pull --ff-only" : "");
+const bettaFishBaseUrl = normalizeOptionalBaseUrl(process.env.BETTAFISH_BASE_URL || (bettaFishRuntimeRepoDetected ? "http://127.0.0.1:5000" : ""));
 const mindSpiderDouyinImportDir = process.env.MINDSPIDER_DOUYIN_IMPORT_DIR
   || process.env.MINDSPIDER_IMPORT_DIR
   || [
     "data/mindspider-douyin-imports",
-    detectedBettaFishRepoDir ? path.join(detectedBettaFishRepoDir, "MindSpider", "DeepSentimentCrawling", "MediaCrawler", "data") : ""
+    bettaFishRuntimeRepoDetected ? path.join(detectedBettaFishRepoDir, "MindSpider", "DeepSentimentCrawling", "MediaCrawler", "data") : ""
   ].filter(Boolean).join(path.delimiter);
 
 export const runtimeConfig = {
@@ -164,7 +165,7 @@ function resolveBettaFishRepoDir(explicitPath: string) {
     "/opt/BettaFish"
   ];
 
-  return candidates.find(isBettaFishRepo) || explicit;
+  return candidates.find(isBettaFishRepo) || (explicit ? path.resolve(explicit) : "");
 }
 
 function isBettaFishRepo(candidate: string) {
