@@ -186,13 +186,7 @@ One manual sync:
 
 After the first successful run, omit `-InstallDependencies`; the script will reuse `BettaFish\.venv-mediacrawler` when it exists.
 
-Register the hourly Windows task:
-
-```powershell
-.\scripts\register-local-douyin-cdp-task.ps1
-```
-
-The task wakes hourly. `sync-local-douyin-cdp.ps1` enforces the product update cadence itself: daytime runs every 60 minutes, and night runs are throttled to 240 minutes. It writes the local export to `data/mindspider-douyin-imports/local-cdp/latest.json` and uploads the same file to:
+Run the sync manually when Douyin data needs to be refreshed. The project no longer registers a local Windows scheduled task because hidden workstation tasks are hard to maintain. `sync-local-douyin-cdp.ps1` still includes daytime/night throttling for manual or explicitly managed external schedulers. It writes the local export to `data/mindspider-douyin-imports/local-cdp/latest.json` and uploads the same file to:
 
 ```text
 /opt/ss-monitor/data/mindspider-douyin-imports/local-cdp/latest.json
