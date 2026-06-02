@@ -89,6 +89,15 @@ function writeCachedMonitor(key: string, data: MonitorResponse) {
   }
 }
 
+function clearCachedMonitor(key: string) {
+  try {
+    window.localStorage.removeItem(key);
+    window.sessionStorage.removeItem(key);
+  } catch {
+    // Cache cleanup should never block a manual view switch.
+  }
+}
+
 function App() {
   const [config, setConfig] = React.useState<{
     games: GameConfig[];
@@ -225,11 +234,17 @@ function App() {
   const topicOptions = React.useMemo(() => makeTopicOptions(data?.items || []), [data?.items]);
   const selectGames = React.useCallback(
     (gameIds: GameId[]) => {
-      if (sameGameSelection(selectedGames, gameIds)) return;
+      const sameSelection = sameGameSelection(selectedGames, gameIds);
       resetFeedFilters();
+      clearCachedMonitor(monitorCacheKey(gameIds, windowHours));
+      if (sameSelection) {
+        void load(true);
+        return;
+      }
+      setData(undefined);
       setSelectedGames(gameIds);
     },
-    [resetFeedFilters, selectedGames]
+    [load, resetFeedFilters, selectedGames, windowHours]
   );
   const selectWindowHours = React.useCallback(
     (hours: number) => {
@@ -244,6 +259,8 @@ function App() {
       setSource(filters?.source ?? "all");
       setRisk(filters?.risk ?? "all");
       setSentiment(filters?.sentiment ?? "all");
+      setTopic("all");
+      setQuery("");
       window.requestAnimationFrame(() => document.getElementById("latest-feed")?.scrollIntoView({ behavior: "smooth", block: "start" }));
     },
     []
@@ -252,6 +269,8 @@ function App() {
     setRisk("high");
     setSource("all");
     setSentiment("all");
+    setTopic("all");
+    setQuery("");
     window.requestAnimationFrame(() => document.getElementById("risk-alerts")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }, []);
 
@@ -810,7 +829,7 @@ function LabActionPanel({
   const [reportQuery, setReportQuery] = React.useState("生死狙击近 72 小时舆情复盘");
   const [reportTaskId, setReportTaskId] = React.useState("");
   const [sentimentText, setSentimentText] = React.useState("这次更新匹配体验变差了，外挂也有点多，希望官方尽快处理。");
-  const [platformsText, setPlatformsText] = React.useState("xhs");
+  const [platformsText, setPlatformsText] = React.useState("dy");
   const [maxKeywords, setMaxKeywords] = React.useState(3);
   const [maxNotes, setMaxNotes] = React.useState(5);
   const operations = React.useMemo(() => new Map(data.operations.map((operation) => [operation.id, operation])), [data.operations]);
@@ -1320,7 +1339,11 @@ function metricLine(item: MonitorItem) {
     return `${formatNumber(item.metrics.views)} 播放 · ${formatNumber(item.metrics.comments)} 评论`;
   }
   if (item.source === "douyin") {
-    return "公开搜索";
+    return item.sourceLabel.includes("MindSpider")
+      ? "实验爬虫"
+      : item.sourceLabel.includes("authorized") || item.sourceLabel.includes("import") || item.url.startsWith("douyin-import://")
+        ? "授权来源"
+        : "公开搜索";
   }
   if (item.source === "bettafish") {
     return "授权导入";

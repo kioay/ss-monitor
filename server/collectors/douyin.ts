@@ -5,6 +5,7 @@ import { fetchText, SourceError } from "../http";
 import { hoursBetween, md5, normalizeUrl, nowIso, stripHtml, uniq } from "../utils";
 import { collectAuthorizedDouyinSourceItems } from "./douyinAuthorizedSources";
 import { collectImportedDouyinItems } from "./douyinImport";
+import { collectMindSpiderDouyinItems } from "./mindspiderDouyin";
 import type { ContentPart, GameConfig, MonitorItem, SourceHealth } from "../../src/shared";
 
 interface DouyinCandidate {
@@ -25,6 +26,23 @@ export async function collectDouyin(game: GameConfig, cutoff: Date) {
   let blocked = false;
   let staleDropped = 0;
   const byUrl = new Map<string, DouyinCandidate>();
+  const mindSpider = await collectMindSpiderDouyinItems(game, cutoff).catch((error) => {
+    errors.push(`MindSpider: ${error instanceof Error ? error.message : String(error)}`);
+    return {
+      items: [] as MonitorItem[],
+      staleDropped: 0,
+      errors: [] as string[],
+      fileCount: 0,
+      rowCount: 0,
+      dbConfigured: false,
+      dbRows: 0,
+      exportFileCount: 0,
+      exportRowCount: 0,
+      sourceMessages: [] as string[]
+    };
+  });
+  staleDropped += mindSpider.staleDropped;
+  errors.push(...mindSpider.errors.slice(0, 8).map((error) => `MindSpider: ${error}`));
   const imported = await collectImportedDouyinItems(game, cutoff).catch((error) => {
     errors.push(`authorized import: ${error instanceof Error ? error.message : String(error)}`);
     return { items: [] as MonitorItem[], staleDropped: 0, errors: [] as string[], fileCount: 0, rowCount: 0 };
@@ -38,21 +56,23 @@ export async function collectDouyin(game: GameConfig, cutoff: Date) {
   staleDropped += authorized.staleDropped;
   errors.push(...authorized.errors.slice(0, 8).map((error) => `authorized API: ${error}`));
 
-  for (const keyword of game.douyinKeywords) {
-    try {
-      const candidates = await searchSogouDouyin(keyword);
-      for (const candidate of candidates) {
-        if (!isRelevantDouyinResult(game.id, candidate)) continue;
-        if (!candidate.publishedAt || candidate.publishedAt < cutoff) {
-          staleDropped += 1;
-          continue;
+  if (runtimeConfig.douyinPublicSearchEnabled) {
+    for (const keyword of game.douyinKeywords) {
+      try {
+        const candidates = await searchSogouDouyin(keyword);
+        for (const candidate of candidates) {
+          if (!isRelevantDouyinResult(game.id, candidate)) continue;
+          if (!candidate.publishedAt || candidate.publishedAt < cutoff) {
+            staleDropped += 1;
+            continue;
+          }
+          byUrl.set(candidate.url, candidate);
         }
-        byUrl.set(candidate.url, candidate);
+      } catch (error) {
+        const sourceError = error as SourceError;
+        blocked ||= Boolean(sourceError.blocked);
+        errors.push(`${keyword}: ${sourceError.message}`);
       }
-    } catch (error) {
-      const sourceError = error as SourceError;
-      blocked ||= Boolean(sourceError.blocked);
-      errors.push(`${keyword}: ${sourceError.message}`);
     }
   }
 
@@ -60,25 +80,74 @@ export async function collectDouyin(game: GameConfig, cutoff: Date) {
     .sort((a, b) => (b.publishedAt?.getTime() || 0) - (a.publishedAt?.getTime() || 0))
     .slice(0, runtimeConfig.maxDouyinItemsPerGame);
   const searchItems = candidates.map((candidate) => buildDouyinMonitorItem(game, candidate));
-  const items = mergeDouyinItems([...authorized.items, ...imported.items, ...searchItems]).slice(0, runtimeConfig.maxDouyinItemsPerGame);
+  const items = mergeDouyinItems([...mindSpider.items, ...authorized.items, ...imported.items, ...searchItems]).slice(0, runtimeConfig.maxDouyinItemsPerGame);
+  const expectedSourceCount = 2 + (runtimeConfig.douyinPublicSearchEnabled ? game.douyinKeywords.length : 0);
+  const hasConfiguredSource =
+    mindSpider.dbConfigured
+    || mindSpider.exportFileCount > 0
+    || imported.fileCount > 0
+    || authorized.fileCount > 0
+    || runtimeConfig.douyinPublicSearchEnabled;
 
   const health: SourceHealth = {
     source: "douyin",
     sourceLabel: douyinLabel,
     gameId: game.id,
-    ok: items.length > 0 || errors.length < game.douyinKeywords.length,
+    ok: items.length > 0 || (hasConfiguredSource && errors.length === 0),
     fetchedAt,
     latencyMs: Date.now() - started,
     itemCount: items.length,
     staleDropped,
-    blocked,
-    message:
-      errors.length === 0
-        ? "通过公开搜索结果发现抖音公开视频/图文，并按搜索结果时间过滤；不使用抖音官方接口。"
-        : `抖音公开搜索采集受限：${errors.slice(0, 2).join("；")}`
+    blocked: runtimeConfig.douyinPublicSearchEnabled ? blocked : false,
+    message: formatDouyinHealthMessage({
+      itemCount: items.length,
+      mindSpider,
+      imported,
+      authorized,
+      searchCount: searchItems.length,
+      errors,
+      blocked
+    })
   };
 
   return { items, health };
+}
+
+function formatDouyinHealthMessage({
+  itemCount,
+  mindSpider,
+  imported,
+  authorized,
+  searchCount,
+  errors,
+  blocked
+}: {
+  itemCount: number;
+  mindSpider: Awaited<ReturnType<typeof collectMindSpiderDouyinItems>>;
+  imported: Awaited<ReturnType<typeof collectImportedDouyinItems>>;
+  authorized: Awaited<ReturnType<typeof collectAuthorizedDouyinSourceItems>>;
+  searchCount: number;
+  errors: string[];
+  blocked: boolean;
+}) {
+  const parts: string[] = [
+    `MindSpider ${mindSpider.items.length}/${mindSpider.rowCount} 条`,
+    `授权 API ${authorized.items.length}/${authorized.rowCount} 条`,
+    `授权导入 ${imported.items.length}/${imported.rowCount} 条`
+  ];
+  if (runtimeConfig.douyinPublicSearchEnabled) {
+    parts.push(`公开搜索 ${searchCount} 条${blocked ? "，受限" : ""}`);
+  } else {
+    parts.push("公开搜索已关闭");
+  }
+  if (!mindSpider.dbConfigured && mindSpider.exportFileCount === 0) {
+    parts.push("等待 MindSpider DB 配置或实验导出文件");
+  }
+  if (itemCount === 0 && !runtimeConfig.douyinPublicSearchEnabled) {
+    parts.push("抖音主链路当前只接受实验/授权来源");
+  }
+  if (errors.length) parts.push(`问题：${errors.slice(0, 2).join("；")}`);
+  return parts.join("；");
 }
 
 function mergeDouyinItems(items: MonitorItem[]) {

@@ -89,7 +89,18 @@ export function rowsToDouyinMonitorItems(
 function buildImportedDouyinItem(game: GameConfig, row: ImportedRow, sourceLabel = "Douyin import"): MonitorItem | undefined {
   if (!belongsToGame(row, game)) return undefined;
 
-  const url = normalizeDouyinImportUrl(stringValue(row, ["url", "link", "shareUrl", "share_url", "videoUrl", "video_url"]));
+  const url = normalizeDouyinImportUrl(stringValue(row, [
+    "url",
+    "link",
+    "shareUrl",
+    "share_url",
+    "videoUrl",
+    "video_url",
+    "awemeUrl",
+    "aweme_url",
+    "noteUrl",
+    "note_url"
+  ]));
   const sourceItemId =
     stringValue(row, ["sourceItemId", "source_item_id", "awemeId", "aweme_id", "videoId", "video_id", "noteId", "note_id", "id"]) ||
     extractDouyinId(url) ||
@@ -103,7 +114,7 @@ function buildImportedDouyinItem(game: GameConfig, row: ImportedRow, sourceLabel
   const author = stripHtml(stringValue(row, ["author", "nickname", "user", "username", "creator"])) || "Authorized Douyin export";
   const publishedAt = parseDateValue(valueOf(row, ["publishedAt", "published_at", "createTime", "create_time", "createdAt", "created_at", "time", "date"])) || new Date();
   const collectedAt = parseDateValue(valueOf(row, ["collectedAt", "collected_at", "importedAt", "imported_at"])) || new Date();
-  const tags = arrayValue(row, ["tags", "tag", "hashtags", "hashtag"]);
+  const tags = arrayValue(row, ["tags", "tag", "hashtags", "hashtag", "sourceKeyword", "source_keyword"]);
   const comments = arrayValue(row, ["comments", "comment", "topComments", "top_comments", "commentText", "comment_text"]);
   const danmaku = arrayValue(row, ["danmaku", "bulletComments", "bullet_comments"]);
   const subtitles = arrayValue(row, ["subtitles", "subtitle", "transcript"]);
@@ -120,9 +131,9 @@ function buildImportedDouyinItem(game: GameConfig, row: ImportedRow, sourceLabel
     views: numberValue(row, ["views", "view", "play", "plays", "playCount", "play_count"]),
     comments: numberValue(row, ["commentsCount", "comments_count", "commentCount", "comment_count", "replyCount", "reply_count"]),
     replies: numberValue(row, ["replyCount", "reply_count", "commentsCount", "comments_count", "commentCount", "comment_count"]),
-    likes: numberValue(row, ["likes", "like", "likeCount", "like_count", "diggCount", "digg_count"]),
+    likes: numberValue(row, ["likes", "like", "likeCount", "like_count", "likedCount", "liked_count", "diggCount", "digg_count"]),
     shares: numberValue(row, ["shares", "share", "shareCount", "share_count"]),
-    favorites: numberValue(row, ["favorites", "favorite", "collectCount", "collect_count"])
+    favorites: numberValue(row, ["favorites", "favorite", "collectCount", "collect_count", "collectedCount", "collected_count"])
   };
   const analysis = analyzeItem({ title, gameId: game.id, contentParts, metrics });
 
@@ -136,7 +147,7 @@ function buildImportedDouyinItem(game: GameConfig, row: ImportedRow, sourceLabel
     title,
     author,
     url: url || `douyin-import://${sourceItemId}`,
-    thumbnail: normalizeDouyinImportUrl(stringValue(row, ["thumbnail", "cover", "coverUrl", "cover_url"])),
+    thumbnail: normalizeDouyinImportUrl(stringValue(row, ["thumbnail", "cover", "coverUrl", "cover_url", "avatar"])),
     publishedAt: publishedAt.toISOString(),
     collectedAt: collectedAt.toISOString(),
     freshnessHours: hoursBetween(collectedAt, publishedAt),
@@ -232,7 +243,7 @@ function belongsToGame(row: ImportedRow, game: GameConfig) {
 
   const text = [
     stringValue(row, ["title", "caption", "description", "desc", "text", "content"]),
-    ...arrayValue(row, ["tags", "tag", "hashtags", "comments", "comment"])
+    ...arrayValue(row, ["tags", "tag", "hashtags", "sourceKeyword", "source_keyword", "comments", "comment"])
   ].join(" ");
   return [game.name, game.shortName, ...game.douyinKeywords].some((term) => term && text.includes(term));
 }

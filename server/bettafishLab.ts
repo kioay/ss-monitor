@@ -719,7 +719,7 @@ function runProcess(
 
 function makeCrawlerTestArgs(body: z.infer<typeof actionSchema>) {
   const args = ["--deep-sentiment", "--test", "--max-keywords", String(body.maxKeywords || 3), "--max-notes", String(body.maxNotes || 5)];
-  const platforms = (body.platforms || ["xhs"]).filter((platform) => crawlerPlatforms.includes(platform));
+  const platforms = (body.platforms || ["dy"]).filter((platform) => crawlerPlatforms.includes(platform));
   if (platforms.length) args.push("--platforms", ...platforms);
   return args;
 }

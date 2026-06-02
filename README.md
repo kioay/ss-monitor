@@ -67,7 +67,7 @@ Use this path for Douyin data that you have exported or received through an auth
 
 1. Put `.csv` or `.json` files under `data/douyin-imports/` on the machine that runs the monitor. The whole `data/` directory is ignored by Git.
 2. Set `DOUYIN_IMPORT_DIR` if the files live elsewhere.
-3. Refresh `/api/monitor?...&force=1` or use the frontend refresh button. Imported rows are merged with public search results and analyzed as `douyin` items.
+3. Refresh `/api/monitor?...&force=1` or use the frontend refresh button. Imported rows are merged with MindSpider experimental rows and analyzed as `douyin` items.
 
 Recommended CSV headers:
 
@@ -112,6 +112,33 @@ Notes:
 - Douyin Open Platform access requires app approval, user authorization, and the relevant scopes such as comment/data permissions.
 - 巨量算数 and third-party vendors should provide an authorized API or export endpoint; map their response fields through `fieldMap`.
 - The monitor only reads authorized JSON endpoints. It does not perform login automation, captcha handling, private signature generation, or anti-bot bypass.
+
+## Douyin experimental crawler takeover
+
+The main Douyin monitor now prefers experimental and authorized sources in this order:
+
+1. MindSpider / MediaCrawler experimental output from `MINDSPIDER_DOUYIN_IMPORT_DIR`.
+2. MindSpider DB direct reads from `douyin_aweme` and `douyin_aweme_comment` when `MINDSPIDER_DB_*` or `DB_*` is configured.
+3. Douyin authorized API sources.
+4. Douyin authorized local imports.
+
+Public Sogou discovery is disabled by default. Set `DOUYIN_PUBLIC_SEARCH_ENABLED=true` only when you explicitly want that fallback.
+
+For DB takeover, configure either `MINDSPIDER_ENV_FILE=/home/yq/BettaFish/MindSpider/.env` or these values in the monitor environment:
+
+```bash
+MINDSPIDER_DOUYIN_ENABLED=true
+MINDSPIDER_DB_DIALECT=mysql
+MINDSPIDER_DB_HOST=127.0.0.1
+MINDSPIDER_DB_PORT=3306
+MINDSPIDER_DB_USER=...
+MINDSPIDER_DB_PASSWORD=...
+MINDSPIDER_DB_NAME=mindspider
+MINDSPIDER_DOUYIN_TABLE=douyin_aweme
+MINDSPIDER_DOUYIN_COMMENTS_TABLE=douyin_aweme_comment
+```
+
+If neither DB nor export files are available, the source-health card says that MindSpider has not produced data yet instead of silently falling back to public collection.
 
 ## BettaFish / MindSpider integration
 
