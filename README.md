@@ -182,6 +182,14 @@ BETTAFISH_SEMANTIC_TIMEOUT_MS=15000
 
 `svm` and `xgboost` can be added to `BETTAFISH_SEMANTIC_MODELS` when the BettaFish Python environment has compatible `scikit-learn` / `xgboost` versions. The default keeps `bayes` only because it is the most stable lightweight model.
 
+For production, sync only the lightweight semantic model subset instead of the full BettaFish crawler tree:
+
+```bash
+npm run sync:bettafish-semantic
+```
+
+Configure `SYNC_BETTAFISH_REMOTE`, `SYNC_BETTAFISH_SSH_PORT`, `SYNC_BETTAFISH_PASSWORD`, and `SYNC_BETTAFISH_ROOT_PASSWORD` in `.env.local`. The sync uploads `utils.py`, `data/stopwords.txt`, and the selected pickle model files under `/opt/BettaFish/SentimentAnalysisModel/WeiboSentiment_MachineLearning/`; it does not upload browser profiles, cookies, crawler media, or training data. By default it installs a small Python venv at `/opt/BettaFish/.venv` with `scikit-learn==0.24.2` and `jieba==0.42.1`.
+
 The frontend also has a separate `BettaFish 测试台` tab. It keeps BettaFish outside the main monitor pipeline, but can now test every major integration surface:
 
 - SS1/SS2 game monitoring snapshots that reuse the current collector, semantic analysis, risk classification, source health, topics, alerts, and latest-feed logic without sending notifications.
