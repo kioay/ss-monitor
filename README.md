@@ -173,3 +173,37 @@ The frontend also has a separate `BettaFish 测试台` tab. It keeps BettaFish o
 - Local BettaFish start/stop, full-system start/shutdown, and an optional fixed deploy command.
 
 The test lab exposes only fixed research operations defined by the server, such as log/progress/status probes, Agent start/search, MindSpider test crawling, report generation, and optional deployment. These operations are enabled by default for the academic research test bench; set `BETTAFISH_LAB_ACTIONS_ENABLED=false` to close the operation surface on a deployment that should be read-only.
+
+## Local Douyin CDP sync
+
+Douyin collection should run on the local workstation with BettaFish / MediaCrawler CDP profile persistence. The production server consumes only lightweight JSON exports and should not receive browser cookies or downloaded media.
+
+One manual sync:
+
+```powershell
+.\scripts\sync-local-douyin-cdp.ps1 -InstallDependencies -Force
+```
+
+After the first successful run, omit `-InstallDependencies`; the script will reuse `BettaFish\.venv-mediacrawler` when it exists.
+
+Register the hourly Windows task:
+
+```powershell
+.\scripts\register-local-douyin-cdp-task.ps1
+```
+
+The task wakes hourly. `sync-local-douyin-cdp.ps1` enforces the product update cadence itself: daytime runs every 60 minutes, and night runs are throttled to 240 minutes. It writes the local export to `data/mindspider-douyin-imports/local-cdp/latest.json` and uploads the same file to:
+
+```text
+/opt/ss-monitor/data/mindspider-douyin-imports/local-cdp/latest.json
+```
+
+Production already reads `/opt/ss-monitor/data/mindspider-douyin-imports` through `MINDSPIDER_DOUYIN_IMPORT_DIR`.
+
+The sync script preflights BettaFish / MediaCrawler before every crawl:
+
+- `ENABLE_CDP_MODE=True` so Douyin runs through the local Chrome/Edge CDP session.
+- `SAVE_LOGIN_STATE=True` so the profile under `MediaCrawler/browser_data/cdp_dy_user_data_dir` keeps the login state across runs.
+- `ENABLE_GET_MEIDAS=False` so large images/videos are not downloaded or synced.
+
+Only the normalized JSON export is uploaded to production. Browser profiles, cookies, raw crawler state, images, and videos remain on the local workstation and are ignored by Git.
