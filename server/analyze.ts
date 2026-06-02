@@ -516,6 +516,7 @@ function isPersonalSkillShare(content: string) {
 }
 
 function isPlayerHelpRequest(content: string) {
+  if (isEventQuestion(content)) return true;
   const helpIntent = /(求|请问|问下|问一下|有没有|有无|知道|告知|大佬|大神|专家|萌新|新手|怎么|咋|如何|多少|能不能|要不要|该不该|值不值|建议|攻略|解答|科普)/;
   const helpTopic =
     /(倍率|伤害|穿透|能穿|怎么穿|多少钱|多少能|多少级|多少战力|价格|抽|保底|概率|玩法|模式|决斗场|武器|皮肤|角色|配件|技能|配置|设置|灵敏度|键位|任务|活动|兑换|获取|入坑|回坑|回游|怎么玩|怎么打|怎么提高|怎么提升)/;
@@ -523,6 +524,13 @@ function isPlayerHelpRequest(content: string) {
   const officialComplaint = /(官方|策划|运营|客服|公告|骗氪|退款|投诉|倒闭|没救|破游戏|垃圾游戏|炸服|闪退|BUG|bug|卡顿)/;
   const illegalSignal = /(外挂|外卦|开挂|挂狗|科技|辅助|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|穿墙|DMA|过检测|免封|QQ群|群号|加群|售卖|卡密)/;
   return helpIntent.test(content) && (helpTopic.test(content) || questionMark.test(content)) && !officialComplaint.test(content) && !illegalSignal.test(content);
+}
+
+function isEventQuestion(content: string) {
+  const eventTopic = /(联动|活动|版本|更新|爆料|预告|上线|复刻|返场|皮肤|角色|武器)/;
+  const questionIntent = /(谁|哪个|哪位|什么|啥|几号|什么时候|是否|有没有|有无|会不会|是不是|了吗|吗|咋|怎么|[?？])/;
+  const complaint = isStrongComplaint(content) || isOfficialImpactComplaint(content);
+  return eventTopic.test(content) && questionIntent.test(content) && !complaint && !hasAnyIllegalTerm(content);
 }
 
 function isEventUnlockDiscussion(content: string) {

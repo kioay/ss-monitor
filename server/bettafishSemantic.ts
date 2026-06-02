@@ -181,7 +181,7 @@ function fuseBettaFishSignal(item: MonitorItem, signal: BettaFishSemanticSignal)
   let riskLevel = item.riskLevel;
 
   if (signal.label === "negative" && signal.confidence >= runtimeConfig.bettaFishSemanticRiskConfidence) {
-    if (item.riskLevel !== "low" || item.riskReasons.length >= 1) {
+    if ((item.riskLevel !== "low" || item.riskReasons.length >= 1) && !onlyWeakNegativeReasons(item)) {
       reasons.push("BettaFish模型辅助确认负面");
       riskLevel = elevateRiskOneStep(riskLevel);
     } else if (item.sentiment === "negative" && Math.abs(item.sentimentScore) > 0.28) {
