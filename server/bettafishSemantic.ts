@@ -232,7 +232,12 @@ function elevateRiskOneStep(level: RiskLevel): RiskLevel {
 
 function onlyWeakNegativeReasons(item: MonitorItem) {
   return item.riskReasons.length > 0
-    && item.riskReasons.every((reason) => reason === "负面表达集中" || reason === "互动量较高" || reason.includes("BettaFish"));
+    && item.riskReasons.every((reason) =>
+      reason === "负面表达集中" ||
+      reason === "评论区负反馈集中" ||
+      reason === "互动量较高" ||
+      reason.includes("BettaFish")
+    );
 }
 
 function appendSemanticSummary(summary: string, signal: BettaFishSemanticSignal, sentiment: Sentiment) {

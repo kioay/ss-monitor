@@ -111,6 +111,48 @@ const illegalHighRiskToolWords = [
 ];
 const tagListSeparatorPattern = /[,\n，、#|/]/g;
 const skillTagContextPattern = /(集锦|高光|精彩操作|个人|玩家|UP主|主播|全局|第一视角|全程无剪辑|身法|击杀|连杀|排位|单排|四排|五排|操作|FPS)/;
+const denseNegativeFeedbackWords = [
+  "垃圾",
+  "破游戏",
+  "难受",
+  "倒闭",
+  "退坑",
+  "白氪",
+  "骗氪",
+  "逼氪",
+  "太贵",
+  "恶心",
+  "坨屎",
+  "一坨",
+  "暴毙",
+  "背刺",
+  "强行绑定",
+  "烂",
+  "削弱",
+  "没人玩",
+  "没有人玩",
+  "排不到人",
+  "都不玩",
+  "难看",
+  "不值",
+  "氪再多也没用",
+  "敷衍",
+  "低配",
+  "不敢想象",
+  "不好玩",
+  "挂狗",
+  "宏孩儿",
+  "踹人",
+  "人机局",
+  "比不了",
+  "太牢",
+  "很牢",
+  "牢的",
+  "没救",
+  "不好用",
+  "难用"
+];
+const weakDenseNegativeFeedbackWords = ["没人", "排不到", "一般般", "没用", "不好", "不正常", "有问题", "对不上"];
 
 export function analyzeItem(input: AnalyzeInput) {
   const content = input.contentParts
@@ -211,7 +253,7 @@ function scoreTextSignals(content: string, gameId: GameId) {
   }
 
   for (const word of negativeWords) {
-    negative += countOccurrences(signalContent, word);
+    negative += countNegativeSignalOccurrences(signalContent, word);
   }
 
   if ((signalContent.includes("？") || signalContent.includes("?")) && negative > positive) negative += 0.2;
@@ -229,9 +271,13 @@ function normalizedScore(positive: number, negative: number) {
 function labelSentiment(profile: SentimentProfile, content: string, context: ContextProfile): Sentiment {
   const hasPositive = positiveWords.some((word) => content.includes(word));
   const hasNegative = negativeWords.some((word) => content.includes(word));
-  if (profile.audienceMentions >= 3 && profile.audienceScore > 0.15 && profile.score > -0.35) return "positive";
+  const denseNegative = hasDenseNegativeDiscussion(content, profile);
+  if (denseNegative && profile.score < 0.35) {
+    return profile.score < -0.12 || profile.audienceScore < -0.18 ? "negative" : "mixed";
+  }
+  if (profile.audienceMentions >= 3 && profile.audienceScore > 0.15 && profile.score > -0.35 && !denseNegative) return "positive";
   if (profile.audienceMentions >= 3 && profile.audienceScore < -0.25 && profile.score < 0.2) return "negative";
-  if (isProtectedDiscussionContext(context) && !isStrongComplaint(content)) return hasPositive && hasNegative ? "mixed" : "neutral";
+  if (isProtectedDiscussionContext(context) && !isStrongComplaint(content) && !denseNegative) return hasPositive && hasNegative ? "mixed" : "neutral";
   if (profile.skillShowcase && profile.score > -0.35 && profile.audienceScore > -0.2) {
     return profile.score > 0.16 || profile.audienceScore > 0.08 ? "positive" : "neutral";
   }
@@ -240,6 +286,52 @@ function labelSentiment(profile: SentimentProfile, content: string, context: Con
   if (profile.score > 0.18) return "positive";
   if (profile.score < -0.18) return "negative";
   return "neutral";
+}
+
+function hasDenseNegativeDiscussion(content: string, profile: SentimentProfile) {
+  const lines = content
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const matchedTerms = new Set<string>();
+  const negativeLines = new Set<string>();
+  const strongNegativeLines = new Set<string>();
+  let weakHits = 0;
+
+  for (const line of lines) {
+    const strongMatches = denseNegativeFeedbackWords.filter((word) => line.includes(word) && !isNeutralNegativeContext(line, word));
+    const weakMatches = weakDenseNegativeFeedbackWords.filter((word) => line.includes(word) && !isNeutralNegativeContext(line, word));
+    if (!strongMatches.length && !weakMatches.length) continue;
+
+    for (const word of strongMatches) matchedTerms.add(word);
+    for (const word of weakMatches) matchedTerms.add(word);
+    weakHits += weakMatches.length;
+    negativeLines.add(line);
+    if (strongMatches.length) strongNegativeLines.add(line);
+  }
+
+  const distinctTerms = matchedTerms.size;
+  const negativeLineCount = negativeLines.size;
+  const strongLineCount = strongNegativeLines.size;
+  const audienceNegative = profile.audienceMentions >= 3 && profile.audienceScore <= -0.18;
+  const scoreAllowsDenseSignal = profile.score < 0.35 && profile.audienceScore < 0.12;
+
+  if (negativeLineCount >= 3 && distinctTerms >= 2 && scoreAllowsDenseSignal) return true;
+  if (strongLineCount >= 2 && distinctTerms >= 2 && profile.score < 0.35) return true;
+  if (audienceNegative && negativeLineCount >= 2 && distinctTerms >= 2 && profile.score < 0.25) return true;
+  if (profile.score <= -0.35 && negativeLineCount >= 2 && (distinctTerms >= 2 || weakHits >= 2)) return true;
+  return false;
+}
+
+function isNeutralNegativeContext(line: string, word: string) {
+  if ((word === "没人玩" || word === "没有人玩") && /(还有没人玩|有没有人玩|还有人玩吗|有人玩吗|没人玩吗|没有人玩吗)/.test(line)) return true;
+  if (word === "没人" && /没人(知道|懂|说|回复|回答|回|帮|解答|理|看)/.test(line)) return true;
+  if (word === "没用" && /(没用过|有没有用|有用没用|能不能用|能用吗|好用吗)/.test(line)) return true;
+  if ((word === "不好" || word === "不好玩" || word === "不好用") && /(好不好|是不是不好|哪里不好|有什么不好|好用吗|好玩吗)/.test(line)) return true;
+  if (word === "有问题" && /(有问题吗|有没有问题|啥问题|什么问题|哪里有问题|问个问题)/.test(line)) return true;
+  if (word === "不值" && /(值不值|值不值得|不值吗|值得吗)/.test(line)) return true;
+  if (word === "排不到" && /(怎么排|排不到吗|会不会排不到)/.test(line)) return true;
+  return false;
 }
 
 function extractKeywords(content: string, topics: string[], includeIllegalKeywords = true) {
@@ -297,13 +389,22 @@ function assessRisk(
 
   const primaryReasons: string[] = [];
   primaryReasons.push(...illegalRisk.reasons);
-  const audienceDefused = sentimentProfile.audienceMentions >= 3 && sentimentProfile.audienceScore > 0.12 && sentimentScore > -0.35;
-  const skillDefused = sentimentProfile.skillShowcase && sentimentProfile.audienceScore > -0.15 && sentimentScore > -0.35;
-  const contextDefused = isProtectedDiscussionContext(context);
+  const denseNegativeSignal = hasDenseNegativeDiscussion(content, sentimentProfile);
+  const officialImpactSignal = isOfficialImpactComplaint(content);
+  const currentVersionComplaint = isCurrentVersionComplaint(content);
+  const denseNegativeBreaksProtection =
+    denseNegativeSignal &&
+    !context.playerBehaviorComplaint &&
+    !(context.playerHelpRequest && !officialImpactSignal) &&
+    !(context.routinePlayerShare && !officialImpactSignal) &&
+    !(context.personalSkillShare && !officialImpactSignal && sentimentProfile.audienceScore > -0.32) &&
+    !(context.eventUnlockDiscussion && !officialImpactSignal && !currentVersionComplaint);
+  const audienceDefused = sentimentProfile.audienceMentions >= 3 && sentimentProfile.audienceScore > 0.12 && sentimentScore > -0.35 && !denseNegativeBreaksProtection;
+  const skillDefused = sentimentProfile.skillShowcase && sentimentProfile.audienceScore > -0.15 && sentimentScore > -0.35 && !denseNegativeBreaksProtection;
+  const contextDefused = isProtectedDiscussionContext(context) && !denseNegativeBreaksProtection;
   const isolatedCheatMention = isIsolatedCheatMention(content, sentimentProfile, illegalRisk);
   const illegalRiskOnly = illegalRisk.level === "high" && !isStrongComplaint(content) && !illegalComplaintPattern.test(content) && !isOfficialImpactComplaint(content);
-  const negativeSignal = sentimentScore < -0.35 && !audienceDefused && !skillDefused && !contextDefused && !isolatedCheatMention && !illegalRiskOnly;
-  const officialImpactSignal = isOfficialImpactComplaint(content);
+  const negativeSignal = (sentimentScore < -0.35 || (denseNegativeSignal && sentimentScore < -0.12)) && !audienceDefused && !skillDefused && !contextDefused && !isolatedCheatMention && !illegalRiskOnly;
   const sensitiveSignal =
     hasContextualSensitiveSignal(content, sentimentProfile, officialImpactSignal) &&
     !illegalRisk.reasons.length &&
@@ -312,12 +413,12 @@ function assessRisk(
     !contextDefused &&
     !isolatedCheatMention;
   const governanceSignal = /(水军|诈骗|未成年|退款|投诉)/.test(content);
-  const versionSignal = currentVersionTerms.length > 0 && (sentimentScore < -0.18 || isCurrentVersionComplaint(content));
+  const versionSignal = currentVersionTerms.length > 0 && (sentimentScore < -0.18 || currentVersionComplaint);
   const highEngagementSignal = engagement > 800;
   const elevatedEngagementSignal = engagement > 250;
 
   if (negativeSignal) {
-    primaryReasons.push("负面表达集中");
+    primaryReasons.push(denseNegativeSignal ? "评论区负反馈集中" : "负面表达集中");
   }
   if (sensitiveSignal) {
     primaryReasons.push("命中敏感风险词");
@@ -389,6 +490,23 @@ function summarizeContent(title: string, parts: ContentPart[], topics: string[],
 function countOccurrences(content: string, word: string) {
   if (!word) return 0;
   return content.split(word).length - 1;
+}
+
+function countNegativeSignalOccurrences(content: string, word: string) {
+  if (!word) return 0;
+  let count = 0;
+  let cursor = 0;
+  while (cursor < content.length) {
+    const index = content.indexOf(word, cursor);
+    if (index < 0) break;
+    const lineStart = content.lastIndexOf("\n", Math.max(0, index - 1)) + 1;
+    const nextLineBreak = content.indexOf("\n", index + word.length);
+    const lineEnd = nextLineBreak >= 0 ? nextLineBreak : content.length;
+    const line = content.slice(lineStart, lineEnd);
+    if (!isNeutralNegativeContext(line, word)) count += 1;
+    cursor = index + word.length;
+  }
+  return count;
 }
 
 function countPositiveSignalOccurrences(content: string, word: string) {
