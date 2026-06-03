@@ -90,13 +90,13 @@ export async function sendDingTalkNotification(response: MonitorResponse, gameId
   const state = await readState(robot);
   if (!state.initialized) {
     await sendMarkdownToRobots(robots, buildBaselineMarkdown(robot, currentItems, response));
-    await writeState(robot, markSeen(state, allCurrentItems));
+    await writeState(robot, markSeen(state, currentItems));
     return { ok: true, sent: 0, existing: currentItems.length, mode: "baseline" };
   }
 
-  const newItems = currentItems.filter((item) => !state.seen[item.id]);
+  const newItems = currentItems.filter((item) => !hasSeenItem(state, item));
   if (!newItems.length) {
-    await writeState(robot, pruneState(markSeen(state, allCurrentItems)));
+    await writeState(robot, pruneState(markSeen(state, currentItems)));
     return { ok: true, skipped: `No new ${robot.shortName} sentiment items` };
   }
 
@@ -104,7 +104,7 @@ export async function sendDingTalkNotification(response: MonitorResponse, gameId
     robots,
     buildNewItemsMarkdown(robot, newItems, currentItems, response)
   );
-  await writeState(robot, markSeen(state, allCurrentItems));
+  await writeState(robot, markSeen(state, currentItems));
   return { ok: true, sent: newItems.length, existing: currentItems.length - newItems.length, mode: "new" };
 }
 
@@ -562,14 +562,35 @@ function isDailyFocusItem(item: MonitorItem) {
 
 function markSeen(state: DingTalkState, items: MonitorItem[]): DingTalkState {
   const seen = { ...state.seen };
-  for (const item of items) seen[item.id] = item.publishedAt;
+  for (const item of items) seen[item.id] = seenToken(item);
   return { ...state, initialized: true, seen };
+}
+
+function hasSeenItem(state: DingTalkState, item: MonitorItem) {
+  const value = state.seen[item.id];
+  if (!value) return false;
+  const token = seenToken(item);
+  if (value === token) return true;
+  if (value === item.publishedAt) {
+    return dingTalkPushReason(item) !== "高风险";
+  }
+  return false;
+}
+
+function seenToken(item: MonitorItem) {
+  return [item.publishedAt, dingTalkPushReason(item) || item.riskLevel, item.riskLevel].join("|");
 }
 
 function pruneState(state: DingTalkState): DingTalkState {
   const cutoff = Date.now() - stateRetentionMs;
-  const seen = Object.fromEntries(Object.entries(state.seen).filter(([, value]) => new Date(value).getTime() >= cutoff));
+  const seen = Object.fromEntries(Object.entries(state.seen).filter(([, value]) => seenPublishedAt(value) >= cutoff));
   return { ...state, seen };
+}
+
+function seenPublishedAt(value: string) {
+  const timestamp = value.split("|", 1)[0];
+  const time = new Date(timestamp).getTime();
+  return Number.isFinite(time) ? time : 0;
 }
 
 function countBy(items: MonitorItem[], getKey: (item: MonitorItem) => string) {
