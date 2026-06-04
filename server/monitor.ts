@@ -8,7 +8,6 @@ import { collectTieba } from "./collectors/tieba";
 import { gameById, games, getUpdatePolicy, runtimeConfig } from "./config";
 import { refineItemsWithBettaFishSemantic } from "./bettafishSemantic";
 import { refreshCurrentVersionFocus } from "./currentVersion";
-import { queueDingTalkNotification } from "./dingtalk";
 import type {
   AlertItem,
   GameConfig,
@@ -123,7 +122,6 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
   };
 
   if (!collectionIsStale) cache.set(cacheKey, { createdAt: now, response });
-  if (query.notify) queueDingTalkNotification(response, gameIds);
   return response;
 }
 

@@ -163,7 +163,7 @@ function startBackgroundMonitor() {
 }
 
 function refreshRobotGame(gameId: GameId) {
-  return getMonitorResponse({ games: gameId, windowHours: "72", limit: "200", force: "1", notify: "1" });
+  return getMonitorResponse({ games: gameId, windowHours: "72", limit: "200", force: "1", notify: "0" });
 }
 
 function startDailyReportScheduler() {

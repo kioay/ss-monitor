@@ -32,80 +32,17 @@ interface DingTalkSendResult {
 
 const monitorUrl = "http://ss-monitor.qinoay.top/";
 const stateRetentionMs = 30 * 24 * 3_600_000;
-const notificationBatchMs = 15 * 60 * 1000;
 const highHeatScoreThreshold = 800;
 const highNegativeScoreThreshold = -0.45;
 const discussionContextReasons = new Set(["回游/环境询问语境"]);
 const routinePlayerTopics = new Set(["个人技术分享", "玩家求助咨询", "玩家行为争议", "玩家日常分享"]);
-const pendingNotifications = new Map<GameId, MonitorResponse>();
-let notificationQueue: Promise<unknown> = Promise.resolve();
-let notificationBatchTimer: ReturnType<typeof setTimeout> | undefined;
 
-export function queueDingTalkNotification(response: MonitorResponse, gameIds: GameId[]) {
-  for (const gameId of gameIds) {
-    pendingNotifications.set(gameId, response);
-  }
-  scheduleNotificationBatch();
+export function queueDingTalkNotification(_response: MonitorResponse, _gameIds: GameId[]) {
+  return;
 }
 
-function scheduleNotificationBatch() {
-  if (notificationBatchTimer) return;
-  const delayMs = msUntilNextNotificationBatch();
-  notificationBatchTimer = setTimeout(flushNotificationBatch, delayMs);
-}
-
-function flushNotificationBatch() {
-  notificationBatchTimer = undefined;
-  const entries = Array.from(pendingNotifications.entries());
-  pendingNotifications.clear();
-  for (const [gameId, response] of entries) {
-    notificationQueue = notificationQueue
-      .then(() => sendDingTalkNotification(response, gameId))
-      .catch((error) => {
-        console.error(`DingTalk ${gameId} notification failed`, error);
-      });
-  }
-}
-
-function msUntilNextNotificationBatch(now = new Date()) {
-  const next = new Date(now);
-  const minutes = now.getMinutes();
-  const nextMinute = Math.ceil((minutes + 1) / 15) * 15;
-  next.setSeconds(0, 0);
-  if (nextMinute >= 60) {
-    next.setHours(next.getHours() + 1, 0, 0, 0);
-  } else {
-    next.setMinutes(nextMinute);
-  }
-  return Math.max(1_000, next.getTime() - now.getTime());
-}
-
-export async function sendDingTalkNotification(response: MonitorResponse, gameId: GameId): Promise<DingTalkSendResult> {
-  const robots = getRobotConfigs(gameId);
-  if (!robots.length) return { ok: true, skipped: `DingTalk ${gameId} is not configured` };
-  const robot = robots[0];
-
-  const allCurrentItems = gameItemsWithin72Hours(response, gameId);
-  const currentItems = allCurrentItems.filter(isDingTalkRelevantItem);
-  const state = await readState(robot);
-  if (!state.initialized) {
-    await sendMarkdownToRobots(robots, buildBaselineMarkdown(robot, currentItems, response));
-    await writeState(robot, markSeen(state, currentItems));
-    return { ok: true, sent: 0, existing: currentItems.length, mode: "baseline" };
-  }
-
-  const newItems = currentItems.filter((item) => !hasSeenItem(state, item));
-  if (!newItems.length) {
-    await writeState(robot, pruneState(markSeen(state, currentItems)));
-    return { ok: true, skipped: `No new ${robot.shortName} sentiment items` };
-  }
-
-  await sendMarkdownToRobots(
-    robots,
-    buildNewItemsMarkdown(robot, newItems, currentItems, response)
-  );
-  await writeState(robot, markSeen(state, currentItems));
-  return { ok: true, sent: newItems.length, existing: currentItems.length - newItems.length, mode: "new" };
+export async function sendDingTalkNotification(_response: MonitorResponse, _gameId: GameId): Promise<DingTalkSendResult> {
+  return { ok: true, skipped: "DingTalk new-item notifications are disabled; daily reports only" };
 }
 
 export async function sendDingTalkTest(
@@ -276,45 +213,6 @@ function isContextualDiscussion(item: MonitorItem) {
   return item.riskReasons.some((reason) => discussionContextReasons.has(reason)) || item.topics.some((topic) => routinePlayerTopics.has(topic));
 }
 
-function buildBaselineMarkdown(robot: DingTalkRobotConfig, items: MonitorItem[], response: MonitorResponse) {
-  const title = `${robot.shortName}舆情基线 ${formatLocalTime(response.generatedAt)}`;
-  const lines = [
-    `## ${title}`,
-    "",
-    "> 钉钉机器人已启用。后续仅推送高风险、高热度或高负面新增舆情；普通玩家分享、求助、技巧内容仅保留在平台。",
-    "",
-    buildBriefTable(items),
-    "",
-    buildHighRiskSection(items),
-    "",
-    `[打开舆情平台](${monitorUrl})`
-  ];
-  return { title, text: lines.join("\n") };
-}
-
-function buildNewItemsMarkdown(
-  robot: DingTalkRobotConfig,
-  newItems: MonitorItem[],
-  allItems: MonitorItem[],
-  response: MonitorResponse
-) {
-  const title = `${robot.shortName}新增舆情 ${newItems.length}条`;
-  const lines = [
-    `## ${title}`,
-    "",
-    `> 采集时间：${formatLocalTime(response.generatedAt)} | 窗口：近72小时`,
-    "",
-    buildBriefTable(allItems),
-    "",
-    "### 新增舆情完整简报",
-    "",
-    buildDetailedTable(newItems),
-    "",
-    `[打开舆情平台](${monitorUrl})`
-  ];
-  return { title, text: lines.join("\n") };
-}
-
 function buildTestMarkdown(robot: DingTalkRobotConfig, items: MonitorItem[], response: MonitorResponse) {
   const title = `${robot.shortName}舆情机器人测试`;
   const lines = [
@@ -425,18 +323,6 @@ function buildDailyHighRiskTable(items: MonitorItem[]) {
   ].join("\n") + moreText;
 }
 
-function buildDetailedTable(items: MonitorItem[]) {
-  const sortedItems = [...items].sort(compareDingTalkItems);
-  if (!items.length) return "暂无新增舆情。";
-  return [
-    "| 舆情 | 触发/情绪 | 简报 |",
-    "| --- | --- | --- |",
-    ...sortedItems
-      .map((item) => [linkCell(item), `${pushReasonName(item)} / ${sentimentName(item.sentiment)}`, shortDigest(item)].join(" | "))
-      .map((row) => `| ${row} |`)
-  ].join("\n");
-}
-
 function buildHighRiskSection(items: MonitorItem[], title = "高风险舆情") {
   const highRiskItems = items.filter((item) => item.riskLevel === "high").sort(compareDingTalkItems);
   if (!highRiskItems.length) return "";
@@ -447,18 +333,6 @@ function buildHighRiskSection(items: MonitorItem[], title = "高风险舆情") {
     "| --- | --- | --- | --- |",
     ...highRiskItems.map(
       (item) => `| ${formatShortTime(item.publishedAt)} | ${sourceName(item.source)} | ${linkCell(item)} | ${shortDigest(item)} |`
-    )
-  ].join("\n");
-}
-
-function buildExistingTable(items: MonitorItem[]) {
-  const sortedItems = items.filter((item) => item.riskLevel !== "low").sort(compareDingTalkItems);
-  if (!sortedItems.length) return "暂无中高风险舆情。";
-  return [
-    "| 时间 | 来源 | 舆情 | 风险 |",
-    "| --- | --- | --- | --- |",
-    ...sortedItems.map(
-      (item) => `| ${formatShortTime(item.publishedAt)} | ${sourceName(item.source)} | ${linkCell(item)} | ${riskName(item.riskLevel)} |`
     )
   ].join("\n");
 }
@@ -558,27 +432,6 @@ function statePath(robot: DingTalkRobotConfig) {
 function isDailyFocusItem(item: MonitorItem) {
   if (isRoutinePlayerContent(item)) return false;
   return item.riskLevel !== "low" || Boolean(dingTalkPushReason(item));
-}
-
-function markSeen(state: DingTalkState, items: MonitorItem[]): DingTalkState {
-  const seen = { ...state.seen };
-  for (const item of items) seen[item.id] = seenToken(item);
-  return { ...state, initialized: true, seen };
-}
-
-function hasSeenItem(state: DingTalkState, item: MonitorItem) {
-  const value = state.seen[item.id];
-  if (!value) return false;
-  const token = seenToken(item);
-  if (value === token) return true;
-  if (value === item.publishedAt) {
-    return dingTalkPushReason(item) !== "高风险";
-  }
-  return false;
-}
-
-function seenToken(item: MonitorItem) {
-  return [item.publishedAt, dingTalkPushReason(item) || item.riskLevel, item.riskLevel].join("|");
 }
 
 function pruneState(state: DingTalkState): DingTalkState {
