@@ -23,6 +23,7 @@ interface SentimentProfile {
 
 interface ContextProfile {
   environmentInquiry: boolean;
+  accountServerInquiry: boolean;
   playerBehaviorComplaint: boolean;
   personalSkillShare: boolean;
   playerHelpRequest: boolean;
@@ -165,6 +166,7 @@ export function analyzeItem(input: AnalyzeInput) {
     .filter(([, words]) => words.some((word) => signalContent.includes(word)))
     .map(([topic]) => topic);
   const context = detectContext(signalContent);
+  if (context.accountServerInquiry) topics.unshift("账号/区服询问");
   if (context.personalSkillShare) topics.unshift("个人技术分享");
   if (context.playerHelpRequest || context.eventUnlockDiscussion) topics.unshift("玩家求助咨询");
   if (context.routinePlayerShare) topics.unshift("玩家日常分享");
@@ -587,6 +589,7 @@ function isEnvironmentInquiry(content: string) {
 function detectContext(content: string): ContextProfile {
   return {
     environmentInquiry: isEnvironmentInquiry(content),
+    accountServerInquiry: isAccountServerInquiry(content),
     playerBehaviorComplaint: isPlayerBehaviorComplaint(content),
     personalSkillShare: isPersonalSkillShare(content),
     playerHelpRequest: isPlayerHelpRequest(content),
@@ -598,6 +601,7 @@ function detectContext(content: string): ContextProfile {
 function isProtectedDiscussionContext(context: ContextProfile) {
   return (
     context.environmentInquiry ||
+    context.accountServerInquiry ||
     context.playerBehaviorComplaint ||
     context.personalSkillShare ||
     context.playerHelpRequest ||
@@ -642,6 +646,22 @@ function isPlayerHelpRequest(content: string) {
   const officialComplaint = /(官方|策划|运营|客服|公告|骗氪|退款|投诉|倒闭|没救|破游戏|垃圾游戏|炸服|闪退|BUG|bug|卡顿)/;
   const illegalSignal = /(外挂|外卦|开挂|挂狗|科技|辅助|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|穿墙|DMA|过检测|免封|QQ群|群号|加群|售卖|卡密)/;
   return helpIntent.test(content) && (helpTopic.test(content) || questionMark.test(content)) && !officialComplaint.test(content) && !illegalSignal.test(content);
+}
+
+function isAccountServerInquiry(content: string) {
+  const accountOrServerTarget = /(账号|帐号|小号|大号|游戏号|成品号|养老号|空号|战火服.{0,4}号|区服|服务器|战火服|渠道服|官服|页游服|怀旧服|体验服|新区|老区)/;
+  const inquiryIntent = /(有没有|有无|谁有|求|收|想买|买|便宜|找|哪里有|能玩|还能玩|就行)/;
+  const targetAfterIntent = /(有没有|有无|谁有|求|收|想买|买|便宜|找|哪里有).{0,12}(账号|帐号|小号|大号|游戏号|成品号|养老号|空号|战火服.{0,4}号|区服|服务器|战火服|渠道服|官服|页游服|怀旧服|体验服|新区|老区)/;
+  const intentAfterTarget = /(账号|帐号|小号|大号|游戏号|成品号|养老号|空号|战火服.{0,4}号|区服|服务器|战火服|渠道服|官服|页游服|怀旧服|体验服|新区|老区).{0,12}(有没有|有无|谁有|求|收|想买|买|便宜|能玩|还能玩|就行)/;
+  const complaint = /(骗子|被骗|诈骗|找回|盗号|黑号|封号|封禁|纠纷|投诉|恶心|垃圾|骂)/;
+  const illegalSignal = /(外挂|外卦|开挂|挂狗|科技|辅助|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|穿墙|DMA|过检测|免封|QQ群|群号|加群|售卖|卡密)/;
+  return (
+    accountOrServerTarget.test(content) &&
+    inquiryIntent.test(content) &&
+    (targetAfterIntent.test(content) || intentAfterTarget.test(content)) &&
+    !complaint.test(content) &&
+    !illegalSignal.test(content)
+  );
 }
 
 function isEventQuestion(content: string) {

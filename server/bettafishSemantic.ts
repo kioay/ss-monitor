@@ -12,7 +12,7 @@ interface BettaFishBridgeResult {
   results?: BettaFishSemanticSignal[];
 }
 
-interface BettaFishSemanticSignal {
+export interface BettaFishSemanticSignal {
   id: string;
   label: "positive" | "neutral" | "negative" | "unknown";
   score: number;
@@ -25,7 +25,8 @@ const protectedTopics = new Set([
   "个人技术分享",
   "玩家求助咨询",
   "玩家日常分享",
-  "玩家行为争议"
+  "玩家行为争议",
+  "账号/区服询问"
 ]);
 const semanticCache = new Map<string, BettaFishSemanticSignal>();
 let lastFailureAt = 0;
@@ -172,7 +173,7 @@ function isUsableSignal(value: BettaFishSemanticSignal) {
     && value.confidence >= runtimeConfig.bettaFishSemanticMinConfidence;
 }
 
-function fuseBettaFishSignal(item: MonitorItem, signal: BettaFishSemanticSignal): MonitorItem {
+export function fuseBettaFishSignal(item: MonitorItem, signal: BettaFishSemanticSignal): MonitorItem {
   if (isProtectedItem(item) || signal.label === "neutral") return item;
 
   const adjustedScore = blendScore(item.sentimentScore, signal.score, signal.confidence);
