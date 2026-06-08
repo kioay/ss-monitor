@@ -88,8 +88,8 @@ export async function sendDingTalkDailyReport(
   }
 
   const items = gameItemsForLocalDay(response, gameId, reportDay);
-  const ongoingHighRiskItems = gameItemsWithin72Hours(response, gameId).filter((item) => item.riskLevel === "high");
-  await sendMarkdownToRobots(robots, buildDailyReportMarkdown(robot, items, ongoingHighRiskItems, reportDay, now));
+  const ongoingRiskItems = gameItemsWithin72Hours(response, gameId).filter(isMediumOrHighRiskItem);
+  await sendMarkdownToRobots(robots, buildDailyReportMarkdown(robot, items, ongoingRiskItems, reportDay, now));
   await writeState(robot, {
     ...state,
     initialized: true,
@@ -178,6 +178,10 @@ function isDingTalkRelevantItem(item: MonitorItem) {
   return Boolean(dingTalkPushReason(item));
 }
 
+function isMediumOrHighRiskItem(item: MonitorItem) {
+  return item.riskLevel === "high" || item.riskLevel === "medium";
+}
+
 function dingTalkPushReason(item: MonitorItem) {
   if (item.riskLevel === "high") return "高风险";
   if (isHighNegativeItem(item)) return "高负面";
@@ -232,7 +236,7 @@ function buildTestMarkdown(robot: DingTalkRobotConfig, items: MonitorItem[], res
 function buildDailyReportMarkdown(
   robot: DingTalkRobotConfig,
   items: MonitorItem[],
-  ongoingHighRiskItems: MonitorItem[],
+  ongoingRiskItems: MonitorItem[],
   reportDay: Date,
   sentAt: Date
 ) {
@@ -244,7 +248,7 @@ function buildDailyReportMarkdown(
     "",
     `> 发送时间：${formatLocalTime(sentAt.toISOString())} | 统计范围：${reportDate} 00:00-24:00`,
     "",
-    buildDailySummaryTable(items, ongoingHighRiskItems.length),
+    buildDailySummaryTable(items, ongoingRiskItems.length),
     "",
     buildDailySourceTable(items),
     "",
@@ -252,9 +256,9 @@ function buildDailyReportMarkdown(
     "",
     buildDailyFocusTable(focusItems),
     "",
-    "### 高风险持续汇总（近72小时）",
+    "### 中高风险持续汇总（近72小时）",
     "",
-    buildDailyHighRiskTable(ongoingHighRiskItems),
+    buildDailyOngoingRiskTable(ongoingRiskItems),
     "",
     `[打开舆情平台](${monitorUrl})`
   ];
@@ -272,9 +276,10 @@ function buildBriefTable(items: MonitorItem[]) {
   ].join("\n");
 }
 
-function buildDailySummaryTable(items: MonitorItem[], ongoingHighRiskCount = 0) {
+function buildDailySummaryTable(items: MonitorItem[], ongoingRiskCount = 0) {
   const sentimentCounts = countBy(items, (item) => sentimentName(item.sentiment));
   const highRisk = items.filter((item) => item.riskLevel === "high").length;
+  const mediumRisk = items.filter((item) => item.riskLevel === "medium").length;
   const negative = items.filter((item) => item.sentiment === "negative").length;
   const negativeRate = items.length ? `${Math.round((negative / items.length) * 100)}%` : "0%";
   return [
@@ -282,7 +287,8 @@ function buildDailySummaryTable(items: MonitorItem[], ongoingHighRiskCount = 0) 
     "| --- | --- |",
     `| 总量 | ${items.length}条 |`,
     `| 高风险 | ${highRisk}条 |`,
-    `| 近72小时高风险存量 | ${ongoingHighRiskCount}条 |`,
+    `| 中风险 | ${mediumRisk}条 |`,
+    `| 近72小时中高风险存量 | ${ongoingRiskCount}条 |`,
     `| 负面率 | ${negativeRate} |`,
     `| 情绪 | ${joinCounts(sentimentCounts)} |`
   ].join("\n");
@@ -310,15 +316,15 @@ function buildDailyFocusTable(items: MonitorItem[]) {
   ].join("\n");
 }
 
-function buildDailyHighRiskTable(items: MonitorItem[]) {
-  if (!items.length) return "近72小时暂无高风险舆情存量。";
+function buildDailyOngoingRiskTable(items: MonitorItem[]) {
+  if (!items.length) return "近72小时暂无中高风险舆情存量。";
   const visibleItems = items.slice(0, 8);
   const moreText = items.length > visibleItems.length ? `\n\n> 仅展示风险排序前 ${visibleItems.length} 条，剩余 ${items.length - visibleItems.length} 条可在平台查看。` : "";
   return [
-    "| 时间 | 来源 | 舆情 | 简报 |",
-    "| --- | --- | --- | --- |",
+    "| 时间 | 来源 | 风险 | 舆情 | 简报 |",
+    "| --- | --- | --- | --- | --- |",
     ...visibleItems.map(
-      (item) => `| ${formatShortTime(item.publishedAt)} | ${sourceName(item.source)} | ${linkCell(item)} | ${shortDigest(item)} |`
+      (item) => `| ${formatShortTime(item.publishedAt)} | ${sourceName(item.source)} | ${riskName(item.riskLevel)} | ${linkCell(item)} | ${shortDigest(item)} |`
     )
   ].join("\n") + moreText;
 }
