@@ -356,7 +356,7 @@ function App() {
           onClick={() => jumpToFeed({ sentiment: "negative" })}
         />
         <Metric
-          label="B站 / 贴吧 / 抖音 / BettaFish"
+          label="B站 / 贴吧 / 抖音"
           tone="blue"
           hint="分别跳到来源条目"
           value={
@@ -366,8 +366,6 @@ function App() {
               <button onClick={() => jumpToFeed({ source: "tieba" })}>{data?.stats.tieba ?? 0}</button>
               <i>/</i>
               <button onClick={() => jumpToFeed({ source: "douyin" })}>{data?.stats.douyin ?? 0}</button>
-              <i>/</i>
-              <button onClick={() => jumpToFeed({ source: "bettafish" })}>{data?.stats.bettafish ?? 0}</button>
             </span>
           }
         />
