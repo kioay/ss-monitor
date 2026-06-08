@@ -55,8 +55,8 @@ function parseArgs(argv: string[]): Args {
   return {
     mediaCrawlerDir: path.resolve(mediaCrawlerDir),
     out: path.resolve(out),
-    days: positiveNumber(values.get("days"), 7),
-    maxItemsPerGame: positiveNumber(values.get("max-items-per-game"), 80),
+    days: positiveNumber(values.get("days"), 14),
+    maxItemsPerGame: positiveNumber(values.get("max-items-per-game"), 300),
     includeThumbnail: flags.has("include-thumbnail") || /^(1|true|yes)$/i.test(process.env.LOCAL_DOUYIN_INCLUDE_THUMBNAIL || "")
   };
 }

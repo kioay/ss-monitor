@@ -8,6 +8,7 @@ import { collectTieba } from "./collectors/tieba";
 import { gameById, games, getUpdatePolicy, runtimeConfig } from "./config";
 import { refineItemsWithBettaFishSemantic } from "./bettafishSemantic";
 import { refreshCurrentVersionFocus } from "./currentVersion";
+import { mergeMonitorHistory } from "./monitorHistory";
 import type {
   AlertItem,
   GameConfig,
@@ -34,7 +35,7 @@ const querySchema = z.object({
         : ["ss1", "ss2"]
     ),
   windowHours: z.coerce.number().int().min(1).max(24 * 30).default(runtimeConfig.defaultWindowHours),
-  limit: z.coerce.number().int().min(1).max(300).default(120),
+  limit: z.coerce.number().int().min(1).max(1000).default(300),
   force: z
     .string()
     .optional()
@@ -97,11 +98,11 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
   const responseUpdatePolicy = collectionIsStale
     ? { ...updatePolicy, nextUpdateAt: new Date(generatedAt.getTime() + 60_000).toISOString() }
     : updatePolicy;
-  const freshItems = collection.items
+  const windowItems = collection.items
     .filter((item) => gameIds.includes(item.gameId))
     .filter((item) => new Date(item.publishedAt) >= cutoff)
-    .sort((a, b) => +new Date(b.publishedAt) - +new Date(a.publishedAt))
-    .slice(0, query.limit);
+    .sort((a, b) => +new Date(b.publishedAt) - +new Date(a.publishedAt));
+  const freshItems = windowItems.slice(0, query.limit);
 
   const response: MonitorResponse = {
     generatedAt: generatedAt.toISOString(),
@@ -113,10 +114,10 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
       ageSeconds: collectionAgeSeconds,
       ttlSeconds: updatePolicy.intervalSeconds
     },
-    stats: makeStats(freshItems),
-    trends: makeTrends(freshItems, query.windowHours, cutoff, generatedAt),
-    topicStats: makeTopicStats(freshItems),
-    alerts: makeAlerts(freshItems),
+    stats: makeStats(windowItems),
+    trends: makeTrends(windowItems, query.windowHours, cutoff, generatedAt),
+    topicStats: makeTopicStats(windowItems),
+    alerts: makeAlerts(windowItems),
     health: collection.health.filter((entry) => !entry.gameId || gameIds.includes(entry.gameId)),
     items: freshItems
   };
@@ -144,8 +145,9 @@ async function getCollection(selectedGames: GameConfig[], force: boolean, genera
     }
   }
 
-  const task = collectAll(selectedGames, new Date(now - collectionWindowHours * 3_600_000)).then((collection) => {
-    const entry = { createdAt: now, gameIds, ...collection };
+  const task = collectAll(selectedGames, new Date(now - collectionWindowHours * 3_600_000)).then(async (collection) => {
+    const items = await mergeMonitorHistory(collection.items, gameIds, generatedAt);
+    const entry = { createdAt: now, gameIds, items, health: collection.health };
     collectionCache.set(exactKey, entry);
     void saveCollectionSnapshot();
     return entry;
@@ -170,7 +172,7 @@ function findReusableCollection(gameIds: GameId[], now: Date) {
 async function findReusableSnapshotCollection(gameIds: GameId[], now: Date) {
   await loadCollectionSnapshot();
   const exact = collectionCache.get(collectionKey(gameIds));
-  if (exact && isUsableSnapshot(exact, now) && containsAllGames(exact.gameIds, gameIds)) return exact;
+  if (exact && isUsableSnapshot(exact, now) && containsAllGames(exact.gameIds, gameIds)) return collectionEntryWithHistory(exact, gameIds, now);
 
   const freshEntries = Array.from(collectionCache.values()).filter((entry) => isUsableSnapshot(entry, now));
   const covered = new Set<GameId>();
@@ -185,7 +187,12 @@ async function findReusableSnapshotCollection(gameIds: GameId[], now: Date) {
   }
   if (!gameIds.every((gameId) => covered.has(gameId))) return undefined;
 
-  return mergeCollectionEntries(gameIds, selectedEntries);
+  return collectionEntryWithHistory(mergeCollectionEntries(gameIds, selectedEntries), gameIds, now);
+}
+
+async function collectionEntryWithHistory(entry: CollectionEntry, gameIds: GameId[], now: Date): Promise<CollectionEntry> {
+  const items = await mergeMonitorHistory(entry.items, gameIds, now);
+  return { ...entry, gameIds, items };
 }
 
 function isFreshCollection(

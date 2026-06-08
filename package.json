@@ -10,6 +10,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "lint": "tsc --noEmit",
+    "test:monitor-history": "tsx scripts/test-monitor-history.ts",
     "start": "tsx server/index.ts",
     "sync:confluence": "tsx scripts/sync-current-version-focus.ts",
     "sync:bettafish-semantic": "tsx scripts/sync-bettafish-semantic.ts",

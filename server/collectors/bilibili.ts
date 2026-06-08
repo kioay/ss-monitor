@@ -98,16 +98,21 @@ export async function collectBilibili(game: GameConfig, cutoff: Date) {
 
   for (const keyword of game.bilibiliKeywords) {
     try {
-      const result = await searchVideos(keyword);
-      for (const item of result) {
-        if (!item.bvid || !isRelevantVideo(game.id, item)) continue;
-        const publishedAt = new Date(item.pubdate * 1000);
-        if (Number.isNaN(publishedAt.getTime()) || publishedAt < cutoff) {
-          staleDropped += 1;
-          continue;
+      for (let page = 1; page <= runtimeConfig.maxBilibiliSearchPages; page += 1) {
+        const result = await searchVideos(keyword, page);
+        let pageHasWindowItems = false;
+        for (const item of result) {
+          const publishedAt = new Date(item.pubdate * 1000);
+          if (!Number.isNaN(publishedAt.getTime()) && publishedAt >= cutoff) pageHasWindowItems = true;
+          if (!item.bvid || !isRelevantVideo(game.id, item)) continue;
+          if (Number.isNaN(publishedAt.getTime()) || publishedAt < cutoff) {
+            staleDropped += 1;
+            continue;
+          }
+          const existing = byBvid.get(item.bvid);
+          if (!existing || item.pubdate > existing.pubdate) byBvid.set(item.bvid, item);
         }
-        const existing = byBvid.get(item.bvid);
-        if (!existing || item.pubdate > existing.pubdate) byBvid.set(item.bvid, item);
+        if (!result.length || !pageHasWindowItems) break;
       }
     } catch (error) {
       const sourceError = error as SourceError;
@@ -153,12 +158,12 @@ export async function collectBilibili(game: GameConfig, cutoff: Date) {
   return { items, health };
 }
 
-async function searchVideos(keyword: string) {
+async function searchVideos(keyword: string, page: number) {
   const url = await signedWbiUrl("https://api.bilibili.com/x/web-interface/wbi/search/type", {
     search_type: "video",
     keyword,
     order: "pubdate",
-    page: 1
+    page
   });
   const data = await fetchJson<BiliSearchResponse>(url, {
     referer: "https://search.bilibili.com/",

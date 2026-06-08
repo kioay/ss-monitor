@@ -143,7 +143,7 @@ function App() {
         const params = new URLSearchParams({
           games: selectedGames.join(","),
           windowHours: String(windowHours),
-          limit: "160",
+          limit: "1000",
           notify: "0",
           ...(force ? { force: "1" } : {})
         });

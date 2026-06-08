@@ -57,9 +57,32 @@ B站或贴吧触发风控时，把浏览器中对应站点的 Cookie 放入 `.en
 
 - `GET /api/config`
 - `GET /api/health`
-- `GET /api/monitor?games=ss1,ss2&windowHours=72&limit=120&force=1`
+- `GET /api/monitor?games=ss1,ss2&windowHours=72&limit=1000&force=1`
 - `GET /api/bettafish/lab?windowHours=72`：BettaFish 测试台状态、能力覆盖、导入预览和只读探测。
 - `POST /api/bettafish/lab/action`：BettaFish 测试台固定研究操作代理。默认启用；设置 `BETTAFISH_LAB_ACTIONS_ENABLED=false` 可关闭。
+
+## Monitor history retention
+
+The monitor now keeps a lightweight local history file at `data/monitor-history.json` by default. Every refresh merges the latest Bilibili, Tieba, Douyin, and BettaFish items into that history pool, then 7-day and 14-day windows are calculated from the retained pool instead of only the current fetch page.
+
+Relevant configuration:
+
+```bash
+MONITOR_HISTORY_PATH=data/monitor-history.json
+MONITOR_HISTORY_RETENTION_HOURS=720
+MONITOR_HISTORY_MAX_ITEMS=5000
+MAX_BILIBILI_SEARCH_PAGES=5
+MAX_BILIBILI_VIDEOS_PER_GAME=120
+MAX_TIEBA_LIST_PAGES=5
+TIEBA_THREADS_PER_PAGE=30
+MAX_TIEBA_THREADS_PER_BAR=150
+MAX_DOUYIN_ITEMS_PER_GAME=300
+MAX_DOUYIN_IMPORTED_ITEMS_PER_GAME=300
+MAX_BETTAFISH_IMPORTED_ITEMS_PER_GAME=300
+MINDSPIDER_DB_LIMIT=1000
+```
+
+`limit` on `/api/monitor` now controls only how many newest rows are returned in `items`; stats, trends, topics, and alerts are calculated from the full selected time window.
 
 ## Douyin authorized import
 
@@ -211,6 +234,8 @@ One manual sync:
 ```powershell
 .\scripts\sync-local-douyin-cdp.ps1 -InstallDependencies -Force
 ```
+
+By default this sync exports the last 14 days and up to 300 rows per game. Override with `-RetentionDays` or `-MaxItemsPerGame` only when you intentionally want a smaller export.
 
 After the first successful run, omit `-InstallDependencies`; the script will reuse `BettaFish\.venv-mediacrawler` when it exists.
 

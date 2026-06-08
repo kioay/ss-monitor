@@ -61,13 +61,18 @@ export async function collectTieba(game: GameConfig, cutoff: Date) {
 
   for (const bar of game.tiebaBars) {
     try {
-      const candidates = await fetchBarThreads(bar);
-      for (const candidate of candidates) {
-        if (!candidate.latestAt || candidate.latestAt < cutoff) {
-          staleDropped += 1;
-          continue;
+      for (let page = 1; page <= runtimeConfig.maxTiebaListPages; page += 1) {
+        const candidates = await fetchBarThreads(bar, page);
+        let pageHasWindowItems = false;
+        for (const candidate of candidates) {
+          if (candidate.latestAt && candidate.latestAt >= cutoff) pageHasWindowItems = true;
+          if (!candidate.latestAt || candidate.latestAt < cutoff) {
+            staleDropped += 1;
+            continue;
+          }
+          byTid.set(candidate.tid, candidate);
         }
-        byTid.set(candidate.tid, candidate);
+        if (!candidates.length || !pageHasWindowItems) break;
       }
     } catch (error) {
       const sourceError = error as SourceError;
@@ -110,12 +115,12 @@ export async function collectTieba(game: GameConfig, cutoff: Date) {
   return { items, health };
 }
 
-async function fetchBarThreads(bar: string): Promise<TiebaThreadCandidate[]> {
+async function fetchBarThreads(bar: string, page: number): Promise<TiebaThreadCandidate[]> {
   try {
-    return await fetchMobileBarThreads(bar);
+    return await fetchMobileBarThreads(bar, page);
   } catch (mobileError) {
     try {
-      return await fetchWebBarThreads(bar);
+      return await fetchWebBarThreads(bar, page);
     } catch (webError) {
       if (webError instanceof SourceError && webError.blocked) throw webError;
       throw mobileError instanceof Error ? mobileError : webError;
@@ -123,13 +128,13 @@ async function fetchBarThreads(bar: string): Promise<TiebaThreadCandidate[]> {
   }
 }
 
-async function fetchMobileBarThreads(bar: string): Promise<TiebaThreadCandidate[]> {
+async function fetchMobileBarThreads(bar: string, page: number): Promise<TiebaThreadCandidate[]> {
   const data = await fetchTiebaMobileJson<TiebaFrsResponse>(
     "/c/f/frs/page",
     {
       kw: bar,
-      pn: "1",
-      rn: String(runtimeConfig.maxTiebaThreadsPerBar),
+      pn: String(page),
+      rn: String(runtimeConfig.tiebaThreadsPerPage),
       sort_type: "1",
       st_type: "tb_forumlist",
       with_group: "1"
@@ -165,8 +170,8 @@ async function fetchMobileBarThreads(bar: string): Promise<TiebaThreadCandidate[
     .filter((thread): thread is TiebaThreadCandidate => Boolean(thread));
 }
 
-async function fetchWebBarThreads(bar: string): Promise<TiebaThreadCandidate[]> {
-  const url = `https://tieba.baidu.com/f?kw=${encodeURIComponent(bar)}&ie=utf-8&pn=0`;
+async function fetchWebBarThreads(bar: string, page: number): Promise<TiebaThreadCandidate[]> {
+  const url = `https://tieba.baidu.com/f?kw=${encodeURIComponent(bar)}&ie=utf-8&pn=${Math.max(0, page - 1) * runtimeConfig.tiebaThreadsPerPage}`;
   const html = await fetchText(url, {
     referer: "https://tieba.baidu.com/",
     cookie: sourceCookie("baidu")

@@ -1,5 +1,11 @@
 # 更新日志
 
+## 2026-06-08
+
+- Added a monitor history pool so 7-day and 14-day Bilibili, Tieba, Douyin, and BettaFish windows are calculated from retained seen items instead of only the current fetch page.
+- Added bounded Bilibili and Tieba pagination so forced refreshes can backfill more of the selected 7-day and 14-day windows.
+- Changed `/api/monitor` list limits so stats, trends, topics, and alerts use the full selected window; `limit` now only caps returned latest-feed rows.
+
 ## 2026-05-22
 
 ### 数据采集与新鲜度
