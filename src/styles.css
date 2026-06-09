@@ -449,6 +449,107 @@ h2 {
   padding: 14px 16px;
 }
 
+.display-collapse-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.inline-display-collapse {
+  margin-bottom: 14px;
+}
+
+.inline-display-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.display-collapse-summary::-webkit-details-marker {
+  display: none;
+}
+
+.inline-display-summary::-webkit-details-marker {
+  display: none;
+}
+
+.inline-display-summary .lab-zone-heading {
+  margin-bottom: 0;
+}
+
+.display-collapse-copy {
+  min-width: 0;
+}
+
+.display-collapse-title {
+  margin-bottom: 0;
+}
+
+.display-collapse-note {
+  margin: 3px 0 0;
+}
+
+.display-collapse-control {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid rgba(63, 120, 168, 0.28);
+  border-radius: 8px;
+  background: rgba(255, 253, 248, 0.86);
+  color: #345f87;
+  font-size: 13px;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.display-collapse-control svg {
+  flex: 0 0 auto;
+  transition: transform 0.16s ease;
+}
+
+.display-collapse[open] .display-collapse-control svg,
+.inline-display-collapse[open] .display-collapse-control svg {
+  transform: rotate(180deg);
+}
+
+.display-collapse-control .when-open {
+  display: none;
+}
+
+.display-collapse[open] .display-collapse-control .when-open,
+.inline-display-collapse[open] .display-collapse-control .when-open {
+  display: inline;
+}
+
+.display-collapse[open] .display-collapse-control .when-closed,
+.inline-display-collapse[open] .display-collapse-control .when-closed {
+  display: none;
+}
+
+.display-collapse-summary:hover .display-collapse-control,
+.display-collapse-summary:focus-visible .display-collapse-control,
+.inline-display-summary:hover .display-collapse-control,
+.inline-display-summary:focus-visible .display-collapse-control {
+  border-color: rgba(47, 143, 112, 0.34);
+  color: var(--green-deep);
+  box-shadow: 0 8px 18px rgba(38, 48, 43, 0.08);
+}
+
+.display-collapse-body {
+  padding-top: 14px;
+}
+
 .interactive-zone > .section-title h2 {
   color: var(--ink-strong);
 }
@@ -2139,6 +2240,16 @@ button.metric:focus-visible {
   .page-tabs,
   .lab-actions {
     width: 100%;
+  }
+
+  .display-collapse-summary,
+  .inline-display-summary {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .display-collapse-control {
+    align-self: flex-start;
   }
 
   .page-tabs {

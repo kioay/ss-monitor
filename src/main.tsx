@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import {
   AlertTriangle,
+  ChevronDown,
   CheckCircle2,
   Clock3,
   Database,
@@ -758,11 +759,13 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
 
       <BettaFishGlossaryPanel />
 
-      <section className="lab-overview display-zone">
-        <div className="lab-zone-heading">
-          <InteractionBadge mode="display" label="展示概览" />
-          <span>这些数字只说明当前测试状态，不会触发任何操作。</span>
-        </div>
+      <CollapsibleDisplaySection
+        title="展示概览"
+        icon={<Info size={18} />}
+        note="这些数字只说明当前测试状态，不会触发任何操作。默认收起，展开后查看监控条目、导入命中、端点和测试窗口。"
+        className="lab-overview"
+        badges={<InteractionBadge mode="display" label="展示概览" />}
+      >
         <div className="metrics-grid lab-metrics">
           <Metric label="监控条目" value={totalMonitorItems} tone="green" hint={`${totalMonitorAlerts} 条高风险 · 复用主看板采集`} />
           <Metric label="导入命中" value={totalItems} tone="green" hint={`${totalRows} 行外部导出里匹配项目关键词`} />
@@ -770,7 +773,7 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
           <Metric label="能力就绪" value={`${readyCapabilities}/${data?.capabilities.length ?? 0}`} tone="gold" hint="已可测试的 BettaFish 能力" />
           <Metric label="测试窗口" value={`${data?.windowHours ?? windowHours}h`} tone="red" hint={data ? `只统计 ${formatDateTime(data.freshnessCutoff)} 之后` : "沿用看板窗口"} />
         </div>
-      </section>
+      </CollapsibleDisplaySection>
 
       {!data && loading ? <p className="empty">读取 BettaFish 测试状态...</p> : null}
 
@@ -780,27 +783,25 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
 
           <LabActionPanel data={data} loadingAction={actionLoading} actionResult={actionResult} onAction={runAction} />
 
-          <section className="lab-section display-zone">
-            <div className="section-title">
-              <Plug size={18} />
-              <h2>能力说明与测试覆盖</h2>
-              <InteractionBadge mode="display" label="展示信息" />
-            </div>
-            <p className="section-note">每张卡片说明一个 BettaFish 能力：它是什么、当前在本平台怎么用、测试台能覆盖哪些检查，以及下一步该验证什么。</p>
+          <CollapsibleDisplaySection
+            title="能力说明与测试覆盖"
+            icon={<Plug size={18} />}
+            note="每张卡片说明一个 BettaFish 能力：它是什么、当前在本平台怎么用、测试台能覆盖哪些检查，以及下一步该验证什么。"
+            className="lab-section"
+          >
             <div className="capability-grid">
               {data.capabilities.map((capability) => (
                 <CapabilityCard capability={capability} key={capability.id} />
               ))}
             </div>
-          </section>
+          </CollapsibleDisplaySection>
 
-          <section className="lab-section display-zone">
-            <div className="section-title">
-              <Database size={18} />
-              <h2>导入解析测试</h2>
-              <InteractionBadge mode="display" label="展示信息" />
-            </div>
-            <p className="section-note">这里只读取授权导出和轻量 JSON 文本，验证外部数据能否被解析、匹配项目关键词并进入统一风险分析。</p>
+          <CollapsibleDisplaySection
+            title="导入解析测试"
+            icon={<Database size={18} />}
+            note="这里只读取授权导出和轻量 JSON 文本，验证外部数据能否被解析、匹配项目关键词并进入统一风险分析。"
+            className="lab-section"
+          >
             <div className="import-grid">
               {data.importPreviews.map((preview) => (
                 <div className="import-preview display-card" key={preview.gameId}>
@@ -828,16 +829,20 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
                 </div>
               ))}
             </div>
-          </section>
+          </CollapsibleDisplaySection>
 
-          <section className="lab-section display-zone">
-            <div className="section-title">
-              <FileText size={18} />
-              <h2>只读端点探测</h2>
-              <InteractionBadge mode="display" label="展示为主" />
-              <InteractionBadge mode="link" label="外链可打开" />
-            </div>
-            <p className="section-note">只读端点用于检查 BettaFish 是否在线、日志或模板是否可读，不会启动 Agent、爬虫或报告任务；有外链图标的行可以打开端点查看原始响应。</p>
+          <CollapsibleDisplaySection
+            title="只读端点探测"
+            icon={<FileText size={18} />}
+            note="只读端点用于检查 BettaFish 是否在线、日志或模板是否可读，不会启动 Agent、爬虫或报告任务；有外链图标的行可以打开端点查看原始响应。"
+            className="lab-section"
+            badges={
+              <>
+                <InteractionBadge mode="display" label="展示为主" />
+                <InteractionBadge mode="link" label="外链可打开" />
+              </>
+            }
+          >
             <div className="endpoint-list">
               {data.endpointProbes.map((probe) => (
                 <div className="endpoint-row display-card" key={probe.id}>
@@ -859,20 +864,20 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
                 </div>
               ))}
             </div>
-          </section>
+          </CollapsibleDisplaySection>
 
-          <section className="lab-section recommendations display-zone">
-            <div className="section-title">
-              <ShieldAlert size={18} />
-              <h2>接入建议</h2>
-              <InteractionBadge mode="display" label="展示信息" />
-            </div>
+          <CollapsibleDisplaySection
+            title="接入建议"
+            icon={<ShieldAlert size={18} />}
+            note="这里汇总测试台根据当前配置、端点和导入状态给出的下一步建议。"
+            className="lab-section recommendations"
+          >
             <div className="recommendation-list">
               {data.recommendations.map((item) => (
                 <p key={item}>{item}</p>
               ))}
             </div>
-          </section>
+          </CollapsibleDisplaySection>
         </>
       ) : null}
     </div>
@@ -881,15 +886,12 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
 
 function BettaFishGlossaryPanel() {
   return (
-    <section className="lab-glossary display-zone" aria-labelledby="bettafish-glossary-title">
-      <div className="section-title glossary-title">
-        <Info size={18} />
-        <div>
-          <h2 id="bettafish-glossary-title">术语说明</h2>
-          <p className="section-note">先看这里再操作：测试台把 BettaFish 当作外部研究系统，每个名词都标清含义和在当前流程里的作用。</p>
-        </div>
-        <InteractionBadge mode="display" label="展示信息" />
-      </div>
+    <CollapsibleDisplaySection
+      title="术语说明"
+      icon={<Info size={18} />}
+      note="先看这里再操作：测试台把 BettaFish 当作外部研究系统，每个名词都标清含义和在当前流程里的作用。"
+      className="lab-glossary"
+    >
       <div className="glossary-grid">
         {bettaFishGlossaryGroups.map((group) => (
           <article className="glossary-group display-card" key={group.title}>
@@ -906,7 +908,63 @@ function BettaFishGlossaryPanel() {
           </article>
         ))}
       </div>
-    </section>
+    </CollapsibleDisplaySection>
+  );
+}
+
+function CollapsibleDisplaySection({
+  title,
+  icon,
+  note,
+  className = "",
+  badges,
+  children
+}: {
+  title: string;
+  icon: React.ReactNode;
+  note: string;
+  className?: string;
+  badges?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className={`display-collapse display-zone ${className}`}>
+      <summary className="display-collapse-summary">
+        <div className="display-collapse-copy">
+          <div className="section-title display-collapse-title">
+            {icon}
+            <h2>{title}</h2>
+            {badges || <InteractionBadge mode="display" label="展示信息" />}
+          </div>
+          <p className="section-note display-collapse-note">{note}</p>
+        </div>
+        <span className="display-collapse-control">
+          <ChevronDown size={15} />
+          <span className="when-closed">展开查看</span>
+          <span className="when-open">收起</span>
+        </span>
+      </summary>
+      <div className="display-collapse-body">{children}</div>
+    </details>
+  );
+}
+
+function InlineDisplayCollapse({ label, note, children }: { label: string; note: string; children: React.ReactNode }) {
+  return (
+    <details className="inline-display-collapse display-zone">
+      <summary className="inline-display-summary">
+        <div className="lab-zone-heading display-heading">
+          <InteractionBadge mode="display" label={label} />
+          <span>{note}</span>
+        </div>
+        <span className="display-collapse-control">
+          <ChevronDown size={15} />
+          <span className="when-closed">展开查看</span>
+          <span className="when-open">收起</span>
+        </span>
+      </summary>
+      <div className="display-collapse-body">{children}</div>
+    </details>
   );
 }
 
@@ -1097,19 +1155,17 @@ function LabActionPanel({
       </div>
       <p className="section-note">这里的按钮用于验证 BettaFish 能力，不会进入正式监控链路；带 research 的操作可能启动服务、搜索、爬取或生成报告。</p>
 
-      <div className="lab-zone-heading display-heading">
-        <InteractionBadge mode="display" label="前置状态" />
-        <span>这些状态只说明操作是否具备条件，不是可点击控件。</span>
-      </div>
-      <div className="lab-status-strip">
-        <StatusFact label="研究操作" value={data.runtime.actionsEnabled ? "已开启" : "未开启"} tone={data.runtime.actionsEnabled ? "ok" : "warning"} note="是否允许测试台执行启动、搜索、爬取和报告动作" />
-        <StatusFact label="BettaFish URL" value={baseUrlValue} tone={data.runtime.baseUrlConfigured ? "ok" : "skipped"} note="外部 BettaFish Flask/API 服务地址" />
-        <StatusFact label="Repo" value={repoValue} tone={data.runtime.repoConfigured ? "ok" : "skipped"} note="本机 BettaFish 仓库路径，本地命令依赖它" />
-        <StatusFact label="Python" value={pythonValue} tone={data.runtime.pythonAvailable ? "ok" : "error"} note="执行 BettaFish 与 MindSpider 脚本的解释器" />
-        <StatusFact label="MindSpider DB" value={mindSpiderDbValue} tone={data.mindSpider.dbDirectConfigured ? "ok" : "warning"} note="爬虫数据库直连状态，用来确认数据表可读" />
-        <StatusFact label="部署命令" value={deployValue} tone={data.runtime.deployCommandConfigured ? "ok" : "skipped"} note="预先配置的固定部署脚本，不从页面拼命令" />
-        <StatusFact label="本地进程" value={data.runtime.localProcessRunning ? "运行中" : "未运行"} tone={data.runtime.localProcessRunning ? "ok" : "skipped"} note="由测试台启动的 BettaFish 子进程状态" />
-      </div>
+      <InlineDisplayCollapse label="前置状态" note="这些状态只说明操作是否具备条件，不是可点击控件。">
+        <div className="lab-status-strip">
+          <StatusFact label="研究操作" value={data.runtime.actionsEnabled ? "已开启" : "未开启"} tone={data.runtime.actionsEnabled ? "ok" : "warning"} note="是否允许测试台执行启动、搜索、爬取和报告动作" />
+          <StatusFact label="BettaFish URL" value={baseUrlValue} tone={data.runtime.baseUrlConfigured ? "ok" : "skipped"} note="外部 BettaFish Flask/API 服务地址" />
+          <StatusFact label="Repo" value={repoValue} tone={data.runtime.repoConfigured ? "ok" : "skipped"} note="本机 BettaFish 仓库路径，本地命令依赖它" />
+          <StatusFact label="Python" value={pythonValue} tone={data.runtime.pythonAvailable ? "ok" : "error"} note="执行 BettaFish 与 MindSpider 脚本的解释器" />
+          <StatusFact label="MindSpider DB" value={mindSpiderDbValue} tone={data.mindSpider.dbDirectConfigured ? "ok" : "warning"} note="爬虫数据库直连状态，用来确认数据表可读" />
+          <StatusFact label="部署命令" value={deployValue} tone={data.runtime.deployCommandConfigured ? "ok" : "skipped"} note="预先配置的固定部署脚本，不从页面拼命令" />
+          <StatusFact label="本地进程" value={data.runtime.localProcessRunning ? "运行中" : "未运行"} tone={data.runtime.localProcessRunning ? "ok" : "skipped"} note="由测试台启动的 BettaFish 子进程状态" />
+        </div>
+      </InlineDisplayCollapse>
 
       <div className="action-grid">
         <div className="action-panel interactive-card">
