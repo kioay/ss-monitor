@@ -63,6 +63,19 @@ ANSPIRE_API_KEY=
 # or BOCHA_WEB_SEARCH_API_KEY=
 ```
 
+If the local shell already has `OPENAI_API_KEY` and the user explicitly authorizes using it for BettaFish LLM calls, set this opt-in flag instead of copying the secret into the credential file:
+
+```env
+BETTAFISH_USE_OPENAI_API_KEY_AS_SHARED_LLM=1
+BETTAFISH_SHARED_LLM_BASE_URL=
+BETTAFISH_SHARED_LLM_MODEL_NAME=
+TAVILY_API_KEY=
+ANSPIRE_API_KEY=
+# or BOCHA_WEB_SEARCH_API_KEY=
+```
+
+This only fills the four LLM engine API keys from `OPENAI_API_KEY`; search credentials are still required.
+
 Then apply and verify:
 
 ```bash

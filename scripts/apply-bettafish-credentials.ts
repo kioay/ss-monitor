@@ -46,6 +46,7 @@ const sharedLlmKeys = {
   baseUrl: "BETTAFISH_SHARED_LLM_BASE_URL",
   modelName: "BETTAFISH_SHARED_LLM_MODEL_NAME",
 };
+const useOpenAiApiKeyAsSharedLlm = "BETTAFISH_USE_OPENAI_API_KEY_AS_SHARED_LLM";
 const requiredKeys = [
   ...engineCredentialGroups.flatMap((group) => group.keys),
   "TAVILY_API_KEY",
@@ -81,7 +82,7 @@ async function main() {
     restart,
     credentialEnvFile: extraEnvFile ? path.resolve(extraEnvFile) : "",
     credentialKeysPresent: Object.keys(values).sort(),
-    sharedLlmKeysPresent: Object.values(sharedLlmKeys).filter((key) => process.env[key]).sort(),
+    sharedLlmKeysPresent: sharedLlmKeysPresent(),
     missingRequiredKeys: missing,
     targets: targets.map((target) => ({ name: target.name, host: target.host, port: target.port, envFiles: target.envFiles })),
   }, null, 2));
@@ -133,7 +134,7 @@ function collectCredentialValues() {
 
 function applySharedLlmCredentials(values: Record<string, string>) {
   const shared = {
-    apiKey: process.env[sharedLlmKeys.apiKey] || "",
+    apiKey: resolveSharedLlmApiKey(),
     baseUrl: process.env[sharedLlmKeys.baseUrl] || "",
     modelName: process.env[sharedLlmKeys.modelName] || "",
   };
@@ -144,6 +145,26 @@ function applySharedLlmCredentials(values: Record<string, string>) {
     values[`${group.prefix}_BASE_URL`] ||= shared.baseUrl;
     values[`${group.prefix}_MODEL_NAME`] ||= shared.modelName;
   }
+}
+
+function resolveSharedLlmApiKey() {
+  if (process.env[sharedLlmKeys.apiKey]) return process.env[sharedLlmKeys.apiKey] || "";
+  if (isEnabled(process.env[useOpenAiApiKeyAsSharedLlm]) && process.env.OPENAI_API_KEY) {
+    return process.env.OPENAI_API_KEY;
+  }
+  return "";
+}
+
+function sharedLlmKeysPresent() {
+  const present = Object.values(sharedLlmKeys).filter((key) => process.env[key]);
+  if (!process.env[sharedLlmKeys.apiKey] && isEnabled(process.env[useOpenAiApiKeyAsSharedLlm]) && process.env.OPENAI_API_KEY) {
+    present.push("OPENAI_API_KEY via BETTAFISH_USE_OPENAI_API_KEY_AS_SHARED_LLM");
+  }
+  return present.sort();
+}
+
+function isEnabled(value: string | undefined) {
+  return ["1", "true", "yes", "on"].includes((value || "").trim().toLowerCase());
 }
 
 function resolveTargets(): HostTarget[] {
