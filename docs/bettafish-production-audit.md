@@ -2,7 +2,9 @@
 
 Last audited: 2026-06-10 Asia/Hong_Kong
 
-Latest full verifier run: `2026-06-09T21:36:01.238Z` with `--full-actions`
+Latest full verifier run: `2026-06-09T22:19:59.373Z` with `--full-actions`
+
+Latest credential dry-run: `2026-06-09T22:28:10.070Z`
 
 ## Objective
 
@@ -15,8 +17,8 @@ Current completion status: blocked by missing upstream-required credentials and 
 | Requirement | Evidence command or artifact | Current status |
 | --- | --- | --- |
 | BettaFish upstream comparison uses current GitHub HEAD | `git ls-remote https://github.com/666ghj/BettaFish HEAD`; temporary shallow clone of upstream | Pass: current HEAD `40327d75b60faaf347bc578f93714b5394079d03` |
-| Inner BettaFish deployment matches upstream HEAD | `npm run verify:bettafish-production -- --full-actions` | Pass for HEAD; warning for MediaCrawler runtime state |
-| Public BettaFish deployment matches upstream HEAD | `npm run verify:bettafish-production -- --full-actions` | Pass for HEAD; warning for runtime patches in `keyword_manager.py` and MediaCrawler config |
+| Inner BettaFish deployment matches upstream HEAD | `npm run verify:bettafish-production -- --full-actions`; SSH read-only repo audit | Pass for HEAD; warning is limited to untracked MediaCrawler runtime directories/files: `.deps_installed`, `browser_data`, `data`, and `temp_image` |
+| Public BettaFish deployment matches upstream HEAD | `npm run verify:bettafish-production -- --full-actions`; SSH read-only repo audit | Pass for HEAD; warning is a production compatibility patch in `keyword_manager.py` plus MediaCrawler `CUSTOM_BROWSER_PATH` and `CDP_HEADLESS` runtime config |
 | Upstream runtime files and dependencies are present | `npm run verify:bettafish-production -- --full-actions` | Pass for `requirements.txt`, `.env.example`, MediaCrawler, Python 3.9+, core imports, Playwright, Chromium candidates, and real Chromium launch on inner/public hosts |
 | ss-monitor local checks pass | `npm run lint`, `npm run test:semantic-guard`, `npm run test:monitor-history`, `npm run build` | Pass on 2026-06-10 Asia/Hong_Kong |
 | Production test lab HTTP page/API reachable | `npm run verify:bettafish-production -- --full-actions` | Pass for `http://ss-monitor.qinoay.top/` and `/api/bettafish/lab` |
@@ -28,14 +30,14 @@ Current completion status: blocked by missing upstream-required credentials and 
 | ReportEngine initialized and ready | `npm run verify:bettafish-production -- --full-actions` | Fail: `initialized=false`, `engines_ready=false` |
 | Report generation works | `npm run verify:bettafish-production -- --full-actions` | Fail: `ReportEngine` missing LLM API key |
 | Full BettaFish system start works | `npm run verify:bettafish-production -- --full-actions` | Fail: system start returns failed because ReportEngine is not initialized |
-| Public HTTPS route is valid | `curl.exe https://ss-monitor.qinoay.top/`; public SSH permission probe | Fail: certificate principal mismatch for `ss-monitor.qinoay.top`; public user `yq` has no sudo; nginx config only defines `ss-monitor.qinoay.top` on HTTP 80, while 443 is served by a process/config not writable by `yq` |
+| Public HTTPS route is valid | `curl.exe https://ss-monitor.qinoay.top/`; public SSH permission probe | Fail: certificate principal mismatch for `ss-monitor.qinoay.top`; public user `yq` is not in sudoers; `/etc/nginx/nginx.conf` is `root:root` and only defines `ss-monitor.qinoay.top` on HTTP 80; `/etc/letsencrypt/live/ss-monitor.qinoay.top` is absent |
 
 ## Required Credentials
 
 Set these in `.env.local` or a separate ignored file passed as `BETTAFISH_CREDENTIAL_ENV_FILE`.
 Recommended local filename: `.env.bettafish-credentials.local`, which is covered by the repository `.env.*` ignore rule.
 The apply helper auto-loads non-empty values from `.env.bettafish-credentials.local` when it exists.
-The local ignored template is present and intentionally empty as of `2026-06-09T21:41:13.892Z`; `npm run apply:bettafish-credentials -- --dry-run` correctly reports no usable credentials until real values are filled.
+The local ignored template is present and intentionally empty as of the latest dry-run; `npm run apply:bettafish-credentials -- --dry-run` correctly reports no usable credentials until real values are filled.
 Dummy dry-runs on `2026-06-09T21:44:36Z` confirmed the helper expands both supported fill paths without printing secret values: `BETTAFISH_SHARED_LLM_*` plus `BOCHA_WEB_SEARCH_API_KEY`, and `BETTAFISH_USE_OPENAI_API_KEY_AS_SHARED_LLM=1` plus `ANSPIRE_API_KEY`.
 
 ```env
@@ -91,8 +93,9 @@ The apply helper sends credential payloads over SSH stdin, not in the remote com
 
 ## Notes
 
-- HTTPS repair requires root, sudo, or access to the external TLS/443 proxy on the public host. The current `yq` account reports `sudo_n=no`.
+- HTTPS repair requires root, sudo, or access to the external TLS/443 proxy on the public host. The current `yq` account is not in sudoers, and the nginx master process runs as root from `/usr/sbin/nginx -c /etc/nginx/nginx.conf`.
 - `scripts/ss-monitor.nginx.conf` includes an optional 443 block for `ss-monitor.qinoay.top`, but it must be enabled only after a valid certificate exists and by someone with root/admin access to nginx.
+- Public `curl -k https://ss-monitor.qinoay.top/` reaches an nginx default page over 443, while verified TLS fails because the served certificate is for `yaoqian7777.qinoay.top`, not `ss-monitor.qinoay.top`.
 - Local credential discovery found only process-level and user-level `OPENAI_API_KEY`; no non-empty Tavily, Bocha, Anspire, or BettaFish engine keys were found in the project credential file, local project env files, Windows environment variables, MCP resources, or production env files.
 - Upstream `.env.example` at `40327d75b60faaf347bc578f93714b5394079d03` confirms the required LLM `KEY/BASE_URL/MODEL_NAME` triplets plus Tavily and Anspire/Bocha search credentials.
 - Existing `scripts/douyin-server-login.ts` changes are pre-existing and intentionally excluded from BettaFish deployment commits.
