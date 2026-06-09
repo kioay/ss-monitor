@@ -383,12 +383,21 @@ def resolve_runtime_python(root):
                 return parts[0]
         except Exception:
             pass
+    for script_path in ["/home/yq/bin/start-bettafish-public.sh", str(root / "start.sh")]:
+        path = Path(script_path)
+        if not path.exists():
+            continue
+        text = path.read_text(errors="ignore")
+        for match in re.finditer(r"(/[^\\s\"']*/python3?)\\s+[^\\n]*app\\.py", text):
+            candidate = match.group(1)
+            if Path(candidate).exists():
+                return candidate
     candidates = [
         str(root / ".venv/bin/python"),
         str(root / "venv/bin/python"),
         str(root.parent / ".venv/bin/python"),
-        "/opt/BettaFish/.venv/bin/python",
         "/opt/ss-monitor/runtime/cpython-3.10.20-20260510/bin/python3",
+        "/opt/BettaFish/.venv/bin/python",
         "python3",
     ]
     for candidate in candidates:
