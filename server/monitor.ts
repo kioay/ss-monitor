@@ -101,6 +101,7 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
   const windowItems = collection.items
     .filter((item) => gameIds.includes(item.gameId))
     .filter((item) => new Date(item.publishedAt) >= cutoff)
+    .map(normalizeMonitorItemLabel)
     .sort((a, b) => +new Date(b.publishedAt) - +new Date(a.publishedAt));
   const freshItems = windowItems.slice(0, query.limit);
 
@@ -118,7 +119,9 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
     trends: makeTrends(windowItems, query.windowHours, cutoff, generatedAt),
     topicStats: makeTopicStats(windowItems),
     alerts: makeAlerts(windowItems),
-    health: collection.health.filter((entry) => !entry.gameId || gameIds.includes(entry.gameId)),
+    health: collection.health
+      .filter((entry) => !entry.gameId || gameIds.includes(entry.gameId))
+      .map(normalizeHealthLabel),
     items: freshItems
   };
 
@@ -319,6 +322,16 @@ function sourceLabel(source: SourceType) {
   if (source === "douyin") return "抖音视频";
   if (source === "bettafish") return "BettaFish导入";
   return "百度贴吧";
+}
+
+function normalizeMonitorItemLabel(item: MonitorItem): MonitorItem {
+  const label = sourceLabel(item.source);
+  return item.sourceLabel === label ? item : { ...item, sourceLabel: label };
+}
+
+function normalizeHealthLabel(entry: SourceHealth): SourceHealth {
+  const label = sourceLabel(entry.source);
+  return entry.sourceLabel === label ? entry : { ...entry, sourceLabel: label };
 }
 
 function makeStats(items: MonitorItem[]): MonitorStats {
