@@ -80,11 +80,13 @@ async function main() {
     generatedAt: new Date().toISOString(),
     dryRun,
     restart,
-    credentialEnvFile: extraEnvFile ? path.resolve(extraEnvFile) : "",
+    credentialEnvFile: credentialEnvFileForOutput(),
+    credentialTemplateExists: fs.existsSync(credentialEnvFileForOutput()),
     credentialKeysPresent: Object.keys(values).sort(),
     sharedLlmKeysPresent: sharedLlmKeysPresent(),
     missingRequiredKeys: missing,
     targets: targets.map((target) => ({ name: target.name, host: target.host, port: target.port, envFiles: target.envFiles })),
+    nextSteps: missing.length ? credentialNextSteps() : [],
   }, null, 2));
 
   if (!targets.length) {
@@ -112,6 +114,19 @@ function loadNonEmptyEnvFile(envFile: string) {
   for (const [key, value] of Object.entries(parsed)) {
     if (value) process.env[key] = value;
   }
+}
+
+function credentialEnvFileForOutput() {
+  return path.resolve(extraEnvFile || defaultCredentialEnvFile);
+}
+
+function credentialNextSteps() {
+  return [
+    `Fill ${credentialEnvFileForOutput()} with BETTAFISH_SHARED_LLM_API_KEY, BETTAFISH_SHARED_LLM_BASE_URL, and BETTAFISH_SHARED_LLM_MODEL_NAME, or fill all four explicit upstream engine triplets.`,
+    "Set TAVILY_API_KEY and one of ANSPIRE_API_KEY or BOCHA_WEB_SEARCH_API_KEY.",
+    "Rerun: npm run apply:bettafish-credentials -- --dry-run",
+    "When missingRequiredKeys is empty, run: npm run apply:bettafish-credentials -- --restart"
+  ];
 }
 
 function missingRequiredCredentialKeys(values: Record<string, string>) {
