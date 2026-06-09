@@ -23,6 +23,7 @@ type HostTarget = {
 
 const dryRun = process.argv.includes("--dry-run");
 const restart = process.argv.includes("--restart");
+const writeTemplate = process.argv.includes("--write-template");
 const engineCredentialGroups = [
   {
     prefix: "REPORT_ENGINE",
@@ -72,6 +73,19 @@ main().catch((error) => {
 });
 
 async function main() {
+  if (writeTemplate) {
+    const credentialEnvFile = credentialEnvFileForOutput();
+    const written = writeCredentialTemplate(credentialEnvFile);
+    console.log(JSON.stringify({
+      generatedAt: new Date().toISOString(),
+      writeTemplate,
+      credentialEnvFile,
+      written,
+      message: written ? "credential template created" : "credential template already exists; not overwritten",
+    }, null, 2));
+    return;
+  }
+
   const values = collectCredentialValues();
   const missing = missingRequiredCredentialKeys(values);
   const targets = resolveTargets();
@@ -127,6 +141,49 @@ function credentialNextSteps() {
     "Rerun: npm run apply:bettafish-credentials -- --dry-run",
     "When missingRequiredKeys is empty, run: npm run apply:bettafish-credentials -- --restart"
   ];
+}
+
+function writeCredentialTemplate(envFile: string) {
+  if (fs.existsSync(envFile)) return false;
+  fs.mkdirSync(path.dirname(envFile), { recursive: true });
+  fs.writeFileSync(envFile, credentialTemplateContent(), { encoding: "utf8", flag: "wx" });
+  return true;
+}
+
+function credentialTemplateContent() {
+  return `# Local, ignored BettaFish production credential template.
+# Fill either the shared LLM triplet below or the four explicit engine triplets.
+# Keep this file out of Git.
+# Minimal path: fill BETTAFISH_SHARED_LLM_* plus TAVILY_API_KEY plus either ANSPIRE_API_KEY or BOCHA_WEB_SEARCH_API_KEY.
+# After filling, run: npm run apply:bettafish-credentials -- --dry-run
+
+# Shared OpenAI-compatible LLM provider for all four BettaFish engines.
+BETTAFISH_SHARED_LLM_API_KEY=
+BETTAFISH_SHARED_LLM_BASE_URL=
+BETTAFISH_SHARED_LLM_MODEL_NAME=
+
+# Optional: only set this after explicit authorization to reuse the shell's OPENAI_API_KEY.
+# BETTAFISH_USE_OPENAI_API_KEY_AS_SHARED_LLM=1
+
+# Explicit upstream engine keys. Leave empty when using BETTAFISH_SHARED_LLM_*.
+REPORT_ENGINE_API_KEY=
+REPORT_ENGINE_BASE_URL=
+REPORT_ENGINE_MODEL_NAME=
+QUERY_ENGINE_API_KEY=
+QUERY_ENGINE_BASE_URL=
+QUERY_ENGINE_MODEL_NAME=
+INSIGHT_ENGINE_API_KEY=
+INSIGHT_ENGINE_BASE_URL=
+INSIGHT_ENGINE_MODEL_NAME=
+MEDIA_ENGINE_API_KEY=
+MEDIA_ENGINE_BASE_URL=
+MEDIA_ENGINE_MODEL_NAME=
+
+# Upstream search credentials. Tavily plus one of Anspire or Bocha are required.
+TAVILY_API_KEY=
+ANSPIRE_API_KEY=
+BOCHA_WEB_SEARCH_API_KEY=
+`;
 }
 
 function missingRequiredCredentialKeys(values: Record<string, string>) {
