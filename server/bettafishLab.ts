@@ -410,13 +410,15 @@ function makeOperations(
 ): BettaFishOperation[] {
   const baseUrlReason = runtime.baseUrlConfigured ? "" : "需要 BETTAFISH_BASE_URL";
   const repoReason = runtime.repoConfigured ? "" : "需要 BETTAFISH_REPO_DIR";
+  const mindSpiderReason = mindSpider.repoAvailable ? "" : "需要可用的 MindSpider 目录";
   const pythonReason = runtime.pythonAvailable ? "" : `需要可用的 ${runtime.python}`;
+  const startCommandReason = runtime.startCommandConfigured ? "" : "需要 BETTAFISH_START_COMMAND 或可识别的 BettaFish 仓库";
   const actionsReason = runtime.actionsEnabled ? "" : "研究操作开关未开启";
   const httpEnabled = runtime.actionsEnabled && runtime.baseUrlConfigured;
   const httpReadEnabled = runtime.actionsEnabled && runtime.baseUrlConfigured;
   const repoEnabled = runtime.actionsEnabled && runtime.repoConfigured && mindSpider.repoAvailable && runtime.pythonAvailable;
   const repoReadEnabled = runtime.actionsEnabled && runtime.repoConfigured && mindSpider.repoAvailable && runtime.pythonAvailable;
-  const localStartEnabled = runtime.actionsEnabled && runtime.repoConfigured && runtime.pythonAvailable;
+  const localStartEnabled = runtime.actionsEnabled && runtime.repoConfigured && runtime.pythonAvailable && runtime.startCommandConfigured;
   const deployEnabled = runtime.actionsEnabled && runtime.repoConfigured && runtime.deployCommandConfigured;
   const sentimentEnabled = runtime.actionsEnabled && (runtime.sentimentCommandConfigured || runtime.baseUrlConfigured);
   const operations: BettaFishOperation[] = [];
@@ -435,15 +437,15 @@ function makeOperations(
     operation("report.progress", "report", "查询报告进度", "调用 BettaFish /api/report/progress/<taskId>", "read", httpReadEnabled, disabledReason(actionsReason, baseUrlReason), "/api/report/progress/<taskId>"),
     operation("report.resultJson", "report", "读取报告结果", "调用 BettaFish /api/report/result/<taskId>/json", "read", httpReadEnabled, disabledReason(actionsReason, baseUrlReason), "/api/report/result/<taskId>/json"),
     operation("report.cancel", "report", "取消报告任务", "调用 BettaFish /api/report/cancel/<taskId>", "research", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/report/cancel/<taskId>"),
-    operation("mindspider.status", "mindspider", "MindSpider 状态", "执行 MindSpider/main.py --status", "read", repoReadEnabled, disabledReason(actionsReason, repoReason, pythonReason), "MindSpider/main.py --status"),
-    operation("mindspider.dbProbe", "mindspider", "数据库直连检查", "执行 MindSpider/schema/db_manager.py --tables --stats", "read", repoReadEnabled, disabledReason(actionsReason, repoReason, pythonReason), "MindSpider/schema/db_manager.py --tables --stats"),
-    operation("mindspider.initDb", "mindspider", "初始化数据库", "执行 MindSpider/main.py --init-db", "research", repoEnabled, disabledReason(actionsReason, repoReason, pythonReason), "MindSpider/main.py --init-db"),
-    operation("mindspider.crawlTest", "mindspider", "测试爬虫调度", "执行 MindSpider/main.py --deep-sentiment --test", "research", repoEnabled, disabledReason(actionsReason, repoReason, pythonReason), "MindSpider/main.py --deep-sentiment --test"),
+    operation("mindspider.status", "mindspider", "MindSpider 状态", "执行 MindSpider/main.py --status", "read", repoReadEnabled, disabledReason(actionsReason, repoReason, mindSpiderReason, pythonReason), "MindSpider/main.py --status"),
+    operation("mindspider.dbProbe", "mindspider", "数据库直连检查", "执行 MindSpider/schema/db_manager.py --tables --stats", "read", repoReadEnabled, disabledReason(actionsReason, repoReason, mindSpiderReason, pythonReason), "MindSpider/schema/db_manager.py --tables --stats"),
+    operation("mindspider.initDb", "mindspider", "初始化数据库", "执行 MindSpider/main.py --init-db", "research", repoEnabled, disabledReason(actionsReason, repoReason, mindSpiderReason, pythonReason), "MindSpider/main.py --init-db"),
+    operation("mindspider.crawlTest", "mindspider", "测试爬虫调度", "执行 MindSpider/main.py --deep-sentiment --test", "research", repoEnabled, disabledReason(actionsReason, repoReason, mindSpiderReason, pythonReason), "MindSpider/main.py --deep-sentiment --test"),
     operation("sentiment.analyze", "sentiment", "情感模型/LLM 分析", "优先执行 BETTAFISH_SENTIMENT_COMMAND，否则通过 BettaFish Agent 搜索发起 LLM 判定", "research", sentimentEnabled, disabledReason(actionsReason, runtime.sentimentCommandConfigured || runtime.baseUrlConfigured ? "" : "需要 BETTAFISH_SENTIMENT_COMMAND 或 BETTAFISH_BASE_URL"), "sentiment"),
     operation("runtime.systemStart", "runtime", "启动完整 BettaFish 系统", "调用 BettaFish /api/system/start", "research", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/system/start"),
     operation("runtime.systemShutdown", "runtime", "关闭 BettaFish 系统", "调用 BettaFish /api/system/shutdown", "research", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/system/shutdown"),
-    operation("runtime.localStart", "runtime", "本地启动 BettaFish", "用 BETTAFISH_REPO_DIR 与 BETTAFISH_START_COMMAND/python app.py 启动 BettaFish", "research", localStartEnabled, disabledReason(actionsReason, repoReason, pythonReason), "local process"),
-    operation("runtime.localStop", "runtime", "停止本地启动进程", "停止由本测试台启动的 BettaFish 子进程", "research", runtime.actionsEnabled, actionsReason || undefined, "local process"),
+    operation("runtime.localStart", "runtime", "本地启动 BettaFish", "用 BETTAFISH_REPO_DIR 与 BETTAFISH_START_COMMAND/python app.py 启动 BettaFish", "research", localStartEnabled, disabledReason(actionsReason, repoReason, pythonReason, startCommandReason), "local process"),
+    operation("runtime.localStop", "runtime", "停止本地启动进程", "停止由本测试台启动的 BettaFish 子进程", "research", runtime.actionsEnabled && runtime.localProcessRunning, disabledReason(actionsReason, runtime.localProcessRunning ? "" : "没有由测试台启动的 BettaFish 本地进程"), "local process"),
     operation("runtime.deploy", "runtime", "执行部署命令", "执行 BETTAFISH_DEPLOY_COMMAND", "research", deployEnabled, disabledReason(actionsReason, repoReason, runtime.deployCommandConfigured ? "" : "需要 BETTAFISH_DEPLOY_COMMAND"), "deploy command")
   );
 

@@ -958,6 +958,26 @@ h2 {
   box-shadow: var(--shadow-lift);
 }
 
+.action-panel.interactive-card.no-actions {
+  border-color: rgba(45, 58, 52, 0.12);
+  border-top-color: var(--neutral);
+  background:
+    linear-gradient(180deg, rgba(255, 253, 248, 0.82), rgba(250, 251, 246, 0.72)),
+    var(--paper-soft);
+  box-shadow: none;
+}
+
+.action-panel.interactive-card.has-actions {
+  border-color: rgba(47, 143, 112, 0.36);
+}
+
+.action-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .action-panel h3 {
   color: var(--ink-strong);
   font-size: 16px;
@@ -980,7 +1000,7 @@ h2 {
 }
 
 .lab-action-button {
-  min-height: 38px;
+  min-height: 42px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1000,6 +1020,20 @@ h2 {
 
 .lab-action-button span {
   min-width: 0;
+}
+
+.action-button-copy {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  line-height: 1.2;
+}
+
+.action-button-copy small {
+  color: inherit;
+  font-size: 11px;
+  font-weight: 620;
+  opacity: 0.8;
 }
 
 .action-console .lab-action-button:not(:disabled),
@@ -1035,6 +1069,11 @@ h2 {
 .lab-action-button:disabled {
   opacity: 0.48;
   cursor: not-allowed;
+}
+
+.action-panel.no-actions .lab-action-button:disabled {
+  opacity: 0.72;
+  background: rgba(255, 253, 248, 0.58);
 }
 
 .lab-input {

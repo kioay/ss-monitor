@@ -1145,15 +1145,22 @@ function LabActionPanel({
 
   const run = (payload: Record<string, unknown>) => onAction(payload);
   const crawlerPlatforms = platformsText.split(/[,，\s]+/).map((item) => item.trim()).filter(Boolean);
+  const agentOperationIds = ["agent.start.insight", "agent.stop.insight", "agent.start.media", "agent.stop.media", "agent.start.query", "agent.stop.query", "agent.search"];
+  const forumOperationIds = ["forum.start", "forum.stop", "forum.log"];
+  const reportOperationIds = ["report.generate", "report.progress", "report.resultJson", "report.cancel"];
+  const mindSpiderOperationIds = ["mindspider.status", "mindspider.dbProbe", "mindspider.initDb", "mindspider.crawlTest"];
+  const sentimentOperationIds = ["sentiment.analyze"];
+  const runtimeOperationIds = ["runtime.localStart", "runtime.localStop", "runtime.systemStart", "runtime.systemShutdown", "runtime.deploy"];
+  const opsById = (ids: string[]) => ids.map(op);
 
   return (
     <section className="lab-section action-console interactive-zone">
       <div className="section-title">
         <TestTube2 size={18} />
         <h2>研究操作测试台</h2>
-        <InteractionBadge mode="interactive" label="可操作" />
+        <OperationAvailabilityBadge operations={data.operations} />
       </div>
-      <p className="section-note">这里的按钮用于验证 BettaFish 能力，不会进入正式监控链路；带 research 的操作可能启动服务、搜索、爬取或生成报告。</p>
+      <p className="section-note">这里的按钮用于验证 BettaFish 能力，不会进入正式监控链路；不可用按钮会直接显示缺少的配置，带 research 的可用操作可能启动服务、搜索、爬取或生成报告。</p>
 
       <InlineDisplayCollapse label="前置状态" note="这些状态只说明操作是否具备条件，不是可点击控件。">
         <div className="lab-status-strip">
@@ -1168,8 +1175,8 @@ function LabActionPanel({
       </InlineDisplayCollapse>
 
       <div className="action-grid">
-        <div className="action-panel interactive-card">
-          <h3>Query / Media / Insight Agent</h3>
+        <div className={`action-panel interactive-card ${operationPanelClass(opsById(agentOperationIds))}`}>
+          <ActionPanelTitle title="Query / Media / Insight Agent" operations={opsById(agentOperationIds)} />
           <p className="action-panel-note">启动三个 Agent 后，可以把同一个舆情问题交给 BettaFish 检索、抽取和归纳。</p>
           <div className="mini-button-grid">
             {(["insight", "media", "query"] as const).map((name) => (
@@ -1187,8 +1194,8 @@ function LabActionPanel({
           <ActionButton operation={op("agent.search")} busy={loadingAction === "agent.search"} disabled={isBusy} onClick={() => run({ action: "agent.search", query: agentQuery })} />
         </div>
 
-        <div className="action-panel interactive-card">
-          <h3>ForumEngine</h3>
+        <div className={`action-panel interactive-card ${operationPanelClass(opsById(forumOperationIds))}`}>
+          <ActionPanelTitle title="ForumEngine" operations={opsById(forumOperationIds)} />
           <p className="action-panel-note">控制多 Agent 讨论引擎，并读取日志确认讨论是否产出稳定结论。</p>
           <div className="mini-button-grid three">
             <ActionButton operation={op("forum.start")} busy={loadingAction === "forum.start"} disabled={isBusy} onClick={() => run({ action: "forum.start" })} />
@@ -1202,8 +1209,8 @@ function LabActionPanel({
           </div>
         </div>
 
-        <div className="action-panel interactive-card">
-          <h3>ReportEngine</h3>
+        <div className={`action-panel interactive-card ${operationPanelClass(opsById(reportOperationIds))}`}>
+          <ActionPanelTitle title="ReportEngine" operations={opsById(reportOperationIds)} />
           <p className="action-panel-note">生成专项舆情报告，并用 Task ID 跟踪进度、读取结果或取消任务。</p>
           <label className="lab-input">
             <span>报告主题</span>
@@ -1223,8 +1230,8 @@ function LabActionPanel({
           </div>
         </div>
 
-        <div className="action-panel interactive-card">
-          <h3>MindSpider</h3>
+        <div className={`action-panel interactive-card ${operationPanelClass(opsById(mindSpiderOperationIds))}`}>
+          <ActionPanelTitle title="MindSpider" operations={opsById(mindSpiderOperationIds)} />
           <p className="action-panel-note">检查 BettaFish 采集模块的 CLI、数据库、登录态和少量测试爬虫调度。</p>
           <div className="mini-button-grid">
             <ActionButton operation={op("mindspider.status")} busy={loadingAction === "mindspider.status"} disabled={isBusy} onClick={() => run({ action: "mindspider.status" })} />
@@ -1263,8 +1270,8 @@ function LabActionPanel({
           />
         </div>
 
-        <div className="action-panel interactive-card">
-          <h3>情感模型 / LLM</h3>
+        <div className={`action-panel interactive-card ${operationPanelClass(opsById(sentimentOperationIds))}`}>
+          <ActionPanelTitle title="情感模型 / LLM" operations={opsById(sentimentOperationIds)} />
           <p className="action-panel-note">把一段文本交给 BettaFish 情感模型或 LLM，和本平台判定结果做并排校验。</p>
           <div className="candidate-list">
             <span>模型候选：{data.sentiment.modelCandidates.length}</span>
@@ -1278,8 +1285,8 @@ function LabActionPanel({
           <ActionButton operation={op("sentiment.analyze")} busy={loadingAction === "sentiment.analyze"} disabled={isBusy} onClick={() => run({ action: "sentiment.analyze", text: sentimentText })} />
         </div>
 
-        <div className="action-panel interactive-card">
-          <h3>自动启动 / 控制 / 部署</h3>
+        <div className={`action-panel interactive-card ${operationPanelClass(opsById(runtimeOperationIds))}`}>
+          <ActionPanelTitle title="自动启动 / 控制 / 部署" operations={opsById(runtimeOperationIds)} />
           <p className="action-panel-note">验证外部 BettaFish 服务能否由测试台启动、关闭或执行固定部署命令。</p>
           <div className="mini-button-grid">
             <ActionButton operation={op("runtime.localStart")} busy={loadingAction === "runtime.localStart"} disabled={isBusy} onClick={() => run({ action: "runtime.localStart" })} />
@@ -1309,12 +1316,37 @@ function ActionButton({
 }) {
   if (!operation) return null;
   const isDisabled = disabled || !operation.enabled;
+  const reason = !operation.enabled ? operation.disabledReason || "当前配置不可用" : disabled ? "等待当前操作完成" : "";
+  const Icon = isDisabled ? AlertTriangle : busy ? RefreshCw : MousePointer2;
   return (
     <button className={`lab-action-button ${operation.safety}`} type="button" disabled={isDisabled} onClick={onClick} title={operation.disabledReason || operation.description}>
-      {busy ? <RefreshCw size={13} className="spin" /> : <MousePointer2 size={13} />}
-      <span>{busy ? "执行中..." : operation.label}</span>
+      <Icon size={13} className={busy ? "spin" : ""} />
+      <span className="action-button-copy">
+        <span>{busy ? "执行中..." : operation.label}</span>
+        {reason ? <small>{reason}</small> : null}
+      </span>
     </button>
   );
+}
+
+function ActionPanelTitle({ title, operations }: { title: string; operations: Array<BettaFishOperation | undefined> }) {
+  return (
+    <div className="action-panel-head">
+      <h3>{title}</h3>
+      <OperationAvailabilityBadge operations={operations} />
+    </div>
+  );
+}
+
+function OperationAvailabilityBadge({ operations }: { operations: Array<BettaFishOperation | undefined> }) {
+  const available = operations.filter((operation) => operation?.enabled).length;
+  const total = operations.filter(Boolean).length;
+  const label = available ? `可操作 ${available}/${total}` : `需配置 ${total}`;
+  return <InteractionBadge mode={available ? "interactive" : "display"} label={label} />;
+}
+
+function operationPanelClass(operations: Array<BettaFishOperation | undefined>) {
+  return operations.some((operation) => operation?.enabled) ? "has-actions" : "no-actions";
 }
 
 function StatusFact({ label, value, tone, note }: { label: string; value: string; tone: BettaFishProbeStatus; note?: string }) {
