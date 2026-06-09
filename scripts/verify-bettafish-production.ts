@@ -200,6 +200,11 @@ function printRemoteResult(target: HostTarget, result: any, upstreamHead: string
     result.runtime?.chromiumCandidates?.join("; ") || "chromium not found"
   );
   addCheck(
+    `${target.name}.runtime.chromium.launch`,
+    result.runtime?.chromiumLaunchOk ? "pass" : "fail",
+    result.runtime?.chromiumLaunch?.out || result.runtime?.chromiumLaunch?.err || "chromium launch failed"
+  );
+  addCheck(
     `${target.name}.credentials.required`,
     result.missingRequiredKeys.length === 0 ? "pass" : "fail",
     result.missingRequiredKeys.join(", ") || "all required keys set"
@@ -443,6 +448,64 @@ def find_chromium(root):
                     candidates.append(full_path)
     return candidates[:20]
 
+def test_chromium_launch(runtime_python, playwright_node, candidates):
+    if not candidates:
+        return {"code": -1, "out": "", "err": "chromium not found"}
+    code = r'''
+import asyncio
+import json
+import sys
+from playwright.async_api import async_playwright
+
+async def main():
+    candidates = json.loads(sys.argv[1])
+    errors = []
+    async with async_playwright() as p:
+        for candidate in candidates:
+            browser = None
+            try:
+                browser = await p.chromium.launch(
+                    headless=True,
+                    executable_path=candidate,
+                    args=["--no-sandbox", "--disable-gpu"],
+                )
+                page = await browser.new_page()
+                await page.goto("data:text/html,<title>ok</title>", wait_until="load", timeout=15000)
+                title = await page.title()
+                await browser.close()
+                if title == "ok":
+                    print(candidate)
+                    return
+                errors.append(candidate + ": unexpected title " + title)
+            except Exception as exc:
+                if browser:
+                    try:
+                        await browser.close()
+                    except Exception:
+                        pass
+                errors.append(candidate + ": " + str(exc).splitlines()[0][:240])
+    print("\n".join(errors), file=sys.stderr)
+    raise SystemExit(1)
+
+asyncio.run(main())
+'''
+    env = os.environ.copy()
+    if playwright_node:
+        env["PLAYWRIGHT_NODEJS_PATH"] = playwright_node
+    try:
+        proc = subprocess.run(
+            [runtime_python, "-c", code, json.dumps(candidates[:8])],
+            cwd=repo,
+            env=env,
+            universal_newlines=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=45,
+        )
+        return {"code": proc.returncode, "out": proc.stdout.strip(), "err": proc.stderr.strip()}
+    except Exception as exc:
+        return {"code": -1, "out": "", "err": str(exc)}
+
 def parse_env_file(path):
     values = {}
     p = Path(path)
@@ -517,6 +580,7 @@ python_version = run_shell("%s --version" % shlex.quote(runtime_python), cwd=rep
 dependency_imports = run_shell("%s - <<'PY'\nimport flask, dotenv, openai, pydantic\nprint('imports-ok')\nPY" % shlex.quote(runtime_python), cwd=repo)
 playwright_version = run_shell("%s%s -m playwright --version" % (playwright_prefix, shlex.quote(runtime_python)), cwd=repo)
 chromium_candidates = find_chromium(repo_path)
+chromium_launch = test_chromium_launch(runtime_python, playwright_node, chromium_candidates)
 git_head = run(["git", "rev-parse", "HEAD"], cwd=repo)
 status = run(["git", "status", "--short"], cwd=repo)
 report_status = get_json("http://127.0.0.1:5000/api/report/status")
@@ -552,6 +616,8 @@ result = {
         "playwrightOk": playwright_version.get("code") == 0 and "Version" in playwright_version.get("out", ""),
         "chromiumCandidates": chromium_candidates,
         "chromiumOk": bool(chromium_candidates),
+        "chromiumLaunch": chromium_launch,
+        "chromiumLaunchOk": chromium_launch.get("code") == 0,
     },
     "envFiles": env_files,
     "missingRequiredKeys": [key for key in required_keys if not env_values.get(key)] + ([] if any(env_values.get(key) for key in one_of_search_keys) else [" or ".join(one_of_search_keys)]),
