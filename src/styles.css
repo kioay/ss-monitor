@@ -989,6 +989,44 @@ h2 {
   line-height: 1.5;
 }
 
+.runtime-action-guide {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(199, 91, 72, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 248, 245, 0.72);
+}
+
+.runtime-action-guide-row {
+  display: grid;
+  gap: 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(199, 91, 72, 0.12);
+}
+
+.runtime-action-guide-row:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.runtime-action-guide-row div {
+  display: grid;
+  gap: 2px;
+}
+
+.runtime-action-guide-row strong {
+  color: #7b2d20;
+  font-size: 12px;
+}
+
+.runtime-action-guide-row span,
+.runtime-action-guide-row small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .mini-button-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1074,6 +1112,78 @@ h2 {
 .action-panel.no-actions .lab-action-button:disabled {
   opacity: 0.72;
   background: rgba(255, 253, 248, 0.58);
+}
+
+.runtime-confirmation-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(20, 27, 24, 0.42);
+}
+
+.runtime-confirmation-dialog {
+  width: min(420px, 100%);
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid rgba(199, 91, 72, 0.28);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: 0 24px 70px rgba(20, 27, 24, 0.24);
+}
+
+.runtime-confirmation-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #8b3b2b;
+}
+
+.runtime-confirmation-head h3 {
+  color: var(--ink-strong);
+  font-size: 17px;
+}
+
+.runtime-confirmation-head p,
+.runtime-confirmation-copy,
+.runtime-confirmation-error {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.runtime-confirmation-error {
+  color: #9c3323;
+  font-weight: 700;
+}
+
+.runtime-confirmation-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.runtime-confirmation-actions button {
+  min-height: 36px;
+  border-radius: 8px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.runtime-confirmation-secondary {
+  border: 1px solid var(--line);
+  background: var(--paper-soft);
+  color: var(--muted);
+}
+
+.runtime-confirmation-primary {
+  border: 1px solid rgba(199, 91, 72, 0.36);
+  background: #fff8f5;
+  color: #8b3b2b;
 }
 
 .lab-input {

@@ -38,12 +38,21 @@ const actionSchema = z.object({
   customTemplate: z.string().max(12_000).optional(),
   taskId: z.string().max(120).optional(),
   text: z.string().max(4000).optional(),
+  confirmationPassword: z.string().max(120).optional(),
   platforms: z.array(z.string().max(24)).max(7).optional(),
   maxKeywords: z.coerce.number().int().min(1).max(50).optional(),
   maxNotes: z.coerce.number().int().min(1).max(50).optional()
 });
 
 const appNames = ["insight", "media", "query"] as const;
+const runtimeConfirmationPassword = "wooduan";
+const protectedRuntimeActions = new Set([
+  "runtime.localStart",
+  "runtime.localStop",
+  "runtime.systemStart",
+  "runtime.systemShutdown",
+  "runtime.deploy"
+]);
 const crawlerPlatforms = ["xhs", "dy", "ks", "bili", "wb", "tieba", "zhihu"];
 const mindSpiderTables = [
   "daily_news",
@@ -191,6 +200,10 @@ export async function runBettaFishLabAction(rawBody: unknown): Promise<BettaFish
 
   if (!runtimeConfig.bettaFishLabActionsEnabled) {
     return actionResponse(action, false, "测试台研究操作已被配置关闭。设置 BETTAFISH_LAB_ACTIONS_ENABLED=true 后可执行启动、搜索、爬取、报告和部署研究操作。");
+  }
+
+  if (protectedRuntimeActions.has(action) && body.confirmationPassword !== runtimeConfirmationPassword) {
+    return actionResponse(action, false, "二级密码错误或未输入，操作未执行。");
   }
 
   if (action.startsWith("agent.start.")) return proxyBettaFish(action, `/api/start/${appNameFromAction(action)}`, { method: "GET" });

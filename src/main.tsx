@@ -52,6 +52,10 @@ type TrendSeries = "negative" | "neutral" | "positive" | "total";
 type TrendSeriesVisibility = Record<TrendSeries, boolean>;
 type TrendLineSample = { point: TrendPoint; x: number; value: number };
 type TrendLineCoordinate = TrendLineSample & { y: number };
+type PendingRuntimeConfirmation = {
+  operation: BettaFishOperation;
+  payload: Record<string, unknown>;
+};
 
 const defaultTrendSeriesVisibility: TrendSeriesVisibility = {
   negative: true,
@@ -235,6 +239,39 @@ const capabilityRoleNotes: Record<string, string> = {
   sentiment: "并排评估 BettaFish 语义输出和本平台判定",
   runtime: "控制外部系统启动、停止和固定部署动作"
 };
+
+const runtimeActionExplanations: Array<{ id: string; label: string; effect: string; target: string }> = [
+  {
+    id: "runtime.localStart",
+    label: "本地启动 BettaFish",
+    effect: "在测试台服务器上按 BETTAFISH_START_COMMAND 拉起 BettaFish Flask/API 进程。",
+    target: "本地进程"
+  },
+  {
+    id: "runtime.localStop",
+    label: "停止本地启动进程",
+    effect: "只停止由测试台自己启动并记录的 BettaFish 本地子进程。",
+    target: "本地进程"
+  },
+  {
+    id: "runtime.systemStart",
+    label: "启动完整 BettaFish 系统",
+    effect: "调用 BettaFish /api/system/start，启动三个 Agent、ForumEngine 和 ReportEngine。",
+    target: "/api/system/start"
+  },
+  {
+    id: "runtime.systemShutdown",
+    label: "关闭 BettaFish 系统",
+    effect: "调用 BettaFish /api/system/shutdown，关闭 BettaFish 当前系统组件。",
+    target: "/api/system/shutdown"
+  },
+  {
+    id: "runtime.deploy",
+    label: "执行部署命令",
+    effect: "在配置的 BettaFish 仓库目录执行 BETTAFISH_DEPLOY_COMMAND。",
+    target: "部署命令"
+  }
+];
 
 type InteractionMode = "display" | "interactive" | "link";
 
@@ -1126,6 +1163,9 @@ function LabActionPanel({
   const [platformsText, setPlatformsText] = React.useState("dy");
   const [maxKeywords, setMaxKeywords] = React.useState(3);
   const [maxNotes, setMaxNotes] = React.useState(5);
+  const [runtimeConfirmation, setRuntimeConfirmation] = React.useState<PendingRuntimeConfirmation>();
+  const [runtimePassword, setRuntimePassword] = React.useState("");
+  const [runtimePasswordError, setRuntimePasswordError] = React.useState("");
   const operations = React.useMemo(() => new Map(data.operations.map((operation) => [operation.id, operation])), [data.operations]);
   const op = React.useCallback((id: string) => operations.get(id), [operations]);
   const isBusy = Boolean(loadingAction);
@@ -1144,6 +1184,27 @@ function LabActionPanel({
   }, [actionResult?.taskId]);
 
   const run = (payload: Record<string, unknown>) => onAction(payload);
+  const requestRuntimeConfirmation = (action: string) => {
+    const operation = op(action);
+    if (!operation) return;
+    setRuntimeConfirmation({ operation, payload: { action } });
+    setRuntimePassword("");
+    setRuntimePasswordError("");
+  };
+  const closeRuntimeConfirmation = () => {
+    setRuntimeConfirmation(undefined);
+    setRuntimePassword("");
+    setRuntimePasswordError("");
+  };
+  const confirmRuntimeAction = () => {
+    if (!runtimeConfirmation) return;
+    if (!runtimePassword.trim()) {
+      setRuntimePasswordError("请输入二级密码。");
+      return;
+    }
+    onAction({ ...runtimeConfirmation.payload, confirmationPassword: runtimePassword });
+    closeRuntimeConfirmation();
+  };
   const crawlerPlatforms = platformsText.split(/[,，\s]+/).map((item) => item.trim()).filter(Boolean);
   const agentOperationIds = ["agent.start.insight", "agent.stop.insight", "agent.start.media", "agent.stop.media", "agent.start.query", "agent.stop.query", "agent.search"];
   const forumOperationIds = ["forum.start", "forum.stop", "forum.log"];
@@ -1288,18 +1349,114 @@ function LabActionPanel({
         <div className={`action-panel interactive-card ${operationPanelClass(opsById(runtimeOperationIds))}`}>
           <ActionPanelTitle title="自动启动 / 控制 / 部署" operations={opsById(runtimeOperationIds)} />
           <p className="action-panel-note">验证外部 BettaFish 服务能否由测试台启动、关闭或执行固定部署命令。</p>
+          <RuntimeActionGuide operations={opsById(runtimeOperationIds)} />
           <div className="mini-button-grid">
-            <ActionButton operation={op("runtime.localStart")} busy={loadingAction === "runtime.localStart"} disabled={isBusy} onClick={() => run({ action: "runtime.localStart" })} />
-            <ActionButton operation={op("runtime.localStop")} busy={loadingAction === "runtime.localStop"} disabled={isBusy} onClick={() => run({ action: "runtime.localStop" })} />
-            <ActionButton operation={op("runtime.systemStart")} busy={loadingAction === "runtime.systemStart"} disabled={isBusy} onClick={() => run({ action: "runtime.systemStart" })} />
-            <ActionButton operation={op("runtime.systemShutdown")} busy={loadingAction === "runtime.systemShutdown"} disabled={isBusy} onClick={() => run({ action: "runtime.systemShutdown" })} />
+            <ActionButton operation={op("runtime.localStart")} busy={loadingAction === "runtime.localStart"} disabled={isBusy} onClick={() => requestRuntimeConfirmation("runtime.localStart")} />
+            <ActionButton operation={op("runtime.localStop")} busy={loadingAction === "runtime.localStop"} disabled={isBusy} onClick={() => requestRuntimeConfirmation("runtime.localStop")} />
+            <ActionButton operation={op("runtime.systemStart")} busy={loadingAction === "runtime.systemStart"} disabled={isBusy} onClick={() => requestRuntimeConfirmation("runtime.systemStart")} />
+            <ActionButton operation={op("runtime.systemShutdown")} busy={loadingAction === "runtime.systemShutdown"} disabled={isBusy} onClick={() => requestRuntimeConfirmation("runtime.systemShutdown")} />
           </div>
-          <ActionButton operation={op("runtime.deploy")} busy={loadingAction === "runtime.deploy"} disabled={isBusy} onClick={() => run({ action: "runtime.deploy" })} />
+          <ActionButton operation={op("runtime.deploy")} busy={loadingAction === "runtime.deploy"} disabled={isBusy} onClick={() => requestRuntimeConfirmation("runtime.deploy")} />
         </div>
       </div>
 
+      {runtimeConfirmation ? (
+        <RuntimeConfirmationDialog
+          operation={runtimeConfirmation.operation}
+          password={runtimePassword}
+          error={runtimePasswordError}
+          onPasswordChange={(value) => {
+            setRuntimePassword(value);
+            setRuntimePasswordError("");
+          }}
+          onCancel={closeRuntimeConfirmation}
+          onConfirm={confirmRuntimeAction}
+        />
+      ) : null}
+
       {actionResult ? <ActionResultView result={actionResult} /> : null}
     </section>
+  );
+}
+
+function RuntimeActionGuide({ operations }: { operations: Array<BettaFishOperation | undefined> }) {
+  const operationsById = new Map(
+    operations
+      .filter((operation): operation is BettaFishOperation => Boolean(operation))
+      .map((operation) => [operation.id, operation])
+  );
+  return (
+    <div className="runtime-action-guide" aria-label="自动启动、控制、部署按钮说明">
+      {runtimeActionExplanations.map((item) => {
+        const operation = operationsById.get(item.id);
+        return (
+          <div className="runtime-action-guide-row" key={item.id}>
+            <div>
+              <strong>{operation?.label || item.label}</strong>
+              <span>{item.effect}</span>
+            </div>
+            <small>{operation?.enabled ? "需二级确认" : operation?.disabledReason || "当前不可用"} · {item.target}</small>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function RuntimeConfirmationDialog({
+  operation,
+  password,
+  error,
+  onPasswordChange,
+  onCancel,
+  onConfirm
+}: {
+  operation: BettaFishOperation;
+  password: string;
+  error: string;
+  onPasswordChange: (value: string) => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const explanation = runtimeActionExplanations.find((item) => item.id === operation.id);
+  return (
+    <div className="runtime-confirmation-backdrop" role="presentation">
+      <form
+        className="runtime-confirmation-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="runtime-confirmation-title"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onConfirm();
+        }}
+      >
+        <div className="runtime-confirmation-head">
+          <ShieldAlert size={18} />
+          <div>
+            <h3 id="runtime-confirmation-title">二级密码确认</h3>
+            <p>{operation.label}</p>
+          </div>
+        </div>
+        <p className="runtime-confirmation-copy">{explanation?.effect || operation.description}</p>
+        <label className="lab-input">
+          <span>二级密码</span>
+          <small>该操作会改变 BettaFish 运行状态或执行部署命令。</small>
+          <input
+            type="password"
+            value={password}
+            onChange={(event) => onPasswordChange(event.target.value)}
+            autoComplete="off"
+            autoFocus
+          />
+        </label>
+        {error ? <p className="runtime-confirmation-error">{error}</p> : null}
+        <div className="runtime-confirmation-actions">
+          <button className="runtime-confirmation-secondary" type="button" onClick={onCancel}>取消</button>
+          <button className="runtime-confirmation-primary" type="submit">确认执行</button>
+        </div>
+      </form>
+    </div>
   );
 }
 
