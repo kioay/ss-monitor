@@ -165,6 +165,41 @@ function printRemoteResult(target: HostTarget, result: any, upstreamHead: string
     result.gitStatusOk ? result.gitStatus.length ? result.gitStatus.join("; ") : "clean" : result.gitStatusError || "git status failed"
   );
   addCheck(
+    `${target.name}.runtime.requirements`,
+    result.runtime?.requirementsExists ? "pass" : "fail",
+    "requirements.txt"
+  );
+  addCheck(
+    `${target.name}.runtime.envExample`,
+    result.runtime?.envExampleExists ? "pass" : "fail",
+    ".env.example"
+  );
+  addCheck(
+    `${target.name}.runtime.mediaCrawler`,
+    result.runtime?.mediaCrawlerExists ? "pass" : "fail",
+    "MindSpider/DeepSentimentCrawling/MediaCrawler"
+  );
+  addCheck(
+    `${target.name}.runtime.python`,
+    result.runtime?.pythonVersionOk ? "pass" : "fail",
+    `${result.runtime?.runtimePython || "python"}: ${result.runtime?.pythonVersion?.out || result.runtime?.pythonVersion?.err || "missing"}`
+  );
+  addCheck(
+    `${target.name}.runtime.dependencies`,
+    result.runtime?.dependenciesOk ? "pass" : "fail",
+    result.runtime?.dependencyImports?.out || result.runtime?.dependencyImports?.err || "dependency import failed"
+  );
+  addCheck(
+    `${target.name}.runtime.playwright`,
+    result.runtime?.playwrightOk ? "pass" : "fail",
+    `${result.runtime?.playwrightNode ? `PLAYWRIGHT_NODEJS_PATH=${result.runtime.playwrightNode}; ` : ""}${result.runtime?.playwrightVersion?.out || result.runtime?.playwrightVersion?.err || "playwright unavailable"}`
+  );
+  addCheck(
+    `${target.name}.runtime.chromium`,
+    result.runtime?.chromiumOk ? "pass" : "fail",
+    result.runtime?.chromiumCandidates?.join("; ") || "chromium not found"
+  );
+  addCheck(
     `${target.name}.credentials.required`,
     result.missingRequiredKeys.length === 0 ? "pass" : "fail",
     result.missingRequiredKeys.join(", ") || "all required keys set"
@@ -303,6 +338,8 @@ function remotePythonProbe() {
   return String.raw`
 import json
 import os
+import re
+import shlex
 import subprocess
 import urllib.error
 import urllib.request
@@ -320,6 +357,82 @@ def run(args, cwd=None, timeout=20):
         return {"code": proc.returncode, "out": proc.stdout.strip(), "err": proc.stderr.strip()}
     except Exception as exc:
         return {"code": -1, "out": "", "err": str(exc)}
+
+def run_shell(command, cwd=None, timeout=20):
+    try:
+        proc = subprocess.run(command, shell=True, cwd=cwd, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
+        return {"code": proc.returncode, "out": proc.stdout.strip(), "err": proc.stderr.strip()}
+    except Exception as exc:
+        return {"code": -1, "out": "", "err": str(exc)}
+
+def python_version_ok(version_text):
+    match = re.search(r"Python\s+(\d+)\.(\d+)", version_text or "")
+    if not match:
+        return False
+    major = int(match.group(1))
+    minor = int(match.group(2))
+    return major > 3 or (major == 3 and minor >= 9)
+
+def resolve_runtime_python(root):
+    app_path = str(root / "app.py")
+    proc = run_shell("ps -eo args | grep -F %s | grep -v grep | head -1" % shlex.quote(app_path))
+    if proc["code"] == 0 and proc["out"]:
+        try:
+            parts = shlex.split(proc["out"].splitlines()[0])
+            if parts and "python" in Path(parts[0]).name:
+                return parts[0]
+        except Exception:
+            pass
+    candidates = [
+        str(root / ".venv/bin/python"),
+        str(root / "venv/bin/python"),
+        str(root.parent / ".venv/bin/python"),
+        "/opt/BettaFish/.venv/bin/python",
+        "/opt/ss-monitor/runtime/cpython-3.10.20-20260510/bin/python3",
+        "python3",
+    ]
+    for candidate in candidates:
+        if candidate == "python3" or Path(candidate).exists():
+            return candidate
+    return "python3"
+
+def resolve_playwright_node(root):
+    candidates = []
+    for candidate in [
+        "/home/yq/bin/start-bettafish-public.sh",
+        "/etc/systemd/system/bettafish-full.service",
+        str(root.parent / ".env"),
+        str(root / ".env"),
+    ]:
+        path = Path(candidate)
+        if not path.exists():
+            continue
+        text = path.read_text(errors="ignore")
+        for match in re.finditer(r"PLAYWRIGHT_NODEJS_PATH=([^\\s\"']+)", text):
+            candidates.append(match.group(1).strip())
+    candidates.append("/opt/nodejs/bin/node")
+    for candidate in candidates:
+        if candidate and Path(candidate).exists():
+            return candidate
+    return ""
+
+def find_chromium(root):
+    candidates = []
+    seen_candidates = set()
+    roots = []
+    for candidate in [root, root.parent, Path.home() / ".cache", Path("/opt/BettaFish")]:
+        if candidate.exists() and str(candidate) not in [str(existing) for existing in roots]:
+            roots.append(candidate)
+    for search_root in roots:
+        found = run_shell("find . -path '*chrome-linux/chrome' -o -path '*chrome-for-testing*/chrome' | head -20", cwd=str(search_root), timeout=15)
+        if found["code"] == 0 and found["out"]:
+            for line in found["out"].splitlines():
+                relative = line[2:] if line.startswith("./") else line
+                full_path = str(search_root / relative)
+                if full_path not in seen_candidates:
+                    seen_candidates.add(full_path)
+                    candidates.append(full_path)
+    return candidates[:20]
 
 def parse_env_file(path):
     values = {}
@@ -386,6 +499,15 @@ def post_action(body, timeout=75):
 
 repo_path = Path(repo)
 env_files, env_values = merged_env()
+runtime_python = resolve_runtime_python(repo_path)
+playwright_node = resolve_playwright_node(repo_path)
+playwright_prefix = ""
+if playwright_node:
+    playwright_prefix = "PLAYWRIGHT_NODEJS_PATH=%s " % shlex.quote(playwright_node)
+python_version = run_shell("%s --version" % shlex.quote(runtime_python), cwd=repo)
+dependency_imports = run_shell("%s - <<'PY'\nimport flask, dotenv, openai, pydantic\nprint('imports-ok')\nPY" % shlex.quote(runtime_python), cwd=repo)
+playwright_version = run_shell("%s%s -m playwright --version" % (playwright_prefix, shlex.quote(runtime_python)), cwd=repo)
+chromium_candidates = find_chromium(repo_path)
 git_head = run(["git", "rev-parse", "HEAD"], cwd=repo)
 status = run(["git", "status", "--short"], cwd=repo)
 report_status = get_json("http://127.0.0.1:5000/api/report/status")
@@ -407,6 +529,21 @@ result = {
     "gitStatusError": status.get("err", ""),
     "gitStatus": [line for line in status.get("out", "").splitlines() if line],
     "submoduleStatus": run(["git", "submodule", "status", "--recursive"], cwd=repo).get("out", ""),
+    "runtime": {
+        "requirementsExists": (repo_path / "requirements.txt").exists(),
+        "envExampleExists": (repo_path / ".env.example").exists(),
+        "mediaCrawlerExists": (repo_path / "MindSpider/DeepSentimentCrawling/MediaCrawler").exists(),
+        "runtimePython": runtime_python,
+        "pythonVersion": python_version,
+        "pythonVersionOk": python_version.get("code") == 0 and python_version_ok(python_version.get("out", "") + " " + python_version.get("err", "")),
+        "dependencyImports": dependency_imports,
+        "dependenciesOk": dependency_imports.get("code") == 0 and "imports-ok" in dependency_imports.get("out", ""),
+        "playwrightNode": playwright_node,
+        "playwrightVersion": playwright_version,
+        "playwrightOk": playwright_version.get("code") == 0 and "Version" in playwright_version.get("out", ""),
+        "chromiumCandidates": chromium_candidates,
+        "chromiumOk": bool(chromium_candidates),
+    },
     "envFiles": env_files,
     "missingRequiredKeys": [key for key in required_keys if not env_values.get(key)] + ([] if any(env_values.get(key) for key in one_of_search_keys) else [" or ".join(one_of_search_keys)]),
     "http": {

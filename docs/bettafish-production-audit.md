@@ -15,6 +15,7 @@ Bring BettaFish to a complete production deployment state, with all self-tests p
 | BettaFish upstream comparison uses current GitHub HEAD | `git ls-remote https://github.com/666ghj/BettaFish HEAD` | Pass: current HEAD `40327d75b60faaf347bc578f93714b5394079d03` |
 | Inner BettaFish deployment matches upstream HEAD | `npm run verify:bettafish-production -- --full-actions` | Pass for HEAD; warning for MediaCrawler runtime state |
 | Public BettaFish deployment matches upstream HEAD | `npm run verify:bettafish-production -- --full-actions` | Pass for HEAD; warning for runtime patches in `keyword_manager.py` and MediaCrawler config |
+| Upstream runtime files and dependencies are present | `npm run verify:bettafish-production -- --full-actions` | Pass for `requirements.txt`, `.env.example`, MediaCrawler, Python 3.9+, core imports, Playwright, and Chromium on inner/public hosts |
 | ss-monitor local checks pass | `npm run lint`, `npm run test:semantic-guard`, `npm run test:monitor-history`, `npm run build` | Pass |
 | Production test lab HTTP page/API reachable | `npm run verify:bettafish-production -- --full-actions` | Pass for `http://ss-monitor.qinoay.top/` and `/api/bettafish/lab` |
 | Production test lab browser acceptance | Codex browser on `http://ss-monitor.qinoay.top/` | Pass for HTTP page load, `BettaFish 测试台` navigation, 0 console errors, `MindSpider 状态`, and `情感模型/LLM 分析`; ReportEngine buttons remain disabled because credentials are missing |
