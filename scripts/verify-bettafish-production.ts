@@ -214,12 +214,24 @@ async function fetchText(url: string) {
     const response = await fetch(url);
     return { ok: response.ok, status: response.status, text: await response.text(), error: "" };
   } catch (error) {
-    return { ok: false, status: 0, text: "", error: error instanceof Error ? error.message : String(error) };
+    return { ok: false, status: 0, text: "", error: errorMessageWithCause(error) };
   }
 }
 
 function addCheck(name: string, status: CheckStatus, detail: string) {
   checks.push({ name, status, detail: compact(detail) });
+}
+
+function errorMessageWithCause(error: unknown) {
+  if (!(error instanceof Error)) return String(error);
+  const cause = (error as Error & { cause?: unknown }).cause;
+  if (cause instanceof Error && cause.message && cause.message !== error.message) {
+    return `${error.message}: ${cause.message}`;
+  }
+  if (cause && typeof cause === "object" && "message" in cause && typeof cause.message === "string") {
+    return `${error.message}: ${cause.message}`;
+  }
+  return error.message;
 }
 
 function compact(value: string) {
