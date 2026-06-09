@@ -43,9 +43,8 @@ const requiredCredentialKeys = [
   "MEDIA_ENGINE_BASE_URL",
   "MEDIA_ENGINE_MODEL_NAME",
   "TAVILY_API_KEY",
-  "ANSPIRE_API_KEY",
-  "BOCHA_WEB_SEARCH_API_KEY"
 ];
+const oneOfSearchCredentialKeys = ["ANSPIRE_API_KEY", "BOCHA_WEB_SEARCH_API_KEY"];
 
 const checks: Check[] = [];
 
@@ -313,6 +312,7 @@ repo = os.environ["BETTA_REPO_ROOT"]
 monitor = os.environ["MONITOR_URL"].rstrip("/")
 full_actions = os.environ.get("FULL_ACTIONS") == "1"
 required_keys = ${JSON.stringify(requiredCredentialKeys)}
+one_of_search_keys = ${JSON.stringify(oneOfSearchCredentialKeys)}
 
 def run(args, cwd=None, timeout=20):
     try:
@@ -408,7 +408,7 @@ result = {
     "gitStatus": [line for line in status.get("out", "").splitlines() if line],
     "submoduleStatus": run(["git", "submodule", "status", "--recursive"], cwd=repo).get("out", ""),
     "envFiles": env_files,
-    "missingRequiredKeys": [key for key in required_keys if not env_values.get(key)],
+    "missingRequiredKeys": [key for key in required_keys if not env_values.get(key)] + ([] if any(env_values.get(key) for key in one_of_search_keys) else [" or ".join(one_of_search_keys)]),
     "http": {
         "status": get_json("http://127.0.0.1:5000/api/status"),
         "reportStatus": {
