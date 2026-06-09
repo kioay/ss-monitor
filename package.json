@@ -17,6 +17,7 @@
     "sync:bettafish-semantic": "tsx scripts/sync-bettafish-semantic.ts",
     "sync:bettafish-full": "tsx scripts/sync-bettafish-full.ts",
     "verify:bettafish-production": "tsx scripts/verify-bettafish-production.ts",
+    "apply:bettafish-credentials": "tsx scripts/apply-bettafish-credentials.ts",
     "douyin:server-login": "tsx scripts/douyin-server-login.ts",
     "douyin:prepare-local-export": "tsx scripts/prepare-local-douyin-export.ts"
   },
