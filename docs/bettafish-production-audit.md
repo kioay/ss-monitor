@@ -30,6 +30,7 @@ Bring BettaFish to a complete production deployment state, with all self-tests p
 ## Required Credentials
 
 Set these in `.env.local` or a separate ignored file passed as `BETTAFISH_CREDENTIAL_ENV_FILE`.
+Recommended local filename: `.env.bettafish-credentials.local`, which is covered by the repository `.env.*` ignore rule.
 
 ```env
 REPORT_ENGINE_API_KEY=
