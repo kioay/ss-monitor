@@ -2,6 +2,8 @@
 
 Last audited: 2026-06-10 Asia/Hong_Kong
 
+Latest full verifier run: `2026-06-09T18:30:27.409Z`
+
 ## Objective
 
 Bring BettaFish to a complete production deployment state, with all self-tests passing and the production website BettaFish test lab acceptance passing.
@@ -15,10 +17,11 @@ Bring BettaFish to a complete production deployment state, with all self-tests p
 | Public BettaFish deployment matches upstream HEAD | `npm run verify:bettafish-production -- --full-actions` | Pass for HEAD; warning for runtime patches in `keyword_manager.py` and MediaCrawler config |
 | ss-monitor local checks pass | `npm run lint`, `npm run test:semantic-guard`, `npm run test:monitor-history`, `npm run build` | Pass |
 | Production test lab HTTP page/API reachable | `npm run verify:bettafish-production -- --full-actions` | Pass for `http://ss-monitor.qinoay.top/` and `/api/bettafish/lab` |
+| Production test lab browser acceptance | Codex browser on `http://ss-monitor.qinoay.top/` | Pass for HTTP page load, `BettaFish 测试台` navigation, 0 console errors, `MindSpider 状态`, and `情感模型/LLM 分析`; ReportEngine buttons remain disabled because credentials are missing |
 | BettaFish API reachable on inner/public hosts | `npm run verify:bettafish-production -- --full-actions` | Pass for `/api/status` |
 | Sentiment bridge self-test passes | `npm run verify:bettafish-production -- --full-actions` | Pass for `sentiment.analyze` |
 | MindSpider status and DB probe pass | `npm run verify:bettafish-production -- --full-actions` | Pass for `mindspider.status` and `mindspider.dbProbe` |
-| Required LLM/search credentials are present | `npm run verify:bettafish-production -- --full-actions` | Fail: required keys are empty on inner and public hosts |
+| Required LLM/search credentials are present | `npm run verify:bettafish-production -- --full-actions` | Fail: required LLM engine keys, `TAVILY_API_KEY`, and `ANSPIRE_API_KEY or BOCHA_WEB_SEARCH_API_KEY` are empty on inner and public hosts |
 | ReportEngine initialized and ready | `npm run verify:bettafish-production -- --full-actions` | Fail: `initialized=false`, `engines_ready=false` |
 | Report generation works | `npm run verify:bettafish-production -- --full-actions` | Fail: `ReportEngine` missing LLM API key |
 | Full BettaFish system start works | `npm run verify:bettafish-production -- --full-actions` | Fail: system start returns failed because ReportEngine is not initialized |
@@ -63,6 +66,8 @@ Then apply and verify:
 npm run apply:bettafish-credentials -- --restart
 npm run verify:bettafish-production -- --full-actions
 ```
+
+The apply helper sends credential payloads over SSH stdin, not in the remote command environment.
 
 ## Notes
 
