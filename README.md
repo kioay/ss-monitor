@@ -203,9 +203,19 @@ BETTAFISH_SEMANTIC_MAX_ITEMS=80
 BETTAFISH_SEMANTIC_TIMEOUT_MS=15000
 ```
 
-`svm` and `xgboost` can be added to `BETTAFISH_SEMANTIC_MODELS` when the BettaFish Python environment has compatible `scikit-learn` / `xgboost` versions. The default keeps `bayes` only because it is the most stable lightweight model.
+`svm` and `xgboost` can be added to `BETTAFISH_SEMANTIC_MODELS` when the BettaFish Python environment has compatible `scikit-learn` / `xgboost` versions. Full BettaFish production deployments set this to `svm,bayes,xgboost`.
 
-For production, sync only the lightweight semantic model subset instead of the full BettaFish crawler tree:
+For production, deploy the full BettaFish runtime tree:
+
+```bash
+npm run sync:bettafish-full
+```
+
+Configure `SYNC_BETTAFISH_FULL_REMOTE`, `SYNC_BETTAFISH_FULL_SSH_PORT`, `SYNC_BETTAFISH_FULL_PASSWORD`, and `SYNC_BETTAFISH_FULL_LOCAL_REPO` in `.env.local` or the shell. The sync installs BettaFish under `/opt/BettaFish/current`, creates `bettafish-full.service`, installs Python dependencies into `/opt/BettaFish/.venv`, starts the Flask API on `127.0.0.1:5000`, and updates `/opt/ss-monitor/.env` so the monitor uses the full runtime via `BETTAFISH_BASE_URL`, `BETTAFISH_REPO_DIR`, and `BETTAFISH_PYTHON`. It then installs `SYNC_BETTAFISH_FULL_SEMANTIC_DEP_PACKAGES` so the legacy `svm,bayes,xgboost` pickle models load with their compatible `numpy` / `scikit-learn` / `xgboost` versions.
+
+The full sync includes BettaFish app code, Agent engines, ReportEngine, MindSpider, MediaCrawler code, templates, static assets, and model weights. It still excludes `.env`, browser profiles, cookies, crawler output, downloaded media, generated reports, caches, and training datasets by default. Only set `SYNC_BETTAFISH_FULL_INCLUDE_TRAINING_DATA=true` or `SYNC_BETTAFISH_FULL_INCLUDE_RUNTIME_STATE=true` when intentionally moving that specific class of data.
+
+The older semantic-only sync remains available for emergency rollback or very small servers:
 
 ```bash
 npm run sync:bettafish-semantic

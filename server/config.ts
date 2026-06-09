@@ -167,6 +167,7 @@ function resolveBettaFishRepoDir(explicitPath: string) {
     path.resolve(process.cwd(), "..", "..", "BettaFish"),
     path.resolve(process.env.USERPROFILE || "", "Documents", "BettaFish"),
     path.resolve(process.env.HOME || "", "BettaFish"),
+    "/opt/BettaFish/current",
     "/home/yq/BettaFish",
     "/opt/BettaFish"
   ];
@@ -200,6 +201,7 @@ function detectBettaFishPython(repoDir: string) {
         path.join(repoDir, "venv", "Scripts", "python.exe")
       ]
     : [
+        path.join(repoDir, "..", ".venv", "bin", "python"),
         path.join(repoDir, ".venv-mediacrawler", "bin", "python"),
         path.join(repoDir, ".venv", "bin", "python"),
         path.join(repoDir, "venv", "bin", "python")

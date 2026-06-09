@@ -124,17 +124,47 @@ def load_processing_function(ml_dir: str) -> Callable[[str], str]:
     try:
       sys.path.insert(0, ml_dir)
       from utils import processing  # type: ignore
-      return processing
+      return lambda text: safe_processing(text, processing)
     except Exception as exc:
       print(f"Fallback tokenizer because BettaFish processing is unavailable: {exc}", file=sys.stderr)
       return fallback_processing
+
+
+def safe_processing(text: str, primary: Callable[[str], str]) -> str:
+    try:
+      processed = primary(text)
+      if isinstance(processed, str) and processed.strip():
+        return processed
+      print("Fallback tokenizer because BettaFish processing returned empty text", file=sys.stderr)
+    except Exception as exc:
+      print(f"Fallback tokenizer because BettaFish processing failed: {exc}", file=sys.stderr)
+    return fallback_processing(text)
 
 
 def fallback_processing(text: str) -> str:
     text = re.sub(r"\{%.+?%\}", " ", text)
     text = re.sub(r"@.+?( |$)", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
-    return " ".join(re.findall(r"[A-Za-z0-9_]+|[\u4e00-\u9fff]", text))
+    try:
+      import jieba  # type: ignore
+      tokens = [token.strip() for token in jieba.lcut(text) if usable_token(token)]
+    except Exception as exc:
+      print(f"Fallback regex tokenizer because jieba is unavailable: {exc}", file=sys.stderr)
+      tokens = re.findall(r"[A-Za-z0-9_]+|[\u4e00-\u9fff]", text)
+    return " ".join(tokens)
+
+
+def usable_token(token: str) -> bool:
+    token = token.strip()
+    if not token:
+      return False
+    return bool(re.search(r"[A-Za-z0-9_\u4e00-\u9fff]", token))
+
+
+def positive_probability_from_decision(decision: float) -> float:
+    return 1.0 / (1.0 + math.exp(-decision))
+
+
 
 
 def predict_item(item_id: str, text: str, models: List[LoadedModel], processing: Callable[[str], str]) -> Dict[str, Any]:
@@ -193,13 +223,6 @@ def predict_with_model(model: LoadedModel, processed: str) -> Tuple[int, float]:
       confidence = probability if prediction == 1 else 1.0 - probability
       return prediction, confidence
 
-    if model.name == "svm" and hasattr(model.model, "decision_function"):
-      decision = float(model.model.decision_function(features)[0])
-      positive_probability = 1.0 / (1.0 + math.exp(-decision))
-      prediction = int(positive_probability > 0.5)
-      confidence = positive_probability if prediction == 1 else 1.0 - positive_probability
-      return prediction, max(0.5, min(confidence, 1.0))
-
     prediction = int(model.model.predict(features)[0])
     if hasattr(model.model, "predict_proba"):
       try:
@@ -211,7 +234,7 @@ def predict_with_model(model: LoadedModel, processed: str) -> Tuple[int, float]:
 
     if hasattr(model.model, "decision_function"):
       decision = float(model.model.decision_function(features)[0])
-      positive_probability = 1.0 / (1.0 + math.exp(-decision))
+      positive_probability = positive_probability_from_decision(decision)
       confidence = positive_probability if prediction == 1 else 1.0 - positive_probability
       return prediction, max(0.5, min(confidence, 1.0))
 
