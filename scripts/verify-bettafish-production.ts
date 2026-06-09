@@ -227,7 +227,7 @@ async function probePublicWebsite(checkHttps: boolean) {
   const httpPage = await fetchText("http://ss-monitor.qinoay.top/");
   addCheck(
     "public.web.http.page",
-    httpPage.ok && httpPage.text.includes("<title>") ? "pass" : "fail",
+    httpPage.ok && looksLikeAppShell(httpPage.text) ? "pass" : "fail",
     httpPage.ok ? `HTTP ${httpPage.status}` : httpPage.error
   );
   const httpLab = await fetchText("http://ss-monitor.qinoay.top/api/bettafish/lab?windowHours=72");
@@ -243,18 +243,33 @@ async function probePublicWebsite(checkHttps: boolean) {
   const httpsPage = await fetchText("https://ss-monitor.qinoay.top/");
   addCheck(
     "public.web.https.page",
-    httpsPage.ok && httpsPage.text.includes("<title>") ? "pass" : "fail",
+    httpsPage.ok && looksLikeAppShell(httpsPage.text) ? "pass" : "fail",
     httpsPage.ok ? `HTTPS ${httpsPage.status}` : httpsPage.error
   );
 }
 
 async function fetchText(url: string) {
-  try {
-    const response = await fetch(url);
-    return { ok: response.ok, status: response.status, text: await response.text(), error: "" };
-  } catch (error) {
-    return { ok: false, status: 0, text: "", error: errorMessageWithCause(error) };
+  let last = { ok: false, status: 0, text: "", error: "not attempted" };
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const response = await fetch(url);
+      const text = await response.text();
+      last = { ok: response.ok, status: response.status, text, error: "" };
+      if (response.ok && text.trim()) return last;
+    } catch (error) {
+      last = { ok: false, status: 0, text: "", error: errorMessageWithCause(error) };
+    }
+    await sleep(350 * attempt);
   }
+  return last;
+}
+
+function looksLikeAppShell(text: string) {
+  return /<div\s+id=["']root["']\s*>/i.test(text) && /<script\b/i.test(text);
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function addCheck(name: string, status: CheckStatus, detail: string) {
