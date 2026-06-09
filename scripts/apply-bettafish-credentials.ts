@@ -183,11 +183,12 @@ function resolvePublicTarget(): HostTarget | undefined {
 
 async function applyCredentials(target: HostTarget, values: Record<string, string>) {
   const payload = Buffer.from(JSON.stringify({ envFiles: target.envFiles, values, restart, restartCommand: target.restartCommand || "" }), "utf8").toString("base64");
-  const command = `PAYLOAD=${shellQuote(payload)} python3 - <<'PY'\n${remoteApplyPython()}\nPY`;
-  return sshExec(target, command, restart ? 90_000 : 45_000);
+  const script = Buffer.from(remoteApplyPython(), "utf8").toString("base64");
+  const launcher = `import base64; exec(base64.b64decode(${JSON.stringify(script)}).decode("utf-8"))`;
+  return sshExec(target, `python3 -c ${shellQuote(launcher)}`, restart ? 90_000 : 45_000, `${payload}\n`);
 }
 
-function sshExec(target: HostTarget, command: string, timeoutMs: number) {
+function sshExec(target: HostTarget, command: string, timeoutMs: number, stdin = "") {
   return new Promise<{ code: number; stdout: string; stderr: string }>((resolve) => {
     const client = new Client();
     let stdout = "";
@@ -225,6 +226,10 @@ function sshExec(target: HostTarget, command: string, timeoutMs: number) {
           stream.stderr.on("data", (chunk: Buffer) => {
             stderr += chunk.toString();
           });
+          if (stdin) {
+            stream.write(stdin);
+            stream.end();
+          }
           stream.on("close", (code: number) => {
             clearTimeout(timeout);
             finish({ code, stdout, stderr });
@@ -256,9 +261,10 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
-payload = json.loads(base64.b64decode(os.environ["PAYLOAD"]).decode("utf-8"))
+payload = json.loads(base64.b64decode(sys.stdin.read()).decode("utf-8"))
 values = payload["values"]
 updated = []
 
