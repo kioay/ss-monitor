@@ -1353,6 +1353,7 @@ function LabActionPanel({
           <div className="candidate-list">
             <span>模型候选：{data.sentiment.modelCandidates.length}</span>
             <span>命令：{data.sentiment.commandConfigured ? "已配置" : "未配置"}</span>
+            <span>本地桥接：{data.sentiment.bridgeAvailable ? "可用" : "不可用"}</span>
           </div>
           <label className="lab-input">
             <span>待分析文本</span>

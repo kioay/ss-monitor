@@ -381,9 +381,11 @@ async function inspectSentimentStatus(): Promise<BettaFishSentimentStatus> {
   const repo = runtimeConfig.bettaFishRepoDir;
   const root = repo ? path.join(repo, "SentimentAnalysisModel") : "";
   const modelCandidates = root ? await findSentimentModelCandidates(root) : [];
+  const bridgeScript = path.join(process.cwd(), "scripts", "bettafish-semantic-bridge.py");
   return {
     localModelsAvailable: modelCandidates.length > 0,
     commandConfigured: Boolean(runtimeConfig.bettaFishSentimentCommand),
+    bridgeAvailable: Boolean(repo && modelCandidates.length > 0 && await pathExists(bridgeScript)),
     modelCandidates
   };
 }
@@ -457,10 +459,11 @@ function makeOperations(
   const reportReady = isReportEngineReadyFromProbes(endpointProbes);
   const reportReason = reportReady ? "" : reportEngineDisabledReason(endpointProbes);
   const reportEnabled = httpEnabled && reportReady;
-  const sentimentEnabled = runtime.actionsEnabled && runtime.sentimentCommandConfigured;
-  const sentimentReason = runtime.sentimentCommandConfigured
+  const sentimentRuntimeAvailable = sentiment.commandConfigured || (sentiment.bridgeAvailable && runtime.repoConfigured && runtime.pythonAvailable);
+  const sentimentEnabled = runtime.actionsEnabled && sentimentRuntimeAvailable;
+  const sentimentReason = sentimentRuntimeAvailable
     ? ""
-    : "需要 BETTAFISH_SENTIMENT_COMMAND；Agent 搜索/分析请使用上方 Agent 按钮单独验证";
+    : "需要 BETTAFISH_SENTIMENT_COMMAND，或可用的 BettaFish 本地模型 bridge/Python";
   const operations: BettaFishOperation[] = [];
 
   for (const appName of appNames) {
@@ -481,7 +484,7 @@ function makeOperations(
     operation("mindspider.dbProbe", "mindspider", "数据库直连检查", "执行 MindSpider/schema/db_manager.py --tables --stats", "read", repoReadEnabled, disabledReason(actionsReason, repoReason, mindSpiderReason, pythonReason), "MindSpider/schema/db_manager.py --tables --stats"),
     operation("mindspider.initDb", "mindspider", "初始化数据库", "执行 MindSpider/main.py --init-db", "research", repoEnabled, disabledReason(actionsReason, repoReason, mindSpiderReason, pythonReason), "MindSpider/main.py --init-db"),
     operation("mindspider.crawlTest", "mindspider", "测试爬虫调度", "执行 MindSpider/main.py --deep-sentiment --test", "research", repoEnabled, disabledReason(actionsReason, repoReason, mindSpiderReason, pythonReason), "MindSpider/main.py --deep-sentiment --test"),
-    operation("sentiment.analyze", "sentiment", "情感模型/LLM 分析", "执行 BETTAFISH_SENTIMENT_COMMAND；Agent LLM 搜索另由上方 Agent 搜索/分析按钮验证", "research", sentimentEnabled, disabledReason(actionsReason, sentimentReason), "sentiment"),
+    operation("sentiment.analyze", "sentiment", "情感模型/LLM 分析", "执行 BETTAFISH_SENTIMENT_COMMAND，未配置时使用本仓库 BettaFish 本地模型 bridge；Agent LLM 搜索另由上方 Agent 搜索/分析按钮验证", "research", sentimentEnabled, disabledReason(actionsReason, sentimentReason), "sentiment"),
     operation("runtime.systemStart", "runtime", "启动完整 BettaFish 系统", "调用 BettaFish /api/system/start", "research", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/system/start"),
     operation("runtime.systemShutdown", "runtime", "关闭 BettaFish 系统", "调用 BettaFish /api/system/shutdown", "research", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/system/shutdown"),
     operation("runtime.localStart", "runtime", "本地启动 BettaFish", "用 BETTAFISH_REPO_DIR 与 BETTAFISH_START_COMMAND/python app.py 启动 BettaFish", "research", localStartEnabled, disabledReason(actionsReason, repoReason, pythonReason, startCommandReason), "local process"),
@@ -615,12 +618,13 @@ function makeCapabilities(
       id: "sentiment",
       name: "BettaFish 情感模型 / LLM 分析",
       goal: "提升情绪、风险与语义判定能力",
-      currentProjectUse: "测试台只把配置好的本地模型命令作为可执行情感分析入口；Agent LLM 搜索由 Agent 卡片单独验证",
-      testCoverage: "展示 SentimentAnalysisModel 候选 predict.py；配置 BETTAFISH_SENTIMENT_COMMAND 后可提交文本做模型分析",
-      status: sentiment.commandConfigured ? "ok" : sentiment.localModelsAvailable || runtime.baseUrlConfigured ? "warning" : "skipped",
+      currentProjectUse: "测试台优先使用配置好的情感命令；未配置时自动调用本仓库 bridge 运行 BettaFish 本地机器学习模型；Agent LLM 搜索由 Agent 卡片单独验证",
+      testCoverage: "展示 SentimentAnalysisModel 候选模型；可通过 BETTAFISH_SENTIMENT_COMMAND 或内置 bridge 提交文本做模型分析",
+      status: sentiment.commandConfigured || sentiment.bridgeAvailable ? "ok" : sentiment.localModelsAvailable || runtime.baseUrlConfigured ? "warning" : "skipped",
       evidence: [
         `模型候选：${sentiment.modelCandidates.length}`,
         `命令：${sentiment.commandConfigured ? "已配置" : "未配置"}`,
+        `本地桥接：${sentiment.bridgeAvailable ? "可用" : "不可用"}`,
         `Agent 搜索：${llmAgentUsable ? "请在 Agent 卡片单独验证" : runtime.baseUrlConfigured ? "Base URL 已配置但搜索接口未确认" : "未配置"}`
       ],
       nextStep: "把情感模型输出与本平台 analyzeItem 输出并排评估，确认准确率后再进入主链路。"
@@ -965,10 +969,25 @@ async function runSentimentAnalysis(action: string, text: string) {
     });
   }
 
+  const bridgeScript = path.join(process.cwd(), "scripts", "bettafish-semantic-bridge.py");
+  if (runtimeConfig.bettaFishRepoDir && await pathExists(bridgeScript)) {
+    const input = JSON.stringify({
+      repoDir: runtimeConfig.bettaFishRepoDir,
+      items: [{ id: "lab-sample", text }]
+    });
+    return runProcess(action, runtimeConfig.bettaFishPython, [
+      bridgeScript,
+      "--repo-dir",
+      runtimeConfig.bettaFishRepoDir,
+      "--models",
+      runtimeConfig.bettaFishSemanticModels
+    ], process.cwd(), 90_000, { input });
+  }
+
   return actionResponse(
     action,
     false,
-    "需要 BETTAFISH_SENTIMENT_COMMAND；Agent 搜索/分析请使用上方 Agent 按钮单独验证",
+    "需要 BETTAFISH_SENTIMENT_COMMAND，或可用的 BettaFish 本地模型 bridge/Python",
     { result: { sampleText: text.slice(0, 120) } }
   );
 }
@@ -1168,7 +1187,7 @@ function makeRecommendations(
   if (!runtime.baseUrlConfigured) recommendations.push("配置 BETTAFISH_BASE_URL 后，测试台可代理 Query/Media/Insight、ForumEngine、ReportEngine 和系统控制接口。");
   if (!runtime.actionsEnabled) recommendations.push("研究操作被配置关闭；需要执行启动/搜索/爬取/报告/部署时设置 BETTAFISH_LAB_ACTIONS_ENABLED=true。");
   if (!mindSpider.repoAvailable) recommendations.push("配置 BETTAFISH_REPO_DIR 后，测试台可检查 MindSpider 登录态候选目录、数据库直连和测试爬虫调度。");
-  if (!sentiment.commandConfigured && sentiment.localModelsAvailable) recommendations.push("已发现 BettaFish 情感模型候选；配置 BETTAFISH_SENTIMENT_COMMAND 后可直接调用本地模型。");
+  if (!sentiment.commandConfigured && sentiment.localModelsAvailable && !sentiment.bridgeAvailable) recommendations.push("已发现 BettaFish 情感模型候选；配置 BETTAFISH_SENTIMENT_COMMAND 或部署本地 bridge 后可直接调用本地模型。");
   if (totalItems === 0) recommendations.push(`把 BettaFish 授权导出放入 BETTAFISH_IMPORT_DIR，或把 MindSpider 抖音实验导出放入 ${runtimeConfig.mindSpiderDouyinImportDir}，先形成可复盘的导入样本集。`);
   if (endpointProbes.some((probe) => probe.status === "error")) recommendations.push("有 BettaFish 只读端点不可达，先确认 BettaFish Flask 服务、ReportEngine Blueprint 和 ForumEngine 日志接口。");
   if (capabilities.find((capability) => capability.id === "sentiment")?.status === "ok") {

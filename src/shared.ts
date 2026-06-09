@@ -213,6 +213,7 @@ export interface BettaFishMindSpiderStatus {
 export interface BettaFishSentimentStatus {
   localModelsAvailable: boolean;
   commandConfigured: boolean;
+  bridgeAvailable: boolean;
   modelCandidates: Array<{
     name: string;
     path: string;
