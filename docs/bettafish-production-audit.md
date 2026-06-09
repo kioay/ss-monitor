@@ -90,6 +90,7 @@ The apply helper sends credential payloads over SSH stdin, not in the remote com
 ## Notes
 
 - HTTPS repair requires root, sudo, or access to the external TLS/443 proxy on the public host. The current `yq` account reports `sudo_n=no`.
+- `scripts/ss-monitor.nginx.conf` includes an optional 443 block for `ss-monitor.qinoay.top`, but it must be enabled only after a valid certificate exists and by someone with root/admin access to nginx.
 - Local credential discovery found only process-level and user-level `OPENAI_API_KEY`; no non-empty Tavily, Bocha, Anspire, or BettaFish engine keys were found in the project credential file, local project env files, Windows environment variables, MCP resources, or production env files.
 - Upstream `.env.example` at `40327d75b60faaf347bc578f93714b5394079d03` confirms the required LLM `KEY/BASE_URL/MODEL_NAME` triplets plus Tavily and Anspire/Bocha search credentials.
 - Existing `scripts/douyin-server-login.ts` changes are pre-existing and intentionally excluded from BettaFish deployment commits.
