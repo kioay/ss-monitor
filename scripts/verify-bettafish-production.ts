@@ -66,6 +66,7 @@ async function main() {
   }
 
   await probePublicWebsite(includeHttpsCheck);
+  await probePublicBrowserAcceptance(targets);
 
   console.log(JSON.stringify({ generatedAt: new Date().toISOString(), fullActions, checks }, null, 2));
   const failures = checks.filter((check) => check.status === "fail");
@@ -246,6 +247,109 @@ async function probePublicWebsite(checkHttps: boolean) {
     httpsPage.ok && looksLikeAppShell(httpsPage.text) ? "pass" : "fail",
     httpsPage.ok ? `HTTPS ${httpsPage.status}` : httpsPage.error
   );
+}
+
+async function probePublicBrowserAcceptance(targets: HostTarget[]) {
+  const target = targets.find((candidate) => candidate.name === "inner") || targets[0];
+  if (!target) {
+    addCheck("public.web.http.browser", "skip", "no SSH target available");
+    return;
+  }
+  const result = await runRemoteBrowserAcceptance(target);
+  if (!result) return;
+
+  const detail = browserAcceptanceDetail(target, result);
+  addCheck(
+    "public.web.http.browser.page",
+    result.ok && result.rootCount > 0 && result.tabCount >= 2 ? "pass" : "fail",
+    detail
+  );
+  addCheck(
+    "public.web.http.browser.lab",
+    result.ok && result.labPageVisible ? "pass" : "fail",
+    detail
+  );
+  addCheck(
+    "public.web.http.browser.labApi",
+    result.labApi?.ok && result.labApi?.status === 200 && result.labApi?.mode === "test-lab" ? "pass" : "fail",
+    detail
+  );
+  addCheck(
+    "public.web.http.browser.errors",
+    (result.consoleErrors?.length || 0) === 0 && (result.pageErrors?.length || 0) === 0 ? "pass" : "fail",
+    detail
+  );
+}
+
+async function runRemoteBrowserAcceptance(target: HostTarget) {
+  const command = [
+    "set -e",
+    `export BETTA_REPO_ROOT=${shellQuote(target.repoRoot)}`,
+    "export PUBLIC_WEB_URL='http://ss-monitor.qinoay.top/'",
+    `export PLAYWRIGHT_BROWSERS_PATH=${shellQuote(defaultPlaywrightBrowsersPath(target))}`,
+    "python_bin=python3",
+    `for candidate in ${browserPythonCandidates(target).map(shellQuote).join(" ")}; do`,
+    "  if [ -x \"$candidate\" ] || command -v \"$candidate\" >/dev/null 2>&1; then",
+    "    python_bin=\"$candidate\"",
+    "    break",
+    "  fi",
+    "done",
+    "\"$python_bin\" - <<'PY'",
+    remoteBrowserAcceptanceProbe(),
+    "PY"
+  ].join("\n");
+  const result = await sshExec(target, command, 90_000);
+  if (result.code !== 0) {
+    addCheck(
+      "public.web.http.browser",
+      "fail",
+      result.stderr || result.stdout || `browser acceptance exited ${result.code}`
+    );
+    return undefined;
+  }
+  try {
+    return JSON.parse(result.stdout) as any;
+  } catch {
+    addCheck("public.web.http.browser", "fail", result.stdout.slice(0, 400) || "invalid browser acceptance JSON");
+    return undefined;
+  }
+}
+
+function browserPythonCandidates(target: HostTarget) {
+  const repoParent = path.posix.dirname(target.repoRoot);
+  const candidates = [
+    `${target.repoRoot}/.venv/bin/python`,
+    `${target.repoRoot}/venv/bin/python`,
+    `${repoParent}/.venv/bin/python`,
+  ];
+  if (target.name === "inner") {
+    candidates.unshift("/opt/BettaFish/.venv/bin/python");
+  } else {
+    candidates.push("/opt/ss-monitor/runtime/cpython-3.10.20-20260510/bin/python3");
+  }
+  candidates.push("python3");
+  return [...new Set(candidates)];
+}
+
+function defaultPlaywrightBrowsersPath(target: HostTarget) {
+  if (target.name === "inner") return "/opt/BettaFish/playwright-browsers";
+  return `${path.posix.dirname(target.repoRoot)}/playwright-browsers`;
+}
+
+function browserAcceptanceDetail(target: HostTarget, result: any) {
+  const labApi = result.labApi || {};
+  return [
+    `target=${target.name}`,
+    `title=${result.title || ""}`,
+    `root=${result.rootCount ?? 0}`,
+    `tabs=${result.tabCount ?? 0}`,
+    `labVisible=${Boolean(result.labPageVisible)}`,
+    `api=${labApi.status || 0}`,
+    `mode=${labApi.mode || ""}`,
+    `operations=${labApi.operations ?? ""}`,
+    `consoleErrors=${result.consoleErrors?.length || 0}`,
+    `pageErrors=${result.pageErrors?.length || 0}`
+  ].join(" ");
 }
 
 async function fetchText(url: string) {
@@ -649,5 +753,123 @@ result = {
     "actions": actions,
 }
 print(json.dumps(result, ensure_ascii=False))
+`;
+}
+
+function remoteBrowserAcceptanceProbe() {
+  return String.raw`
+import asyncio
+import json
+import os
+import subprocess
+import traceback
+from pathlib import Path
+
+from playwright.async_api import async_playwright
+
+repo = Path(os.environ["BETTA_REPO_ROOT"])
+public_web_url = os.environ.get("PUBLIC_WEB_URL", "http://ss-monitor.qinoay.top/")
+
+def find_chromium():
+    candidates = []
+    seen = set()
+    known = [
+        "/opt/BettaFish/playwright-browsers/chromium-1124/chrome-linux/chrome",
+        "/root/.cache/ms-playwright/chromium-1124/chrome-linux/chrome",
+        "/home/yq/.cache/ms-playwright/chromium-1124/chrome-linux/chrome",
+        "/home/yq/.cache/chrome-for-testing/chrome-linux64/chrome",
+    ]
+    for candidate in known:
+        path = Path(candidate)
+        if path.exists() and candidate not in seen:
+            seen.add(candidate)
+            candidates.append(candidate)
+    roots = [repo, repo.parent, Path.home() / ".cache", Path("/opt/BettaFish")]
+    for root in roots:
+        if not root.exists():
+            continue
+        try:
+            proc = subprocess.run(
+                "find . \\( -path '*chrome-linux/chrome' -o -path '*chrome-for-testing*/chrome' \\) | head -20",
+                shell=True,
+                cwd=str(root),
+                universal_newlines=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=15,
+            )
+        except Exception:
+            continue
+        if proc.returncode != 0:
+            continue
+        for line in proc.stdout.splitlines():
+            relative = line[2:] if line.startswith("./") else line
+            candidate = str(root / relative)
+            if candidate not in seen:
+                seen.add(candidate)
+                candidates.append(candidate)
+    return candidates
+
+async def main():
+    console_errors = []
+    page_errors = []
+    api_events = []
+    candidates = find_chromium()
+    if not candidates:
+        print(json.dumps({"ok": False, "error": "chromium not found"}, ensure_ascii=False))
+        raise SystemExit(1)
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(
+            headless=True,
+            executable_path=candidates[0],
+            args=["--no-sandbox", "--disable-dev-shm-usage"],
+        )
+        page = await browser.new_page(viewport={"width": 1366, "height": 900})
+        page.on("console", lambda msg: console_errors.append({"type": msg.type, "text": msg.text}) if msg.type == "error" else None)
+        page.on("pageerror", lambda exc: page_errors.append(str(exc)))
+        page.on("response", lambda res: api_events.append({"url": res.url, "status": res.status}) if "/api/bettafish/lab" in res.url else None)
+        await page.goto(public_web_url, wait_until="networkidle", timeout=30000)
+        title = await page.title()
+        root_count = await page.locator("#root").count()
+        tab_count = await page.locator(".page-tabs button").count()
+        await page.locator(".page-tabs button").nth(1).click(timeout=10000)
+        await page.wait_for_selector(".lab-page", timeout=15000)
+        lab_api = await page.evaluate("""async () => {
+            try {
+                const response = await fetch('/api/bettafish/lab?windowHours=72');
+                const data = await response.json();
+                return {
+                    ok: response.ok,
+                    status: response.status,
+                    mode: data.mode,
+                    actionsEnabled: data.runtime && data.runtime.actionsEnabled,
+                    baseUrlConfigured: data.runtime && data.runtime.baseUrlConfigured,
+                    operations: Array.isArray(data.operations) ? data.operations.length : null,
+                    recommendations: Array.isArray(data.recommendations) ? data.recommendations.length : null
+                };
+            } catch (error) {
+                return { ok: false, error: String(error) };
+            }
+        }""")
+        result = {
+            "ok": True,
+            "chromium": candidates[0],
+            "title": title,
+            "rootCount": root_count,
+            "tabCount": tab_count,
+            "labPageVisible": await page.locator(".lab-page").is_visible(),
+            "consoleErrors": console_errors,
+            "pageErrors": page_errors,
+            "apiEvents": api_events[-5:],
+            "labApi": lab_api,
+        }
+        await browser.close()
+    print(json.dumps(result, ensure_ascii=False))
+
+try:
+    asyncio.run(main())
+except Exception as exc:
+    print(json.dumps({"ok": False, "error": str(exc), "traceback": traceback.format_exc()}, ensure_ascii=False))
+    raise
 `;
 }

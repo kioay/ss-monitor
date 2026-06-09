@@ -2,7 +2,7 @@
 
 Last audited: 2026-06-10 Asia/Hong_Kong
 
-Latest full verifier run: `2026-06-09T20:11:42.350Z` with `--full-actions`
+Latest full verifier run: `2026-06-09T21:36:01.238Z` with `--full-actions`
 
 ## Objective
 
@@ -20,7 +20,7 @@ Current completion status: blocked by missing upstream-required credentials and 
 | Upstream runtime files and dependencies are present | `npm run verify:bettafish-production -- --full-actions` | Pass for `requirements.txt`, `.env.example`, MediaCrawler, Python 3.9+, core imports, Playwright, Chromium candidates, and real Chromium launch on inner/public hosts |
 | ss-monitor local checks pass | `npm run lint`, `npm run test:semantic-guard`, `npm run test:monitor-history`, `npm run build` | Pass on 2026-06-10 Asia/Hong_Kong |
 | Production test lab HTTP page/API reachable | `npm run verify:bettafish-production -- --full-actions` | Pass for `http://ss-monitor.qinoay.top/` and `/api/bettafish/lab` |
-| Production test lab browser acceptance | Headless Chromium from `192.168.8.242` against `http://ss-monitor.qinoay.top/` | Pass for HTTP page load, `BettaFish 测试台` navigation, 0 console errors, and 0 page errors; ReportEngine actions remain unavailable because credentials are missing |
+| Production test lab browser acceptance | `npm run verify:bettafish-production -- --full-actions` checks `public.web.http.browser.page`, `.lab`, `.labApi`, and `.errors` using headless Chromium from `192.168.8.242` against `http://ss-monitor.qinoay.top/` | Pass for HTTP page load, lab navigation, lab API `mode=test-lab`, 24 operations, 0 console errors, and 0 page errors; ReportEngine actions remain unavailable because credentials are missing |
 | BettaFish API reachable on inner/public hosts | `npm run verify:bettafish-production -- --full-actions` | Pass for `/api/status` |
 | Sentiment bridge self-test passes | `npm run verify:bettafish-production -- --full-actions` | Pass for `sentiment.analyze` |
 | MindSpider status and DB probe pass | `npm run verify:bettafish-production -- --full-actions` | Pass for `mindspider.status` and `mindspider.dbProbe` |
