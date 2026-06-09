@@ -5,10 +5,12 @@ import {
   CheckCircle2,
   Clock3,
   Database,
+  Eye,
   ExternalLink,
   FileText,
   Filter,
   Info,
+  MousePointer2,
   Plug,
   RefreshCw,
   Search,
@@ -232,6 +234,8 @@ const capabilityRoleNotes: Record<string, string> = {
   sentiment: "并排评估 BettaFish 语义输出和本平台判定",
   runtime: "控制外部系统启动、停止和固定部署动作"
 };
+
+type InteractionMode = "display" | "interactive" | "link";
 
 function monitorCacheKey(gameIds: GameId[], windowHours: number) {
   return `ss-monitor:${[...gameIds].sort().join(",")}:${windowHours}`;
@@ -743,6 +747,7 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
         </div>
         <div className="lab-actions">
           {data ? <StatusPill status={data.baseUrlConfigured ? "ok" : "skipped"} label={data.baseUrlConfigured ? "外部服务已配置" : "仅导入预览"} /> : null}
+          <InteractionBadge mode="interactive" label="可刷新" />
           <button className="icon-button primary" type="button" onClick={() => loadLab(true)} disabled={loading} title="刷新测试台和舆情监控">
             <RefreshCw size={18} className={loading ? "spin" : ""} />
           </button>
@@ -753,12 +758,18 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
 
       <BettaFishGlossaryPanel />
 
-      <section className="metrics-grid lab-metrics">
-        <Metric label="监控条目" value={totalMonitorItems} tone="green" hint={`${totalMonitorAlerts} 条高风险 · 复用主看板采集`} />
-        <Metric label="导入命中" value={totalItems} tone="green" hint={`${totalRows} 行外部导出里匹配项目关键词`} />
-        <Metric label="只读端点" value={`${reachableEndpoints}/${data?.endpointProbes.length ?? 0}`} tone="blue" hint="只检查状态，不触发搜索/爬虫/报告" />
-        <Metric label="能力就绪" value={`${readyCapabilities}/${data?.capabilities.length ?? 0}`} tone="gold" hint="已可测试的 BettaFish 能力" />
-        <Metric label="测试窗口" value={`${data?.windowHours ?? windowHours}h`} tone="red" hint={data ? `只统计 ${formatDateTime(data.freshnessCutoff)} 之后` : "沿用看板窗口"} />
+      <section className="lab-overview display-zone">
+        <div className="lab-zone-heading">
+          <InteractionBadge mode="display" label="展示概览" />
+          <span>这些数字只说明当前测试状态，不会触发任何操作。</span>
+        </div>
+        <div className="metrics-grid lab-metrics">
+          <Metric label="监控条目" value={totalMonitorItems} tone="green" hint={`${totalMonitorAlerts} 条高风险 · 复用主看板采集`} />
+          <Metric label="导入命中" value={totalItems} tone="green" hint={`${totalRows} 行外部导出里匹配项目关键词`} />
+          <Metric label="只读端点" value={`${reachableEndpoints}/${data?.endpointProbes.length ?? 0}`} tone="blue" hint="只检查状态，不触发搜索/爬虫/报告" />
+          <Metric label="能力就绪" value={`${readyCapabilities}/${data?.capabilities.length ?? 0}`} tone="gold" hint="已可测试的 BettaFish 能力" />
+          <Metric label="测试窗口" value={`${data?.windowHours ?? windowHours}h`} tone="red" hint={data ? `只统计 ${formatDateTime(data.freshnessCutoff)} 之后` : "沿用看板窗口"} />
+        </div>
       </section>
 
       {!data && loading ? <p className="empty">读取 BettaFish 测试状态...</p> : null}
@@ -769,10 +780,11 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
 
           <LabActionPanel data={data} loadingAction={actionLoading} actionResult={actionResult} onAction={runAction} />
 
-          <section className="lab-section">
+          <section className="lab-section display-zone">
             <div className="section-title">
               <Plug size={18} />
               <h2>能力说明与测试覆盖</h2>
+              <InteractionBadge mode="display" label="展示信息" />
             </div>
             <p className="section-note">每张卡片说明一个 BettaFish 能力：它是什么、当前在本平台怎么用、测试台能覆盖哪些检查，以及下一步该验证什么。</p>
             <div className="capability-grid">
@@ -782,15 +794,16 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
             </div>
           </section>
 
-          <section className="lab-section">
+          <section className="lab-section display-zone">
             <div className="section-title">
               <Database size={18} />
               <h2>导入解析测试</h2>
+              <InteractionBadge mode="display" label="展示信息" />
             </div>
             <p className="section-note">这里只读取授权导出和轻量 JSON 文本，验证外部数据能否被解析、匹配项目关键词并进入统一风险分析。</p>
             <div className="import-grid">
               {data.importPreviews.map((preview) => (
-                <div className="import-preview" key={preview.gameId}>
+                <div className="import-preview display-card" key={preview.gameId}>
                   <div className="import-preview-head">
                     <div>
                       <strong>{preview.gameName}</strong>
@@ -817,15 +830,17 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
             </div>
           </section>
 
-          <section className="lab-section">
+          <section className="lab-section display-zone">
             <div className="section-title">
               <FileText size={18} />
               <h2>只读端点探测</h2>
+              <InteractionBadge mode="display" label="展示为主" />
+              <InteractionBadge mode="link" label="外链可打开" />
             </div>
-            <p className="section-note">只读端点用于检查 BettaFish 是否在线、日志或模板是否可读，不会启动 Agent、爬虫或报告任务。</p>
+            <p className="section-note">只读端点用于检查 BettaFish 是否在线、日志或模板是否可读，不会启动 Agent、爬虫或报告任务；有外链图标的行可以打开端点查看原始响应。</p>
             <div className="endpoint-list">
               {data.endpointProbes.map((probe) => (
-                <div className="endpoint-row" key={probe.id}>
+                <div className="endpoint-row display-card" key={probe.id}>
                   <div>
                     <strong>{probe.label}</strong>
                     <span>{probe.method} {probe.path}</span>
@@ -837,6 +852,7 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
                     {probe.target ? (
                       <a href={probe.target} target="_blank" rel="noreferrer" title="打开 BettaFish 端点">
                         <ExternalLink size={16} />
+                        <span>可打开</span>
                       </a>
                     ) : null}
                   </div>
@@ -845,10 +861,11 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
             </div>
           </section>
 
-          <section className="lab-section recommendations">
+          <section className="lab-section recommendations display-zone">
             <div className="section-title">
               <ShieldAlert size={18} />
               <h2>接入建议</h2>
+              <InteractionBadge mode="display" label="展示信息" />
             </div>
             <div className="recommendation-list">
               {data.recommendations.map((item) => (
@@ -864,17 +881,18 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
 
 function BettaFishGlossaryPanel() {
   return (
-    <section className="lab-glossary" aria-labelledby="bettafish-glossary-title">
+    <section className="lab-glossary display-zone" aria-labelledby="bettafish-glossary-title">
       <div className="section-title glossary-title">
         <Info size={18} />
         <div>
           <h2 id="bettafish-glossary-title">术语说明</h2>
           <p className="section-note">先看这里再操作：测试台把 BettaFish 当作外部研究系统，每个名词都标清含义和在当前流程里的作用。</p>
         </div>
+        <InteractionBadge mode="display" label="展示信息" />
       </div>
       <div className="glossary-grid">
         {bettaFishGlossaryGroups.map((group) => (
-          <article className="glossary-group" key={group.title}>
+          <article className="glossary-group display-card" key={group.title}>
             <h3>{group.title}</h3>
             <dl>
               {group.terms.map((item) => (
@@ -892,6 +910,17 @@ function BettaFishGlossaryPanel() {
   );
 }
 
+function InteractionBadge({ mode, label }: { mode: InteractionMode; label?: string }) {
+  const Icon = mode === "display" ? Eye : mode === "link" ? ExternalLink : MousePointer2;
+  const text = label || (mode === "display" ? "展示信息" : mode === "link" ? "可打开" : "可操作");
+  return (
+    <span className={`interaction-badge ${mode}`}>
+      <Icon size={13} />
+      {text}
+    </span>
+  );
+}
+
 function LabGameMonitorSection({
   monitors,
   loading,
@@ -902,17 +931,19 @@ function LabGameMonitorSection({
   onRefresh: () => void;
 }) {
   return (
-    <section className="lab-section game-monitor-section">
+    <section className="lab-section game-monitor-section interactive-zone">
       <div className="section-title monitor-section-title">
         <div>
           <Waves size={18} />
           <h2>生死1 / 生死2 舆情监测</h2>
+          <InteractionBadge mode="interactive" label="可刷新" />
         </div>
         <button className="lab-action-button manual compact-button" type="button" onClick={onRefresh} disabled={loading} title="刷新两个游戏的测试台监控快照">
-          {loading ? "刷新中..." : "刷新监控"}
+          <RefreshCw size={13} className={loading ? "spin" : ""} />
+          <span>{loading ? "刷新中..." : "刷新监控"}</span>
         </button>
       </div>
-      <p className="section-note">这个区域复用正式看板的采集、语义判定、风险分类、来源健康和最新条目逻辑，只展示测试快照，不发送通知。</p>
+      <p className="section-note">“刷新监控”会重新拉取两个游戏的测试快照；下方统计主要用于查看结果，风险预警和最新条目可打开原帖，不发送通知。</p>
       <div className="game-monitor-grid">
         {monitors.map((monitor) => (
           <LabGameMonitorCard monitor={monitor} key={monitor.gameId} />
@@ -1058,13 +1089,18 @@ function LabActionPanel({
   const crawlerPlatforms = platformsText.split(/[,，\s]+/).map((item) => item.trim()).filter(Boolean);
 
   return (
-    <section className="lab-section action-console">
+    <section className="lab-section action-console interactive-zone">
       <div className="section-title">
         <TestTube2 size={18} />
         <h2>研究操作测试台</h2>
+        <InteractionBadge mode="interactive" label="可操作" />
       </div>
       <p className="section-note">这里的按钮用于验证 BettaFish 能力，不会进入正式监控链路；带 research 的操作可能启动服务、搜索、爬取或生成报告。</p>
 
+      <div className="lab-zone-heading display-heading">
+        <InteractionBadge mode="display" label="前置状态" />
+        <span>这些状态只说明操作是否具备条件，不是可点击控件。</span>
+      </div>
       <div className="lab-status-strip">
         <StatusFact label="研究操作" value={data.runtime.actionsEnabled ? "已开启" : "未开启"} tone={data.runtime.actionsEnabled ? "ok" : "warning"} note="是否允许测试台执行启动、搜索、爬取和报告动作" />
         <StatusFact label="BettaFish URL" value={baseUrlValue} tone={data.runtime.baseUrlConfigured ? "ok" : "skipped"} note="外部 BettaFish Flask/API 服务地址" />
@@ -1076,7 +1112,7 @@ function LabActionPanel({
       </div>
 
       <div className="action-grid">
-        <div className="action-panel">
+        <div className="action-panel interactive-card">
           <h3>Query / Media / Insight Agent</h3>
           <p className="action-panel-note">启动三个 Agent 后，可以把同一个舆情问题交给 BettaFish 检索、抽取和归纳。</p>
           <div className="mini-button-grid">
@@ -1095,7 +1131,7 @@ function LabActionPanel({
           <ActionButton operation={op("agent.search")} busy={loadingAction === "agent.search"} disabled={isBusy} onClick={() => run({ action: "agent.search", query: agentQuery })} />
         </div>
 
-        <div className="action-panel">
+        <div className="action-panel interactive-card">
           <h3>ForumEngine</h3>
           <p className="action-panel-note">控制多 Agent 讨论引擎，并读取日志确认讨论是否产出稳定结论。</p>
           <div className="mini-button-grid three">
@@ -1110,7 +1146,7 @@ function LabActionPanel({
           </div>
         </div>
 
-        <div className="action-panel">
+        <div className="action-panel interactive-card">
           <h3>ReportEngine</h3>
           <p className="action-panel-note">生成专项舆情报告，并用 Task ID 跟踪进度、读取结果或取消任务。</p>
           <label className="lab-input">
@@ -1131,7 +1167,7 @@ function LabActionPanel({
           </div>
         </div>
 
-        <div className="action-panel">
+        <div className="action-panel interactive-card">
           <h3>MindSpider</h3>
           <p className="action-panel-note">检查 BettaFish 采集模块的 CLI、数据库、登录态和少量测试爬虫调度。</p>
           <div className="mini-button-grid">
@@ -1171,7 +1207,7 @@ function LabActionPanel({
           />
         </div>
 
-        <div className="action-panel">
+        <div className="action-panel interactive-card">
           <h3>情感模型 / LLM</h3>
           <p className="action-panel-note">把一段文本交给 BettaFish 情感模型或 LLM，和本平台判定结果做并排校验。</p>
           <div className="candidate-list">
@@ -1186,7 +1222,7 @@ function LabActionPanel({
           <ActionButton operation={op("sentiment.analyze")} busy={loadingAction === "sentiment.analyze"} disabled={isBusy} onClick={() => run({ action: "sentiment.analyze", text: sentimentText })} />
         </div>
 
-        <div className="action-panel">
+        <div className="action-panel interactive-card">
           <h3>自动启动 / 控制 / 部署</h3>
           <p className="action-panel-note">验证外部 BettaFish 服务能否由测试台启动、关闭或执行固定部署命令。</p>
           <div className="mini-button-grid">
@@ -1219,7 +1255,8 @@ function ActionButton({
   const isDisabled = disabled || !operation.enabled;
   return (
     <button className={`lab-action-button ${operation.safety}`} type="button" disabled={isDisabled} onClick={onClick} title={operation.disabledReason || operation.description}>
-      {busy ? "执行中..." : operation.label}
+      {busy ? <RefreshCw size={13} className="spin" /> : <MousePointer2 size={13} />}
+      <span>{busy ? "执行中..." : operation.label}</span>
     </button>
   );
 }
@@ -1253,7 +1290,7 @@ function ActionResultView({ result }: { result: BettaFishActionResponse }) {
 
 function CapabilityCard({ capability }: { capability: BettaFishCapability }) {
   return (
-    <article className={`capability-card ${capability.status}`}>
+    <article className={`capability-card display-card ${capability.status}`}>
       <div className="capability-head">
         <div>
           <strong>{capability.name}</strong>
@@ -1298,6 +1335,7 @@ function LabItemRow({ item }: { item: MonitorItem }) {
         {item.topics.slice(0, 2).map((topic) => (
           <span key={topic}>{topic}</span>
         ))}
+        <span className="link-chip"><ExternalLink size={12} />可打开</span>
       </div>
     </a>
   );

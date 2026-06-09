@@ -359,6 +359,106 @@ h2 {
   gap: 10px;
 }
 
+.interaction-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.74);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.interaction-badge svg {
+  flex: 0 0 auto;
+}
+
+.interaction-badge.display {
+  border-color: rgba(138, 146, 139, 0.24);
+  background: rgba(237, 242, 237, 0.54);
+  color: var(--muted-soft);
+}
+
+.interaction-badge.interactive {
+  border-color: rgba(47, 143, 112, 0.42);
+  background: var(--green-soft);
+  color: var(--green-deep);
+}
+
+.interaction-badge.link {
+  border-color: rgba(63, 120, 168, 0.35);
+  background: var(--blue-soft);
+  color: #345f87;
+}
+
+.lab-zone-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.lab-zone-heading span:last-child {
+  min-width: 0;
+}
+
+.lab-overview {
+  padding: 16px 0 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.display-zone .section-title > svg {
+  color: var(--muted);
+}
+
+.display-zone .section-title h2,
+.display-zone .glossary-group h3 {
+  color: #33423b;
+}
+
+.display-zone .section-note {
+  color: var(--muted-soft);
+}
+
+.display-zone .display-card,
+.lab-overview .metric {
+  border-color: rgba(45, 58, 52, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 253, 248, 0.78), rgba(250, 251, 246, 0.66)),
+    var(--paper-soft);
+  box-shadow: none;
+}
+
+.lab-overview .metrics-grid {
+  padding: 0;
+}
+
+.lab-overview .metric {
+  min-height: 96px;
+  padding: 14px 16px;
+}
+
+.interactive-zone > .section-title h2 {
+  color: var(--ink-strong);
+}
+
+.action-console.interactive-zone {
+  border-top: 2px solid rgba(47, 143, 112, 0.34);
+  background:
+    linear-gradient(180deg, rgba(226, 242, 234, 0.42), rgba(246, 244, 238, 0));
+}
+
 .section-note {
   max-width: 980px;
   margin: -4px 0 14px;
@@ -458,6 +558,10 @@ h2 {
   align-items: center;
   gap: 8px;
   min-width: 0;
+}
+
+.monitor-section-title > div > svg {
+  color: var(--green-deep);
 }
 
 .compact-button {
@@ -706,6 +810,10 @@ h2 {
   justify-content: space-between;
   gap: 10px;
   padding: 10px 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 253, 248, 0.72), rgba(250, 251, 246, 0.58)),
+    var(--paper-soft);
+  box-shadow: none;
 }
 
 .status-fact > div {
@@ -740,6 +848,15 @@ h2 {
   padding: 14px;
 }
 
+.action-panel.interactive-card {
+  border-color: rgba(47, 143, 112, 0.28);
+  border-top: 4px solid var(--green);
+  background:
+    linear-gradient(180deg, rgba(255, 253, 248, 0.98), rgba(242, 249, 244, 0.92)),
+    var(--paper);
+  box-shadow: var(--shadow-lift);
+}
+
 .action-panel h3 {
   color: var(--ink-strong);
   font-size: 16px;
@@ -763,6 +880,10 @@ h2 {
 
 .lab-action-button {
   min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 0 10px;
@@ -770,6 +891,20 @@ h2 {
   color: var(--ink);
   font-size: 13px;
   font-weight: 700;
+}
+
+.lab-action-button svg {
+  flex: 0 0 auto;
+}
+
+.lab-action-button span {
+  min-width: 0;
+}
+
+.action-console .lab-action-button:not(:disabled),
+.game-monitor-section .lab-action-button:not(:disabled) {
+  border-color: rgba(47, 143, 112, 0.34);
+  background: rgba(255, 253, 248, 0.98);
 }
 
 .lab-action-button.read {
@@ -785,7 +920,9 @@ h2 {
 }
 
 .lab-action-button.research {
-  border-color: rgba(199, 91, 72, 0.26);
+  border-color: rgba(199, 91, 72, 0.34);
+  background: #fff8f5;
+  color: #8b3b2b;
 }
 
 .lab-action-button:hover:not(:disabled),
@@ -1101,9 +1238,22 @@ h2 {
 }
 
 .lab-item-tags span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   border-radius: 999px;
   background: rgba(237, 242, 237, 0.88);
   padding: 3px 8px;
+}
+
+.lab-item-tags .link-chip {
+  background: var(--blue-soft);
+  color: #345f87;
+  font-weight: 760;
+}
+
+.lab-item-tags .link-chip svg {
+  flex: 0 0 auto;
 }
 
 .risk-pill.high {
@@ -1175,14 +1325,24 @@ h2 {
 }
 
 .endpoint-side a {
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
+  min-width: 34px;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
   border: 1px solid var(--line);
   border-radius: 8px;
+  padding: 0 8px;
   color: var(--ink);
   background: var(--paper);
+  text-decoration: none;
+}
+
+.endpoint-side a span {
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 760;
 }
 
 .recommendation-list p {
@@ -1298,6 +1458,22 @@ button.metric:focus-visible {
   border-top: 4px solid var(--blue);
 }
 
+.lab-overview .metric.green {
+  border-top: 2px solid rgba(47, 143, 112, 0.45);
+}
+
+.lab-overview .metric.red {
+  border-top: 2px solid rgba(199, 91, 72, 0.45);
+}
+
+.lab-overview .metric.gold {
+  border-top: 2px solid rgba(182, 138, 51, 0.45);
+}
+
+.lab-overview .metric.blue {
+  border-top: 2px solid rgba(63, 120, 168, 0.45);
+}
+
 .health-row {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1392,11 +1568,12 @@ button.metric:focus-visible {
 
 .section-title {
   gap: 8px;
+  flex-wrap: wrap;
   margin-bottom: 12px;
   color: var(--ink-strong);
 }
 
-.section-title svg {
+.section-title > svg {
   color: var(--green-deep);
 }
 
