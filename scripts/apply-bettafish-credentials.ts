@@ -1,13 +1,15 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { config as loadEnv } from "dotenv";
+import { config as loadEnv, parse as parseEnv } from "dotenv";
 import { Client } from "ssh2";
 
-const extraEnvFile = process.env.BETTAFISH_CREDENTIAL_ENV_FILE || "";
-if (extraEnvFile) loadEnv({ path: path.resolve(extraEnvFile), override: true, quiet: true });
 loadEnv({ path: path.resolve(".env.local"), quiet: true });
 loadEnv({ path: path.resolve(".env"), quiet: true });
+const defaultCredentialEnvFile = path.resolve(".env.bettafish-credentials.local");
+const extraEnvFile = process.env.BETTAFISH_CREDENTIAL_ENV_FILE
+  || (fs.existsSync(defaultCredentialEnvFile) ? defaultCredentialEnvFile : "");
+if (extraEnvFile) loadNonEmptyEnvFile(extraEnvFile);
 
 type HostTarget = {
   name: "inner" | "public";
@@ -77,6 +79,7 @@ async function main() {
     generatedAt: new Date().toISOString(),
     dryRun,
     restart,
+    credentialEnvFile: extraEnvFile ? path.resolve(extraEnvFile) : "",
     credentialKeysPresent: Object.keys(values).sort(),
     sharedLlmKeysPresent: Object.values(sharedLlmKeys).filter((key) => process.env[key]).sort(),
     missingRequiredKeys: missing,
@@ -98,6 +101,15 @@ async function main() {
       throw new Error(`${target.name} credential apply failed: ${result.stderr || result.stdout || result.code}`);
     }
     console.log(`${target.name}: updated ${target.envFiles.length} env file(s) with ${Object.keys(values).length} key(s)`);
+  }
+}
+
+function loadNonEmptyEnvFile(envFile: string) {
+  const resolved = path.resolve(envFile);
+  if (!fs.existsSync(resolved)) return;
+  const parsed = parseEnv(fs.readFileSync(resolved));
+  for (const [key, value] of Object.entries(parsed)) {
+    if (value) process.env[key] = value;
   }
 }
 
