@@ -40,6 +40,7 @@ const actionSchema = z.object({
   text: z.string().max(4000).optional(),
   confirmationPassword: z.string().max(120).optional(),
   platforms: z.array(z.string().max(24)).max(7).optional(),
+  crawlerKeywords: z.array(z.string().max(120)).max(20).optional(),
   maxKeywords: z.coerce.number().int().min(1).max(50).optional(),
   maxNotes: z.coerce.number().int().min(1).max(50).optional()
 });
@@ -1021,7 +1022,9 @@ function runProcess(
 function makeCrawlerTestArgs(body: z.infer<typeof actionSchema>) {
   const args = ["--deep-sentiment", "--test", "--max-keywords", String(body.maxKeywords || 3), "--max-notes", String(body.maxNotes || 5)];
   const platforms = (body.platforms || ["dy"]).filter((platform) => crawlerPlatforms.includes(platform));
+  const keywords = uniqueStrings(body.crawlerKeywords || [], 20);
   if (platforms.length) args.push("--platforms", ...platforms);
+  if (keywords.length) args.push("--crawler-keywords", ...keywords);
   return args;
 }
 
@@ -1264,8 +1267,9 @@ function compactText(value: string, maxLength: number) {
   return compacted.length > maxLength ? `${compacted.slice(0, maxLength - 3)}...` : compacted;
 }
 
-function uniqueStrings(values: string[]) {
-  return Array.from(new Set(values));
+function uniqueStrings(values: string[], limit = Number.POSITIVE_INFINITY) {
+  const normalized = values.map((value) => value.trim()).filter(Boolean);
+  return Array.from(new Set(normalized)).slice(0, limit);
 }
 
 function disabledReason(...parts: Array<string | undefined>) {
@@ -1273,7 +1277,7 @@ function disabledReason(...parts: Array<string | undefined>) {
 }
 
 function commandLine(command: string, args: string[]) {
-  return [command, ...args].join(" ");
+  return [command, ...args].map(quoteShell).join(" ");
 }
 
 function quoteShell(value: string) {

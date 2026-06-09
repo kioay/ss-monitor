@@ -1161,6 +1161,7 @@ function LabActionPanel({
   const [reportTaskId, setReportTaskId] = React.useState("");
   const [sentimentText, setSentimentText] = React.useState("这次更新匹配体验变差了，外挂也有点多，希望官方尽快处理。");
   const [platformsText, setPlatformsText] = React.useState("dy");
+  const [crawlerKeywordsText, setCrawlerKeywordsText] = React.useState("生死狙击");
   const [maxKeywords, setMaxKeywords] = React.useState(3);
   const [maxNotes, setMaxNotes] = React.useState(5);
   const [runtimeConfirmation, setRuntimeConfirmation] = React.useState<PendingRuntimeConfirmation>();
@@ -1206,6 +1207,7 @@ function LabActionPanel({
     closeRuntimeConfirmation();
   };
   const crawlerPlatforms = platformsText.split(/[,，\s]+/).map((item) => item.trim()).filter(Boolean);
+  const crawlerKeywords = Array.from(new Set(crawlerKeywordsText.split(/[,，、;\s]+/).map((item) => item.trim()).filter(Boolean))).slice(0, 20);
   const agentOperationIds = ["agent.start.insight", "agent.stop.insight", "agent.start.media", "agent.stop.media", "agent.start.query", "agent.stop.query", "agent.search"];
   const forumOperationIds = ["forum.start", "forum.stop", "forum.log"];
   const reportOperationIds = ["report.generate", "report.progress", "report.resultJson", "report.cancel"];
@@ -1332,11 +1334,16 @@ function LabActionPanel({
               <input type="number" min={1} max={50} value={maxNotes} onChange={(event) => setMaxNotes(Number(event.target.value))} />
             </label>
           </div>
+          <label className="lab-input">
+            <span>爬虫关键词</span>
+            <small>留空则使用当天话题数据；填写后本次调度优先使用这些关键词。</small>
+            <textarea value={crawlerKeywordsText} onChange={(event) => setCrawlerKeywordsText(event.target.value)} rows={2} placeholder="生死狙击, 生死狙击2" />
+          </label>
           <ActionButton
             operation={op("mindspider.crawlTest")}
             busy={loadingAction === "mindspider.crawlTest"}
             disabled={isBusy}
-            onClick={() => run({ action: "mindspider.crawlTest", platforms: crawlerPlatforms, maxKeywords, maxNotes })}
+            onClick={() => run({ action: "mindspider.crawlTest", platforms: crawlerPlatforms, maxKeywords, maxNotes, crawlerKeywords })}
           />
         </div>
 
