@@ -447,7 +447,7 @@ function makeOperations(
   }
 
   operations.push(
-    operation("agent.search", "agents", "Agent 搜索/分析", "调用 BettaFish /api/search，让运行中的 Query/Media/Insight Agent 处理同一个问题", "research", agentSearchEnabled, disabledReason(actionsReason, baseUrlReason, agentSearchReason), "/api/search"),
+    operation("agent.search", "agents", "Agent 搜索/分析", "调用 BettaFish /api/search，让运行中的 Query/Media/Insight Agent 处理同一个问题；如果 BettaFish Streamlit 子应用未提供该接口，会返回 API 调用失败", "research", agentSearchEnabled, disabledReason(actionsReason, baseUrlReason, agentSearchReason), "/api/search"),
     operation("forum.start", "forum", "启动 ForumEngine", "调用 BettaFish /api/forum/start", "research", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/forum/start"),
     operation("forum.stop", "forum", "停止 ForumEngine", "调用 BettaFish /api/forum/stop", "research", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/forum/stop"),
     operation("forum.log", "forum", "读取 ForumEngine 日志", "调用 BettaFish /api/forum/log", "read", httpReadEnabled, disabledReason(actionsReason, baseUrlReason), "/api/forum/log"),
@@ -978,6 +978,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function inferSuccess(result: unknown) {
   if (!isRecord(result)) return true;
+  const message = typeof result.message === "string" ? result.message : "";
+  if (/(失败|异常|错误|failed|error|forbidden)/i.test(message)) return false;
+  if (isRecord(result.results)) {
+    const nested = Object.values(result.results).filter(isRecord);
+    if (nested.some((item) => inferSuccess(item) === false)) return false;
+  }
   if (typeof result.success === "boolean") return result.success;
   if (typeof result.ok === "boolean") return result.ok;
   return true;

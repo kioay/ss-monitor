@@ -1245,7 +1245,7 @@ function LabActionPanel({
           <p className="action-panel-note">启动三个 Agent 后，可以把同一个舆情问题交给 BettaFish 检索、抽取和归纳。</p>
           <div className={`agent-search-state ${agentSearchReady ? "ready" : "blocked"}`}>
             <StatusPill status={agentSearchReady ? "ok" : "warning"} label={agentSearchReady ? `运行中：${runningAgents.join(" / ")}` : "尚未启动 Agent"} />
-            <span>{agentSearchReady ? "现在可以点击 Agent 搜索/分析。" : "先点上方启动 insight、media 或 query Agent，状态变为 running 后再搜索。"}</span>
+            <span>{agentSearchReady ? "搜索按钮会调用 BettaFish /api/search；若返回 API 调用失败，说明该 Streamlit Agent 未开放 JSON 搜索接口。" : "先点上方启动 insight、media 或 query Agent，状态变为 running 后再搜索。"}</span>
           </div>
           <div className="mini-button-grid">
             {(["insight", "media", "query"] as const).map((name) => (
