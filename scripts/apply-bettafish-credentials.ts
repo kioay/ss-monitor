@@ -21,20 +21,32 @@ type HostTarget = {
 
 const dryRun = process.argv.includes("--dry-run");
 const restart = process.argv.includes("--restart");
+const engineCredentialGroups = [
+  {
+    prefix: "REPORT_ENGINE",
+    keys: ["REPORT_ENGINE_API_KEY", "REPORT_ENGINE_BASE_URL", "REPORT_ENGINE_MODEL_NAME"],
+  },
+  {
+    prefix: "QUERY_ENGINE",
+    keys: ["QUERY_ENGINE_API_KEY", "QUERY_ENGINE_BASE_URL", "QUERY_ENGINE_MODEL_NAME"],
+  },
+  {
+    prefix: "INSIGHT_ENGINE",
+    keys: ["INSIGHT_ENGINE_API_KEY", "INSIGHT_ENGINE_BASE_URL", "INSIGHT_ENGINE_MODEL_NAME"],
+  },
+  {
+    prefix: "MEDIA_ENGINE",
+    keys: ["MEDIA_ENGINE_API_KEY", "MEDIA_ENGINE_BASE_URL", "MEDIA_ENGINE_MODEL_NAME"],
+  },
+];
+const sharedLlmKeys = {
+  apiKey: "BETTAFISH_SHARED_LLM_API_KEY",
+  baseUrl: "BETTAFISH_SHARED_LLM_BASE_URL",
+  modelName: "BETTAFISH_SHARED_LLM_MODEL_NAME",
+};
 const requiredKeys = [
-  "REPORT_ENGINE_API_KEY",
-  "REPORT_ENGINE_BASE_URL",
-  "REPORT_ENGINE_MODEL_NAME",
-  "QUERY_ENGINE_API_KEY",
-  "QUERY_ENGINE_BASE_URL",
-  "QUERY_ENGINE_MODEL_NAME",
-  "INSIGHT_ENGINE_API_KEY",
-  "INSIGHT_ENGINE_BASE_URL",
-  "INSIGHT_ENGINE_MODEL_NAME",
-  "MEDIA_ENGINE_API_KEY",
-  "MEDIA_ENGINE_BASE_URL",
-  "MEDIA_ENGINE_MODEL_NAME",
-  "TAVILY_API_KEY"
+  ...engineCredentialGroups.flatMap((group) => group.keys),
+  "TAVILY_API_KEY",
 ];
 const oneOfSearchKeys = ["ANSPIRE_API_KEY", "BOCHA_WEB_SEARCH_API_KEY"];
 const optionalKeys = [
@@ -57,8 +69,8 @@ main().catch((error) => {
 });
 
 async function main() {
-  const missing = missingRequiredCredentialKeys();
   const values = collectCredentialValues();
+  const missing = missingRequiredCredentialKeys(values);
   const targets = resolveTargets();
 
   console.log(JSON.stringify({
@@ -66,6 +78,7 @@ async function main() {
     dryRun,
     restart,
     credentialKeysPresent: Object.keys(values).sort(),
+    sharedLlmKeysPresent: Object.values(sharedLlmKeys).filter((key) => process.env[key]).sort(),
     missingRequiredKeys: missing,
     targets: targets.map((target) => ({ name: target.name, host: target.host, port: target.port, envFiles: target.envFiles })),
   }, null, 2));
@@ -88,8 +101,8 @@ async function main() {
   }
 }
 
-function missingRequiredCredentialKeys() {
-  const missing = requiredKeys.filter((key) => !process.env[key]);
+function missingRequiredCredentialKeys(values: Record<string, string>) {
+  const missing = requiredKeys.filter((key) => !values[key]);
   if (!oneOfSearchKeys.some((key) => process.env[key])) {
     missing.push(oneOfSearchKeys.join(" or "));
   }
@@ -102,7 +115,23 @@ function collectCredentialValues() {
     const value = process.env[key];
     if (value) values[key] = value;
   }
+  applySharedLlmCredentials(values);
   return values;
+}
+
+function applySharedLlmCredentials(values: Record<string, string>) {
+  const shared = {
+    apiKey: process.env[sharedLlmKeys.apiKey] || "",
+    baseUrl: process.env[sharedLlmKeys.baseUrl] || "",
+    modelName: process.env[sharedLlmKeys.modelName] || "",
+  };
+  if (!shared.apiKey || !shared.baseUrl || !shared.modelName) return;
+
+  for (const group of engineCredentialGroups) {
+    values[`${group.prefix}_API_KEY`] ||= shared.apiKey;
+    values[`${group.prefix}_BASE_URL`] ||= shared.baseUrl;
+    values[`${group.prefix}_MODEL_NAME`] ||= shared.modelName;
+  }
 }
 
 function resolveTargets(): HostTarget[] {

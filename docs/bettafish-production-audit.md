@@ -46,6 +46,17 @@ ANSPIRE_API_KEY=
 # or BOCHA_WEB_SEARCH_API_KEY=
 ```
 
+If all four LLM engines should use the same OpenAI-compatible provider, the apply helper can expand one shared triplet into the upstream engine keys:
+
+```env
+BETTAFISH_SHARED_LLM_API_KEY=
+BETTAFISH_SHARED_LLM_BASE_URL=
+BETTAFISH_SHARED_LLM_MODEL_NAME=
+TAVILY_API_KEY=
+ANSPIRE_API_KEY=
+# or BOCHA_WEB_SEARCH_API_KEY=
+```
+
 Then apply and verify:
 
 ```bash
