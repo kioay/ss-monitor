@@ -995,7 +995,7 @@ function runProcess(
       cwd,
       shell: options.shell || false,
       windowsHide: true,
-      env: { ...process.env, ...(options.env || {}) }
+      env: { ...process.env, PYTHONUTF8: "1", LANG: process.env.LANG || "C.UTF-8", LC_ALL: process.env.LC_ALL || "C.UTF-8", ...(options.env || {}) }
     });
     const timer = setTimeout(() => {
       child.kill();
@@ -1024,7 +1024,7 @@ function makeCrawlerTestArgs(body: z.infer<typeof actionSchema>) {
   const platforms = (body.platforms || ["dy"]).filter((platform) => crawlerPlatforms.includes(platform));
   const keywords = uniqueStrings(body.crawlerKeywords || [], 20);
   if (platforms.length) args.push("--platforms", ...platforms);
-  if (keywords.length) args.push("--crawler-keywords", ...keywords);
+  if (keywords.length) args.push("--crawler-keywords-b64", Buffer.from(JSON.stringify(keywords), "utf8").toString("base64"));
   return args;
 }
 
