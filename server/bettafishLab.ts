@@ -210,31 +210,46 @@ export async function runBettaFishLabAction(rawBody: unknown): Promise<BettaFish
   if (action.startsWith("agent.stop.")) return proxyBettaFish(action, `/api/stop/${appNameFromAction(action)}`, { method: "GET" });
 
   switch (action) {
-    case "agent.search":
+    case "agent.search": {
+      const agentGuard = await requireRunningAgent(action);
+      if (agentGuard) return agentGuard;
       return proxyBettaFish(action, "/api/search", {
         method: "POST",
         body: { query: requireText(body.query, "请输入 Agent 搜索问题") },
         timeoutMs: 20_000
       });
+    }
     case "forum.start":
       return proxyBettaFish(action, "/api/forum/start", { method: "GET" });
     case "forum.stop":
       return proxyBettaFish(action, "/api/forum/stop", { method: "GET" });
     case "forum.log":
       return proxyBettaFish(action, "/api/forum/log", { method: "GET" });
-    case "report.generate":
+    case "report.generate": {
+      const reportGuard = await requireReportEngineReady(action);
+      if (reportGuard) return reportGuard;
       return proxyBettaFish(action, "/api/report/generate", {
         method: "POST",
         body: { query: body.query?.trim() || "生死狙击舆情测试报告", custom_template: body.customTemplate || "" },
         timeoutMs: 20_000,
         pickTaskId: true
       });
-    case "report.progress":
+    }
+    case "report.progress": {
+      const reportGuard = await requireReportEngineReady(action);
+      if (reportGuard) return reportGuard;
       return proxyBettaFish(action, `/api/report/progress/${encodeURIComponent(requireText(body.taskId, "请输入报告 taskId"))}`, { method: "GET" });
-    case "report.resultJson":
+    }
+    case "report.resultJson": {
+      const reportGuard = await requireReportEngineReady(action);
+      if (reportGuard) return reportGuard;
       return proxyBettaFish(action, `/api/report/result/${encodeURIComponent(requireText(body.taskId, "请输入报告 taskId"))}/json`, { method: "GET" });
-    case "report.cancel":
+    }
+    case "report.cancel": {
+      const reportGuard = await requireReportEngineReady(action);
+      if (reportGuard) return reportGuard;
       return proxyBettaFish(action, `/api/report/cancel/${encodeURIComponent(requireText(body.taskId, "请输入报告 taskId"))}`, { method: "POST" });
+    }
     case "mindspider.status":
       return runMindSpiderCommand(action, ["--status"], 90_000);
     case "mindspider.initDb":
@@ -434,11 +449,17 @@ function makeOperations(
   const repoReadEnabled = runtime.actionsEnabled && runtime.repoConfigured && mindSpider.repoAvailable && runtime.pythonAvailable;
   const localStartEnabled = runtime.actionsEnabled && runtime.repoConfigured && runtime.pythonAvailable && runtime.startCommandConfigured;
   const deployEnabled = runtime.actionsEnabled && runtime.repoConfigured && runtime.deployCommandConfigured;
-  const sentimentEnabled = runtime.actionsEnabled && (runtime.sentimentCommandConfigured || runtime.baseUrlConfigured);
   const statusProbe = endpointProbes.find((probe) => probe.id === "status");
   const runningAgents = runningAgentNames(statusProbe?.message || "");
   const agentSearchEnabled = httpEnabled && runningAgents.length > 0;
   const agentSearchReason = runningAgents.length ? "" : "需要先启动至少一个 Agent";
+  const reportReady = isReportEngineReadyFromProbes(endpointProbes);
+  const reportReason = reportReady ? "" : reportEngineDisabledReason(endpointProbes);
+  const reportEnabled = httpEnabled && reportReady;
+  const sentimentEnabled = runtime.actionsEnabled && runtime.sentimentCommandConfigured;
+  const sentimentReason = runtime.sentimentCommandConfigured
+    ? ""
+    : "需要 BETTAFISH_SENTIMENT_COMMAND；Agent 搜索/分析请使用上方 Agent 按钮单独验证";
   const operations: BettaFishOperation[] = [];
 
   for (const appName of appNames) {
@@ -451,15 +472,15 @@ function makeOperations(
     operation("forum.start", "forum", "启动 ForumEngine", "调用 BettaFish /api/forum/start", "research", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/forum/start"),
     operation("forum.stop", "forum", "停止 ForumEngine", "调用 BettaFish /api/forum/stop", "research", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/forum/stop"),
     operation("forum.log", "forum", "读取 ForumEngine 日志", "调用 BettaFish /api/forum/log", "read", httpReadEnabled, disabledReason(actionsReason, baseUrlReason), "/api/forum/log"),
-    operation("report.generate", "report", "生成报告", "调用 BettaFish /api/report/generate", "research", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/report/generate"),
-    operation("report.progress", "report", "查询报告进度", "调用 BettaFish /api/report/progress/<taskId>", "read", httpReadEnabled, disabledReason(actionsReason, baseUrlReason), "/api/report/progress/<taskId>"),
-    operation("report.resultJson", "report", "读取报告结果", "调用 BettaFish /api/report/result/<taskId>/json", "read", httpReadEnabled, disabledReason(actionsReason, baseUrlReason), "/api/report/result/<taskId>/json"),
-    operation("report.cancel", "report", "取消报告任务", "调用 BettaFish /api/report/cancel/<taskId>", "research", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/report/cancel/<taskId>"),
+    operation("report.generate", "report", "生成报告", "调用 BettaFish /api/report/generate", "research", reportEnabled, disabledReason(actionsReason, baseUrlReason, reportReason), "/api/report/generate"),
+    operation("report.progress", "report", "查询报告进度", "调用 BettaFish /api/report/progress/<taskId>", "read", reportEnabled, disabledReason(actionsReason, baseUrlReason, reportReason), "/api/report/progress/<taskId>"),
+    operation("report.resultJson", "report", "读取报告结果", "调用 BettaFish /api/report/result/<taskId>/json", "read", reportEnabled, disabledReason(actionsReason, baseUrlReason, reportReason), "/api/report/result/<taskId>/json"),
+    operation("report.cancel", "report", "取消报告任务", "调用 BettaFish /api/report/cancel/<taskId>", "research", reportEnabled, disabledReason(actionsReason, baseUrlReason, reportReason), "/api/report/cancel/<taskId>"),
     operation("mindspider.status", "mindspider", "MindSpider 状态", "执行 MindSpider/main.py --status", "read", repoReadEnabled, disabledReason(actionsReason, repoReason, mindSpiderReason, pythonReason), "MindSpider/main.py --status"),
     operation("mindspider.dbProbe", "mindspider", "数据库直连检查", "执行 MindSpider/schema/db_manager.py --tables --stats", "read", repoReadEnabled, disabledReason(actionsReason, repoReason, mindSpiderReason, pythonReason), "MindSpider/schema/db_manager.py --tables --stats"),
     operation("mindspider.initDb", "mindspider", "初始化数据库", "执行 MindSpider/main.py --init-db", "research", repoEnabled, disabledReason(actionsReason, repoReason, mindSpiderReason, pythonReason), "MindSpider/main.py --init-db"),
     operation("mindspider.crawlTest", "mindspider", "测试爬虫调度", "执行 MindSpider/main.py --deep-sentiment --test", "research", repoEnabled, disabledReason(actionsReason, repoReason, mindSpiderReason, pythonReason), "MindSpider/main.py --deep-sentiment --test"),
-    operation("sentiment.analyze", "sentiment", "情感模型/LLM 分析", "优先执行 BETTAFISH_SENTIMENT_COMMAND，否则通过 BettaFish Agent 搜索发起 LLM 判定", "research", sentimentEnabled, disabledReason(actionsReason, runtime.sentimentCommandConfigured || runtime.baseUrlConfigured ? "" : "需要 BETTAFISH_SENTIMENT_COMMAND 或 BETTAFISH_BASE_URL"), "sentiment"),
+    operation("sentiment.analyze", "sentiment", "情感模型/LLM 分析", "执行 BETTAFISH_SENTIMENT_COMMAND；Agent LLM 搜索另由上方 Agent 搜索/分析按钮验证", "research", sentimentEnabled, disabledReason(actionsReason, sentimentReason), "sentiment"),
     operation("runtime.systemStart", "runtime", "启动完整 BettaFish 系统", "调用 BettaFish /api/system/start", "research", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/system/start"),
     operation("runtime.systemShutdown", "runtime", "关闭 BettaFish 系统", "调用 BettaFish /api/system/shutdown", "research", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/system/shutdown"),
     operation("runtime.localStart", "runtime", "本地启动 BettaFish", "用 BETTAFISH_REPO_DIR 与 BETTAFISH_START_COMMAND/python app.py 启动 BettaFish", "research", localStartEnabled, disabledReason(actionsReason, repoReason, pythonReason, startCommandReason), "local process"),
@@ -489,6 +510,20 @@ function runningAgentNames(statusMessage: string) {
     const match = lower.match(new RegExp(`${name}\\s*:\\s*([a-z_]+)`));
     return match?.[1] === "running";
   });
+}
+
+function isReportEngineReadyFromProbes(endpointProbes: BettaFishEndpointProbe[]) {
+  const reportStatus = endpointProbes.find((probe) => probe.id === "report-status");
+  if (!reportStatus || reportStatus.status !== "ok") return false;
+  return !/initialized:false|engines_ready:false/i.test(reportStatus.message);
+}
+
+function reportEngineDisabledReason(endpointProbes: BettaFishEndpointProbe[]) {
+  const reportStatus = endpointProbes.find((probe) => probe.id === "report-status");
+  if (!reportStatus) return "ReportEngine 状态未确认";
+  if (reportStatus.status !== "ok") return `ReportEngine 不可用：${reportStatus.message}`;
+  if (/initialized:false|engines_ready:false/i.test(reportStatus.message)) return "ReportEngine 未初始化或缺少 LLM API key";
+  return "";
 }
 
 function makeCapabilities(
@@ -579,13 +614,13 @@ function makeCapabilities(
       id: "sentiment",
       name: "BettaFish 情感模型 / LLM 分析",
       goal: "提升情绪、风险与语义判定能力",
-      currentProjectUse: "测试台可调用配置的本地模型命令，未配置时可通过 BettaFish Agent 发起 LLM 判定；主流程已接入 BettaFish 本地情感模型作保守辅助融合",
-      testCoverage: "展示 SentimentAnalysisModel 候选 predict.py；可提交文本做模型/LLM 分析",
-      status: sentiment.commandConfigured || llmAgentUsable ? "ok" : sentiment.localModelsAvailable || runtime.baseUrlConfigured ? "warning" : "skipped",
+      currentProjectUse: "测试台只把配置好的本地模型命令作为可执行情感分析入口；Agent LLM 搜索由 Agent 卡片单独验证",
+      testCoverage: "展示 SentimentAnalysisModel 候选 predict.py；配置 BETTAFISH_SENTIMENT_COMMAND 后可提交文本做模型分析",
+      status: sentiment.commandConfigured ? "ok" : sentiment.localModelsAvailable || runtime.baseUrlConfigured ? "warning" : "skipped",
       evidence: [
         `模型候选：${sentiment.modelCandidates.length}`,
         `命令：${sentiment.commandConfigured ? "已配置" : "未配置"}`,
-        `LLM Agent：${llmAgentUsable ? "可通过 BettaFish Base URL 调用" : runtime.baseUrlConfigured ? "已配置但未连通" : "未配置"}`
+        `Agent 搜索：${llmAgentUsable ? "请在 Agent 卡片单独验证" : runtime.baseUrlConfigured ? "Base URL 已配置但搜索接口未确认" : "未配置"}`
       ],
       nextStep: "把情感模型输出与本平台 analyzeItem 输出并排评估，确认准确率后再进入主链路。"
     },
@@ -626,12 +661,12 @@ async function proxyBettaFish(
     const text = await response.text();
     const parsed = parseJson(text);
     const result = parsed ?? compactText(text, 2000);
-    const ok = response.ok && inferSuccess(result);
+    const normalized = normalizeBettaFishProxyResult(action, response.status, result, response.ok && inferSuccess(result));
     return {
-      ok,
+      ok: normalized.ok,
       action,
       generatedAt: new Date().toISOString(),
-      message: ok ? "BettaFish 研究操作执行完成" : `BettaFish 研究操作返回异常: HTTP ${response.status}`,
+      message: normalized.message,
       target,
       ...(options.pickTaskId && isRecord(result) && typeof result.task_id === "string" ? { taskId: result.task_id } : {}),
       result
@@ -643,11 +678,202 @@ async function proxyBettaFish(
   }
 }
 
-function startLocalBettaFish(action: string): BettaFishActionResponse {
+function normalizeBettaFishProxyResult(action: string, httpStatus: number, result: unknown, ok: boolean) {
+  const resultMessageText = resultMessage(result);
+
+  if (isAlreadyRunningResult(result)) {
+    return {
+      ok: true,
+      message: "BettaFish 返回“应用已经在运行”，当前状态已满足启动要求"
+    };
+  }
+
+  if (action === "agent.search" && !ok) {
+    return {
+      ok: false,
+      message: resultMessageText
+        ? `Agent 搜索接口未完成：${compactText(resultMessageText, 180)}`
+        : "Agent 搜索接口未完成：BettaFish Streamlit Agent 当前未开放 JSON /api/search"
+    };
+  }
+
+  if (action.startsWith("report.") && isReportNotInitializedResult(result)) {
+    return {
+      ok: false,
+      message: "ReportEngine 未初始化或缺少 LLM API key，报告按钮已触发但后端拒绝执行"
+    };
+  }
+
+  if (action === "report.progress" && ok && isSuspiciousReportProgress(result)) {
+    return {
+      ok: false,
+      message: "BettaFish 返回任务已完成，但没有报告文件或结果地址；请确认 Task ID 来自真实生成任务"
+    };
+  }
+
+  if (ok) return { ok: true, message: "BettaFish 研究操作执行完成" };
+
+  return {
+    ok: false,
+    message: resultMessageText
+      ? `BettaFish 研究操作返回异常：${compactText(resultMessageText, 180)}`
+      : `BettaFish 研究操作返回异常: HTTP ${httpStatus}`
+  };
+}
+
+function resultMessage(result: unknown): string {
+  if (typeof result === "string") return result;
+  if (!isRecord(result)) return "";
+  const direct = ["message", "error", "detail", "reason"]
+    .map((key) => result[key])
+    .find((value): value is string => typeof value === "string" && value.trim().length > 0);
+  if (direct) return direct;
+  if (isRecord(result.results)) {
+    return Object.values(result.results)
+      .map(resultMessage)
+      .filter(Boolean)
+      .join("；");
+  }
+  return "";
+}
+
+function isAlreadyRunningResult(result: unknown) {
+  return /应用已经在运行|already running/i.test(resultMessage(result));
+}
+
+function isReportNotInitializedResult(result: unknown) {
+  return /(Report\s*Engine|ReportEngine).*(未初始化|not initialized|API key|required)|LLM API key is required/i.test(resultMessage(result));
+}
+
+function isSuspiciousReportProgress(result: unknown) {
+  if (!isRecord(result)) return false;
+  const status = `${String(result.status || "")} ${String(result.state || "")} ${String(result.message || "")}`.toLowerCase();
+  const completed = result.completed === true || status.includes("completed") || status.includes("完成");
+  if (!completed) return false;
+  return !hasReportArtifact(result);
+}
+
+function hasReportArtifact(result: unknown): boolean {
+  if (typeof result === "string") return /\.(json|md|html|pdf|docx)\b|https?:\/\//i.test(result);
+  if (!isRecord(result)) return false;
+  return Object.entries(result).some(([key, value]) => {
+    if (/path|url|file|filename|report|result/i.test(key) && typeof value === "string" && value.trim()) return true;
+    if (Array.isArray(value)) return value.some(hasReportArtifact);
+    return isRecord(value) && hasReportArtifact(value);
+  });
+}
+
+async function requireRunningAgent(action: string): Promise<BettaFishActionResponse | undefined> {
+  const status = await fetchBettaFishJson("/api/status", 5_000);
+  if (!status.ok) {
+    return actionResponse(action, false, `无法确认 Agent 状态：${status.message}`, probeActionExtra(status));
+  }
+  const runningAgents = runningAgentNamesFromStatusResult(status.result);
+  if (!runningAgents.length) {
+    return actionResponse(action, false, "需要先启动至少一个 Agent；当前 insight/media/query 都不是 running", probeActionExtra(status));
+  }
+  return undefined;
+}
+
+function runningAgentNamesFromStatusResult(result: unknown) {
+  if (!isRecord(result)) return [];
+  return appNames.filter((name) => {
+    const appStatus = result[name];
+    if (!isRecord(appStatus)) return false;
+    const value = appStatus.status ?? appStatus.state ?? appStatus.running;
+    return String(value).toLowerCase() === "running" || value === true;
+  });
+}
+
+async function requireReportEngineReady(action: string): Promise<BettaFishActionResponse | undefined> {
+  const readiness = await probeReportEngineReady();
+  if (readiness.ok) return undefined;
+  return actionResponse(action, false, readiness.message, probeActionExtra(readiness));
+}
+
+async function probeReportEngineReady() {
+  const status = await fetchBettaFishJson("/api/report/status", 5_000);
+  if (!status.ok) return { ...status, ok: false, message: `ReportEngine 状态不可用：${status.message}` };
+  if (isRecord(status.result)) {
+    const initialized = status.result.initialized;
+    const enginesReady = status.result.engines_ready;
+    if (initialized === false || enginesReady === false) {
+      return {
+        ...status,
+        ok: false,
+        message: "ReportEngine 未初始化或缺少 LLM API key；请先修复 BettaFish Report Engine 配置"
+      };
+    }
+  }
+  return status;
+}
+
+async function waitForBettaFishReady(timeoutMs: number) {
+  const deadline = Date.now() + timeoutMs;
+  let lastProbe = await fetchBettaFishJson("/api/status", Math.min(2_000, timeoutMs));
+  while (!lastProbe.ok && Date.now() < deadline && isLocalBettaFishProcessRunning()) {
+    await sleep(750);
+    lastProbe = await fetchBettaFishJson("/api/status", 2_000);
+  }
+  return lastProbe;
+}
+
+async function fetchBettaFishJson(pathName: string, timeoutMs: number) {
+  if (!runtimeConfig.bettaFishBaseUrl) return { ok: false, message: "BETTAFISH_BASE_URL 未配置" };
+  const target = `${runtimeConfig.bettaFishBaseUrl}${pathName}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(target, {
+      headers: { Accept: "application/json,text/plain;q=0.8,*/*;q=0.5" },
+      signal: controller.signal
+    });
+    const text = await response.text();
+    const parsed = parseJson(text);
+    const result = parsed ?? compactText(text, 2000);
+    const message = response.ok
+      ? (isRecord(parsed) && pathName === "/api/status" ? summarizeStatusJson(parsed) : compactText(text || response.statusText, 180))
+      : `HTTP ${response.status}: ${compactText(text || response.statusText, 180)}`;
+    return { ok: response.ok, message, target, result, httpStatus: response.status };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error && error.name === "AbortError" ? "请求超时" : messageOf(error),
+      target
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function probeActionExtra(probe: { target?: string; result?: unknown }): Partial<BettaFishActionResponse> {
+  return {
+    ...(probe.target ? { target: probe.target } : {}),
+    ...(probe.result !== undefined ? { result: probe.result } : {})
+  };
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function startLocalBettaFish(action: string): Promise<BettaFishActionResponse> {
   if (!runtimeConfig.bettaFishRepoDir) return actionResponse(action, false, "BETTAFISH_REPO_DIR 未配置");
   if (isLocalBettaFishProcessRunning()) {
-    return actionResponse(action, true, "BettaFish 本地进程已经由测试台启动", { output: localBettaFishOutput.slice(-20) });
+    const readiness = await waitForBettaFishReady(2_000);
+    return actionResponse(
+      action,
+      readiness.ok,
+      readiness.ok ? "BettaFish 本地进程已经由测试台启动，/api/status 可达" : `BettaFish 本地进程在运行，但 /api/status 暂不可达：${readiness.message}`,
+      { output: localBettaFishOutput.slice(-20), ...probeActionExtra(readiness) }
+    );
   }
+
+  const existing = await waitForBettaFishReady(1_500);
+  if (existing.ok) {
+    return actionResponse(action, true, "BettaFish API 已经可达，未重复启动本地进程", probeActionExtra(existing));
+  }
+
   const command = runtimeConfig.bettaFishStartCommand || `${quoteShell(runtimeConfig.bettaFishPython)} app.py`;
   localBettaFishOutput = [];
   localBettaFishProcess = spawn(command, {
@@ -667,7 +893,29 @@ function startLocalBettaFish(action: string): BettaFishActionResponse {
     localBettaFishOutput.push(`BettaFish exited with code ${code ?? "unknown"}`);
     if (localBettaFishProcess === child) localBettaFishProcess = undefined;
   });
-  return actionResponse(action, true, "已启动 BettaFish 本地进程", { target: command });
+
+  const readiness = await waitForBettaFishReady(12_000);
+  if (readiness.ok) {
+    return actionResponse(action, true, "已启动 BettaFish 本地进程，/api/status 可达", {
+      target: command,
+      output: localBettaFishOutput.slice(-20),
+      result: readiness.result
+    });
+  }
+
+  const processRunning = isLocalBettaFishProcessRunning();
+  return actionResponse(
+    action,
+    false,
+    processRunning
+      ? `BettaFish 进程已启动，但 /api/status 在等待时间内不可达：${readiness.message}`
+      : "BettaFish 启动失败：进程已退出",
+    {
+      target: command,
+      output: localBettaFishOutput.slice(-40),
+      result: { statusProbe: readiness.message }
+    }
+  );
 }
 
 function stopLocalBettaFish(action: string): BettaFishActionResponse {
@@ -680,14 +928,31 @@ function stopLocalBettaFish(action: string): BettaFishActionResponse {
   return actionResponse(action, true, "已停止 BettaFish 本地进程", { output: localBettaFishOutput.slice(-20) });
 }
 
-function runMindSpiderCommand(action: string, args: string[], timeoutMs: number) {
+async function runMindSpiderCommand(action: string, args: string[], timeoutMs: number) {
   const script = path.join(runtimeConfig.bettaFishRepoDir, "MindSpider", "main.py");
+  const guard = await requireMindSpiderRuntime(action, script, path.join(runtimeConfig.bettaFishRepoDir, "MindSpider"));
+  if (guard) return guard;
   return runProcess(action, runtimeConfig.bettaFishPython, [script, ...args], path.join(runtimeConfig.bettaFishRepoDir, "MindSpider"), timeoutMs);
 }
 
-function runMindSpiderSchemaCommand(action: string, args: string[], timeoutMs: number) {
+async function runMindSpiderSchemaCommand(action: string, args: string[], timeoutMs: number) {
   const script = path.join(runtimeConfig.bettaFishRepoDir, "MindSpider", "schema", "db_manager.py");
+  const guard = await requireMindSpiderRuntime(action, script, path.join(runtimeConfig.bettaFishRepoDir, "MindSpider", "schema"));
+  if (guard) return guard;
   return runProcess(action, runtimeConfig.bettaFishPython, [script, ...args], path.join(runtimeConfig.bettaFishRepoDir, "MindSpider", "schema"), timeoutMs);
+}
+
+async function requireMindSpiderRuntime(action: string, script: string, cwd: string): Promise<BettaFishActionResponse | undefined> {
+  if (!runtimeConfig.bettaFishRepoDir) return actionResponse(action, false, "需要 BETTAFISH_REPO_DIR");
+  if (!await pathExists(path.join(runtimeConfig.bettaFishRepoDir, "MindSpider", "main.py"))) {
+    return actionResponse(action, false, "需要可用的 MindSpider 目录", { target: path.join(runtimeConfig.bettaFishRepoDir, "MindSpider") });
+  }
+  if (!await pathExists(script) || !await pathExists(cwd)) {
+    return actionResponse(action, false, "需要可用的 MindSpider 目录", { target: script });
+  }
+  const python = inspectCommand(runtimeConfig.bettaFishPython, ["--version"]);
+  if (!python.ok) return actionResponse(action, false, `需要可用的 ${runtimeConfig.bettaFishPython}`, { target: runtimeConfig.bettaFishPython });
+  return undefined;
 }
 
 async function runSentimentAnalysis(action: string, text: string) {
@@ -699,8 +964,12 @@ async function runSentimentAnalysis(action: string, text: string) {
     });
   }
 
-  const query = `请作为舆情语义判定器，输出情绪、风险等级、主题、依据和建议。待分析文本：${text}`;
-  return proxyBettaFish(action, "/api/search", { method: "POST", body: { query }, timeoutMs: 25_000 });
+  return actionResponse(
+    action,
+    false,
+    "需要 BETTAFISH_SENTIMENT_COMMAND；Agent 搜索/分析请使用上方 Agent 按钮单独验证",
+    { result: { sampleText: text.slice(0, 120) } }
+  );
 }
 
 function runDeployCommand(action: string) {
@@ -978,6 +1247,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function inferSuccess(result: unknown) {
   if (!isRecord(result)) return true;
+  if (isAlreadyRunningResult(result)) return true;
   const message = typeof result.message === "string" ? result.message : "";
   if (/(失败|异常|错误|failed|error|forbidden)/i.test(message)) return false;
   if (isRecord(result.results)) {
