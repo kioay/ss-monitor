@@ -2,7 +2,7 @@
 
 Last audited: 2026-06-10 Asia/Hong_Kong
 
-Latest full verifier run: `2026-06-09T22:19:59.373Z` with `--full-actions`
+Latest full verifier run: `2026-06-09T22:33:23.115Z` with `--full-actions`
 
 Latest credential dry-run: `2026-06-09T22:28:10.070Z`
 
@@ -30,7 +30,7 @@ Current completion status: blocked by missing upstream-required credentials and 
 | ReportEngine initialized and ready | `npm run verify:bettafish-production -- --full-actions` | Fail: `initialized=false`, `engines_ready=false` |
 | Report generation works | `npm run verify:bettafish-production -- --full-actions` | Fail: `ReportEngine` missing LLM API key |
 | Full BettaFish system start works | `npm run verify:bettafish-production -- --full-actions` | Fail: system start returns failed because ReportEngine is not initialized |
-| Public HTTPS route is valid | `curl.exe https://ss-monitor.qinoay.top/`; public SSH permission probe | Fail: certificate principal mismatch for `ss-monitor.qinoay.top`; public user `yq` is not in sudoers; `/etc/nginx/nginx.conf` is `root:root` and only defines `ss-monitor.qinoay.top` on HTTP 80; `/etc/letsencrypt/live/ss-monitor.qinoay.top` is absent |
+| Public HTTPS route is valid | `npm run verify:bettafish-production -- --full-actions`; `curl.exe https://ss-monitor.qinoay.top/`; public SSH permission probe | Fail: certificate principal mismatch for `ss-monitor.qinoay.top`; verifier now reports `public.web.https.nginx.access` as `sudo_n=no`, `public.web.https.nginx.config` as `http=present https=missing`, and `public.web.https.certdir` as missing |
 
 ## Required Credentials
 
@@ -93,7 +93,7 @@ The apply helper sends credential payloads over SSH stdin, not in the remote com
 
 ## Notes
 
-- HTTPS repair requires root, sudo, or access to the external TLS/443 proxy on the public host. The current `yq` account is not in sudoers, and the nginx master process runs as root from `/usr/sbin/nginx -c /etc/nginx/nginx.conf`.
+- HTTPS repair requires root, sudo, or access to the external TLS/443 proxy on the public host. The verifier checks this explicitly through `public.web.https.nginx.access`, `public.web.https.nginx.config`, and `public.web.https.certdir`.
 - `scripts/ss-monitor.nginx.conf` includes an optional 443 block for `ss-monitor.qinoay.top`, but it must be enabled only after a valid certificate exists and by someone with root/admin access to nginx.
 - Public `curl -k https://ss-monitor.qinoay.top/` reaches an nginx default page over 443, while verified TLS fails because the served certificate is for `yaoqian7777.qinoay.top`, not `ss-monitor.qinoay.top`.
 - Local credential discovery found only process-level and user-level `OPENAI_API_KEY`; no non-empty Tavily, Bocha, Anspire, or BettaFish engine keys were found in the project credential file, local project env files, Windows environment variables, MCP resources, or production env files.

@@ -66,6 +66,7 @@ async function main() {
   }
 
   await probePublicWebsite(includeHttpsCheck);
+  await probePublicHttpsServerState(targets, includeHttpsCheck);
   await probePublicBrowserAcceptance(targets);
 
   console.log(JSON.stringify({ generatedAt: new Date().toISOString(), fullActions, checks }, null, 2));
@@ -249,6 +250,57 @@ async function probePublicWebsite(checkHttps: boolean) {
   );
 }
 
+async function probePublicHttpsServerState(targets: HostTarget[], checkHttps: boolean) {
+  if (!checkHttps) {
+    addCheck("public.web.https.server", "skip", "--skip-https");
+    return;
+  }
+  const publicTarget = targets.find((target) => target.name === "public");
+  if (!publicTarget) {
+    addCheck("public.web.https.server", "skip", "public SSH target unavailable");
+    return;
+  }
+
+  const command = [
+    "nginx_conf=/etc/nginx/nginx.conf",
+    "cert_dir=/etc/letsencrypt/live/ss-monitor.qinoay.top",
+    "printf 'sudo_n='; if sudo -n true >/dev/null 2>&1; then echo yes; else echo no; fi",
+    "printf 'nginx_conf_readable='; if test -r \"$nginx_conf\"; then echo yes; else echo no; fi",
+    "printf 'nginx_conf_writable='; if test -w \"$nginx_conf\"; then echo yes; else echo no; fi",
+    "printf 'nginx_conf_owner='; if test -e \"$nginx_conf\"; then ls -ld \"$nginx_conf\" | awk '{print $1\":\"$3\":\"$4}'; else echo missing; fi",
+    "printf 'cert_dir='; if test -d \"$cert_dir\"; then echo present; else echo missing; fi",
+    "printf 'server_http='; if grep -Eq 'server_name[[:space:]]+ss-monitor[.]qinoay[.]top' \"$nginx_conf\" 2>/dev/null; then echo present; else echo missing; fi",
+    "printf 'server_https='; if awk 'BEGIN{in_server=0; hit_name=0; hit_443=0; found=0} /server[[:space:]]*\\{/ {in_server=1; hit_name=0; hit_443=0} in_server && /server_name[[:space:]]+ss-monitor[.]qinoay[.]top/ {hit_name=1} in_server && /listen[[:space:]].*443/ {hit_443=1} in_server && /\\}/ {if(hit_name && hit_443){found=1}; in_server=0} END{exit found ? 0 : 1}' \"$nginx_conf\" 2>/dev/null; then echo present; else echo missing; fi"
+  ].join("\n");
+  const result = await sshExec(publicTarget, command, 30_000);
+  if (result.code !== 0) {
+    addCheck("public.web.https.server", "fail", result.stderr || result.stdout || `exit ${result.code}`);
+    return;
+  }
+
+  const facts = parseKeyValueLines(result.stdout);
+  const accessDetail = [
+    `sudo_n=${facts.sudo_n || "unknown"}`,
+    `conf_owner=${facts.nginx_conf_owner || "unknown"}`,
+    `conf_writable=${facts.nginx_conf_writable || "unknown"}`
+  ].join(" ");
+  addCheck(
+    "public.web.https.nginx.access",
+    facts.sudo_n === "yes" ? "pass" : "fail",
+    accessDetail
+  );
+  addCheck(
+    "public.web.https.nginx.config",
+    facts.server_https === "present" ? "pass" : "fail",
+    `http=${facts.server_http || "unknown"} https=${facts.server_https || "unknown"} readable=${facts.nginx_conf_readable || "unknown"}`
+  );
+  addCheck(
+    "public.web.https.certdir",
+    facts.cert_dir === "present" ? "pass" : "fail",
+    `/etc/letsencrypt/live/ss-monitor.qinoay.top=${facts.cert_dir || "unknown"}`
+  );
+}
+
 async function probePublicBrowserAcceptance(targets: HostTarget[]) {
   const target = targets.find((candidate) => candidate.name === "inner") || targets[0];
   if (!target) {
@@ -394,6 +446,15 @@ function errorMessageWithCause(error: unknown) {
 
 function compact(value: string) {
   return value.replace(/\s+/g, " ").trim().slice(0, 500);
+}
+
+function parseKeyValueLines(output: string) {
+  const values: Record<string, string> = {};
+  for (const line of output.split(/\r?\n/)) {
+    const match = line.match(/^([A-Za-z0-9_.-]+)=(.*)$/);
+    if (match) values[match[1]] = match[2].trim();
+  }
+  return values;
 }
 
 function sshExec(target: HostTarget, command: string, timeoutMs: number) {
