@@ -16,6 +16,7 @@
     "sync:confluence": "tsx scripts/sync-current-version-focus.ts",
     "sync:bettafish-semantic": "tsx scripts/sync-bettafish-semantic.ts",
     "sync:bettafish-full": "tsx scripts/sync-bettafish-full.ts",
+    "douyin:server-login": "tsx scripts/douyin-server-login.ts",
     "douyin:prepare-local-export": "tsx scripts/prepare-local-douyin-export.ts"
   },
   "dependencies": {
