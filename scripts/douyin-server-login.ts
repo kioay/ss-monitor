@@ -43,12 +43,24 @@ const client = await connectSsh();
 try {
   switch (command) {
     case "start":
+      throw new Error("QR login is disabled for this flow because Douyin labels it unexpectedly. Use: npm run douyin:server-login -- start-phone <phone-number>");
+    case "start-qr":
       await uploadHelpers(client);
-      await startLogin(client);
+      await startLogin(client, { loginType: "qrcode" });
       await waitForQr(client);
       await downloadFile(client, qrRemotePath, localQrPath);
       console.log(JSON.stringify({ started: true, qrRemotePath, localQrPath }, null, 2));
       break;
+    case "start-phone": {
+      const phone = process.argv[3] || process.env.DOUYIN_SERVER_PHONE || "";
+      if (!/^\d{8,15}$/.test(phone)) throw new Error("Usage: npm run douyin:server-login -- start-phone <phone-number>");
+      await uploadHelpers(client);
+      await startLogin(client, { loginType: "phone", phone });
+      await waitForPhoneSms(client);
+      await downloadLatestScreenshot(client);
+      await printStatus(client);
+      break;
+    }
     case "click-sms":
       await uploadHelpers(client);
       await runRemote(client, `${pythonPath} ${shellQuote(`${runtimeDir}/server-douyin-auto-sms.py`)}`, {
@@ -82,7 +94,7 @@ try {
       await printStatus(client);
       break;
     default:
-      throw new Error("Usage: npm run douyin:server-login -- <start|click-sms|submit-code|screenshot|status>");
+      throw new Error("Usage: npm run douyin:server-login -- <start-phone|submit-code|screenshot|status> (legacy QR: start-qr)");
   }
 } finally {
   client.end();
@@ -114,7 +126,7 @@ async function uploadHelpers(ssh: Client) {
   await exec(ssh, `bash -lc ${shellQuote(`chown ${shellQuote(runUser)}:${shellQuote(runUser)} ${shellQuote(runtimeDir)}/server-douyin-*.py`)}`);
 }
 
-async function startLogin(ssh: Client) {
+async function startLogin(ssh: Client, options: { loginType: "qrcode" | "phone"; phone?: string }) {
   const keywords = (process.env.DOUYIN_SERVER_KEYWORDS || defaultKeywords().join(","))
     .split(",")
     .map((entry) => entry.trim())
@@ -142,6 +154,8 @@ async function startLogin(ssh: Client) {
     `export PLAYWRIGHT_BROWSERS_PATH=${shellQuote(`${remoteRoot}/playwright-browsers`)}`,
     `export SERVER_DOUYIN_CUSTOM_BROWSER=${shellQuote(browserPath)}`,
     `export SERVER_DOUYIN_KEYWORDS_B64=${shellQuote(keywordsB64)}`,
+    `export SERVER_DOUYIN_LOGIN_TYPE=${shellQuote(options.loginType)}`,
+    `export SERVER_DOUYIN_LOGIN_PHONE=${shellQuote(options.phone || "")}`,
     `export SERVER_DOUYIN_QR_PATH=${shellQuote(qrRemotePath)}`,
     "export PYTHONUNBUFFERED=1",
     `nohup setsid xvfb-run -a -s ${shellQuote("-screen 0 1920x1080x24")} ${shellQuote(pythonPath)} ${shellQuote(`${runtimeDir}/server-douyin-login.py`)} > ${shellQuote(loginLogPath)} 2>&1 < /dev/null & echo LOGIN_PID:$!`
@@ -149,6 +163,8 @@ async function startLogin(ssh: Client) {
   const login = await exec(ssh, `runuser -u ${shellQuote(runUser)} -- /bin/bash -lc ${shellQuote(loginCmd)}`, { timeoutMs: 10_000 });
   process.stdout.write(login.stdout);
   process.stderr.write(login.stderr);
+
+  if (options.loginType !== "qrcode") return;
 
   const watcherCmd = [
     `cd ${shellQuote(mediaCrawlerDir)}`,
@@ -174,6 +190,22 @@ async function waitForQr(ssh: Client) {
   process.stdout.write(result.stdout);
   process.stderr.write(result.stderr);
   if (result.code !== 0) throw new Error("QR code was not generated before timeout.");
+}
+
+async function waitForPhoneSms(ssh: Client) {
+  const check = [
+    `for i in $(seq 1 60); do`,
+    `  if grep -q 'SERVER_DOUYIN_PHONE_SMS_SENT' ${shellQuote(loginLogPath)}; then tail -n 80 ${shellQuote(loginLogPath)}; exit 0; fi`,
+    `  if grep -q 'SERVER_DOUYIN_PHONE_SMS_FAILED' ${shellQuote(loginLogPath)}; then tail -n 120 ${shellQuote(loginLogPath)}; exit 1; fi`,
+    "  sleep 1",
+    "done",
+    `tail -n 160 ${shellQuote(loginLogPath)} || true`,
+    "exit 1"
+  ].join("\n");
+  const result = await exec(ssh, `bash -lc ${shellQuote(check)}`, { timeoutMs: 75_000 });
+  process.stdout.write(result.stdout);
+  process.stderr.write(result.stderr);
+  if (result.code !== 0) throw new Error("Phone SMS login did not reach the code entry step before timeout.");
 }
 
 async function runRemote(ssh: Client, commandLine: string, options: { env?: Record<string, string>; timeoutMs?: number } = {}) {
@@ -326,6 +358,96 @@ custom_browser = os.environ.get("SERVER_DOUYIN_CUSTOM_BROWSER", "")
 if custom_browser:
     config.CUSTOM_BROWSER_PATH = custom_browser
 
+login_type = os.environ.get("SERVER_DOUYIN_LOGIN_TYPE", "qrcode").strip() or "qrcode"
+
+if login_type == "phone":
+    from media_platform.douyin.login import DouYinLogin
+
+    async def server_login_by_mobile(self):
+        phone = os.environ.get("SERVER_DOUYIN_LOGIN_PHONE", "").strip()
+        if not phone:
+            print("SERVER_DOUYIN_PHONE_SMS_FAILED=missing-phone", flush=True)
+            sys.exit(1)
+
+        page = self.context_page
+        utils.logger.info("[ServerDouyinLogin] Begin ordinary Douyin phone-code login ...")
+        try:
+            for label in ["验证码登录", "手机号登录"]:
+                try:
+                    await page.get_by_text(label, exact=True).click(timeout=3000)
+                    await page.wait_for_timeout(500)
+                    break
+                except Exception:
+                    pass
+
+            result = await page.evaluate("""(phone) => {
+              const visible = (el) => {
+                const r = el.getBoundingClientRect();
+                const st = getComputedStyle(el);
+                return r.width > 0 && r.height > 0 && st.visibility !== 'hidden' && st.display !== 'none';
+              };
+              const scoreNode = (el) => {
+                let node = el;
+                let score = 0;
+                while (node && node !== document.body) {
+                  const text = node.innerText || node.textContent || '';
+                  if (text.includes('验证码登录')) score += 50;
+                  if (text.includes('获取验证码')) score += 40;
+                  if (text.includes('登录即代表')) score += 15;
+                  node = node.parentElement;
+                }
+                return score;
+              };
+              const phoneInputs = Array.from(document.querySelectorAll('input'))
+                .filter((el) => visible(el) && ((el.placeholder || '').includes('手机号') || el.type === 'tel'))
+                .map((el) => {
+                  const r = el.getBoundingClientRect();
+                  return { el, score: scoreNode(el), x: r.x, y: r.y, w: r.width, h: r.height, placeholder: el.placeholder || '', value: el.value || '' };
+                })
+                .filter((item) => item.placeholder.includes('手机号') || item.value === '' || item.value === '+86')
+                .sort((a, b) => b.score - a.score || b.x - a.x);
+              const phoneInput = phoneInputs.find((item) => item.placeholder.includes('手机号')) || phoneInputs[0];
+              if (!phoneInput) return { ok: false, reason: 'phone-input-not-found' };
+              const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+              phoneInput.el.focus();
+              setter.call(phoneInput.el, '');
+              phoneInput.el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'deleteContentBackward', data: null }));
+              setter.call(phoneInput.el, phone);
+              phoneInput.el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: phone }));
+              phoneInput.el.dispatchEvent(new Event('change', { bubbles: true }));
+
+              const buttons = Array.from(document.querySelectorAll('*'))
+                .filter((el) => visible(el) && (el.innerText || el.textContent || '').trim() === '获取验证码')
+                .map((el) => {
+                  const r = el.getBoundingClientRect();
+                  return { el, score: scoreNode(el), x: r.x, y: r.y, w: r.width, h: r.height, cls: String(el.className || '') };
+                })
+                .sort((a, b) => b.score - a.score || (b.w * b.h) - (a.w * a.h));
+              const button = buttons[0];
+              if (!button) return { ok: false, reason: 'send-button-not-found', phoneInput: { x: phoneInput.x, y: phoneInput.y, w: phoneInput.w, h: phoneInput.h, score: phoneInput.score } };
+              const el = button.el;
+              for (const type of ['mouseover', 'mousedown', 'mouseup', 'click']) {
+                el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+              }
+              if (typeof el.click === 'function') el.click();
+              return {
+                ok: true,
+                phoneInput: { x: phoneInput.x, y: phoneInput.y, w: phoneInput.w, h: phoneInput.h, score: phoneInput.score },
+                button: { x: button.x, y: button.y, w: button.w, h: button.h, score: button.score, cls: button.cls }
+              };
+            }""", phone)
+            print("SERVER_DOUYIN_PHONE_SMS_RESULT=" + json.dumps(result, ensure_ascii=False), flush=True)
+            if not result.get("ok"):
+                print("SERVER_DOUYIN_PHONE_SMS_FAILED=" + json.dumps(result, ensure_ascii=False), flush=True)
+                sys.exit(1)
+            await page.wait_for_timeout(2500)
+            print("SERVER_DOUYIN_PHONE_SMS_SENT=1", flush=True)
+        except Exception as exc:
+            print(f"SERVER_DOUYIN_PHONE_SMS_FAILED={exc!r}", flush=True)
+            sys.exit(1)
+
+    DouYinLogin.login_by_mobile = server_login_by_mobile
+
 keywords_b64 = os.environ.get("SERVER_DOUYIN_KEYWORDS_B64", "")
 if keywords_b64:
     keywords = ",".join(json.loads(base64.b64decode(keywords_b64).decode("utf-8")))
@@ -335,7 +457,7 @@ else:
 sys.argv = [
     "main.py",
     "--platform", "dy",
-    "--lt", "qrcode",
+    "--lt", login_type,
     "--type", "search",
     "--keywords", keywords,
     "--save_data_option", os.environ.get("SERVER_DOUYIN_SAVE_OPTION", "json"),
@@ -479,6 +601,9 @@ async def main():
               if (text.includes('\u63a5\u6536\u77ed\u4fe1\u9a8c\u8bc1\u7801')) score += 50;
               if (text.includes('\u77ed\u4fe1\u5df2\u53d1\u9001\u81f3')) score += 50;
               if (text.includes('\u65e0\u6cd5\u9a8c\u8bc1\u901a\u8fc7')) score += 25;
+              if (text.includes('\u9a8c\u8bc1\u7801\u767b\u5f55')) score += 45;
+              if (text.includes('\u83b7\u53d6\u9a8c\u8bc1\u7801')) score += 35;
+              if (text.includes('\u767b\u5f55\u5373\u4ee3\u8868')) score += 15;
               node = node.parentElement;
             }
             return score;
@@ -515,7 +640,11 @@ async def main():
             return r.width > 0 && r.height > 0 && st.visibility !== 'hidden' && st.display !== 'none';
           };
           const buttons = Array.from(document.querySelectorAll('*'))
-            .filter((el) => visible(el) && (el.innerText || el.textContent || '').trim() === '\u9a8c\u8bc1')
+            .filter((el) => {
+              if (!visible(el)) return false;
+              const text = (el.innerText || el.textContent || '').trim();
+              return text === '\u9a8c\u8bc1' || text === '\u767b\u5f55';
+            })
             .map((el) => {
               const r = el.getBoundingClientRect();
               let node = el;
@@ -525,9 +654,12 @@ async def main():
                 if (text.includes('\u63a5\u6536\u77ed\u4fe1\u9a8c\u8bc1\u7801')) score += 50;
                 if (text.includes('\u77ed\u4fe1\u5df2\u53d1\u9001\u81f3')) score += 50;
                 if (text.includes('\u65e0\u6cd5\u9a8c\u8bc1\u901a\u8fc7')) score += 25;
+                if (text.includes('\u9a8c\u8bc1\u7801\u767b\u5f55')) score += 45;
+                if (text.includes('\u83b7\u53d6\u9a8c\u8bc1\u7801')) score += 35;
+                if (text.includes('\u767b\u5f55\u5373\u4ee3\u8868')) score += 15;
                 node = node.parentElement;
               }
-              return { el, score, cls: String(el.className || ''), x: r.x, y: r.y, w: r.width, h: r.height };
+              return { el, score, text: (el.innerText || el.textContent || '').trim(), cls: String(el.className || ''), x: r.x, y: r.y, w: r.width, h: r.height };
             })
             .sort((a, b) => b.score - a.score || (b.w * b.h) - (a.w * a.h));
           const button = buttons[0];
