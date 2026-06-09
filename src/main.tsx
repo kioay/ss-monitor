@@ -8,6 +8,7 @@ import {
   ExternalLink,
   FileText,
   Filter,
+  Info,
   Plug,
   RefreshCw,
   Search,
@@ -62,6 +63,175 @@ const trendLineHeight = 19;
 const trendLineMinY = 5;
 const trendLineMaxY = 30;
 const trendLineClipHeight = 32;
+
+type LabTerm = {
+  term: string;
+  meaning: string;
+  role: string;
+};
+
+const bettaFishGlossaryGroups: Array<{ title: string; terms: LabTerm[] }> = [
+  {
+    title: "看板指标",
+    terms: [
+      {
+        term: "SS1 / SS2",
+        meaning: "分别指生死狙击 1 和生死狙击 2。",
+        role: "测试台按项目拆开看数据，避免两个游戏的舆情和关键词互相污染。"
+      },
+      {
+        term: "测试窗口",
+        meaning: "当前只统计近 24 小时、72 小时、7 天或 14 天内的数据。",
+        role: "用同一个时间口径比较采集、导入、风险和情绪结果。"
+      },
+      {
+        term: "监控条目",
+        meaning: "测试台复用正式看板采到的全部舆情条目。",
+        role: "判断当前样本量是否足够支撑后续分析。"
+      },
+      {
+        term: "导入命中",
+        meaning: "BettaFish 或 MindSpider 导出里匹配到 SS1/SS2 关键词的条目数。",
+        role: "验证外部导出是否真的能进入本平台监控链路。"
+      },
+      {
+        term: "只读端点",
+        meaning: "只检查 BettaFish 状态、日志、模板等 GET 接口。",
+        role: "确认外部服务可达，同时不触发搜索、爬虫或报告生成。"
+      },
+      {
+        term: "能力就绪",
+        meaning: "测试台覆盖的 BettaFish 集成能力中，当前可用的数量。",
+        role: "快速判断哪些能力已经能测试，哪些还缺配置。"
+      },
+      {
+        term: "来源健康",
+        meaning: "B站、贴吧、抖音、BettaFish 等来源的采集结果和异常状态。",
+        role: "定位数据少、阻塞、过期或接口失败的问题。"
+      },
+      {
+        term: "主题分布",
+        meaning: "系统从条目里识别出的主要话题及数量。",
+        role: "帮助判断舆情集中在外挂、匹配、版本、活动等哪类问题。"
+      },
+      {
+        term: "风险预警",
+        meaning: "被判为中高风险、需要优先关注的条目。",
+        role: "把可能需要人工复盘或运营跟进的内容提前拎出来。"
+      }
+    ]
+  },
+  {
+    title: "BettaFish 组件",
+    terms: [
+      {
+        term: "BettaFish URL",
+        meaning: "BettaFish Flask/API 服务的访问地址。",
+        role: "测试台通过它代理 Agent、论坛、报告和系统控制接口。"
+      },
+      {
+        term: "Repo",
+        meaning: "本机 BettaFish 代码仓库路径。",
+        role: "本地启动、MindSpider 命令和模型文件检查都依赖这个位置。"
+      },
+      {
+        term: "Query Agent",
+        meaning: "负责理解分析问题并组织检索的 Agent。",
+        role: "适合验证“问一个舆情问题，BettaFish 能否给出可读答案”。"
+      },
+      {
+        term: "Media Agent",
+        meaning: "负责处理媒体内容、来源材料和平台信息的 Agent。",
+        role: "用来补充帖子、视频、评论之外的媒体侧信息。"
+      },
+      {
+        term: "Insight Agent",
+        meaning: "负责归纳观点、提炼结论的 Agent。",
+        role: "把分散舆情整理成可复盘的观察和建议。"
+      },
+      {
+        term: "ForumEngine",
+        meaning: "BettaFish 的多 Agent 讨论引擎。",
+        role: "让多个 Agent 讨论同一问题，并通过日志观察讨论是否稳定产出。"
+      },
+      {
+        term: "ReportEngine",
+        meaning: "BettaFish 的报告生成服务。",
+        role: "用于测试专项报告、进度查询、结果读取和取消任务。"
+      },
+      {
+        term: "MindSpider",
+        meaning: "BettaFish 侧的爬虫和深度舆情采集模块。",
+        role: "测试登录态、数据库、少量关键词采集，再决定是否扩大调度。"
+      },
+      {
+        term: "情感模型 / LLM",
+        meaning: "BettaFish 本地情感模型或通过 Agent 调起的大模型判定。",
+        role: "作为本平台语义分析的辅助信号，不能单独制造高风险结论。"
+      }
+    ]
+  },
+  {
+    title: "操作与状态",
+    terms: [
+      {
+        term: "研究操作",
+        meaning: "会启动服务、搜索、爬取、生成报告或执行固定命令的测试动作。",
+        role: "默认只留在测试台使用，避免影响正式监控和钉钉日报。"
+      },
+      {
+        term: "read",
+        meaning: "只读操作，只请求状态、日志或结果。",
+        role: "适合先排查连通性，通常不会改变外部系统状态。"
+      },
+      {
+        term: "research",
+        meaning: "研究性操作，可能启动进程、发起搜索、调度爬虫或生成报告。",
+        role: "用于验证能力，但点击前要确认配置和测试范围。"
+      },
+      {
+        term: "Task ID",
+        meaning: "ReportEngine 生成报告后返回的任务编号。",
+        role: "后续查询进度、读取结果或取消任务都靠它定位同一份报告。"
+      },
+      {
+        term: "本地进程",
+        meaning: "由测试台在本机启动的 BettaFish 子进程。",
+        role: "区分“测试台启动的进程”和你手动启动的外部服务。"
+      },
+      {
+        term: "部署命令",
+        meaning: "配置好的固定 BettaFish 更新/部署脚本。",
+        role: "让测试台只能执行白名单命令，不在页面里拼接任意 shell。"
+      },
+      {
+        term: "可用 / 待完善 / 异常 / 未配置",
+        meaning: "测试台对能力、接口、配置的四类状态。",
+        role: "可用代表当前检查通过；待完善代表部分可用；异常代表失败；未配置代表缺少前置配置。"
+      },
+      {
+        term: "高风险 / 中风险 / 低风险",
+        meaning: "本平台结合情绪、主题、互动和保护语境后的风险等级。",
+        role: "指导人工复盘优先级，而不是只看 BettaFish 单一情感输出。"
+      },
+      {
+        term: "负面占比",
+        meaning: "负面条目数占总条目的比例。",
+        role: "衡量当前窗口内情绪压力，但需要和样本量、主题一起判断。"
+      }
+    ]
+  }
+];
+
+const capabilityRoleNotes: Record<string, string> = {
+  "game-monitoring": "把测试台口径和正式看板口径对齐",
+  agents: "验证外部 Agent 是否能补充检索和归纳",
+  forum: "观察多 Agent 讨论是否能沉淀稳定结论",
+  report: "测试报告生成链路和任务生命周期",
+  mindspider: "检查外部采集、登录态和数据库链路",
+  sentiment: "并排评估 BettaFish 语义输出和本平台判定",
+  runtime: "控制外部系统启动、停止和固定部署动作"
+};
 
 function monitorCacheKey(gameIds: GameId[], windowHours: number) {
   return `ss-monitor:${[...gameIds].sort().join(",")}:${windowHours}`;
@@ -564,11 +734,11 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
       <section className="lab-head">
         <div>
           <p className="eyebrow">BettaFish Lab</p>
-          <h2>测试接入分页</h2>
+          <h2>BettaFish 测试台</h2>
           <p>
             {data
-              ? `测试模式 · ${data.baseUrlConfigured ? data.baseUrl : "未配置 BettaFish Base URL"} · 监控 ${totalMonitorItems} 条 · 导入目录 ${data.importDir}`
-              : "准备读取 BettaFish 测试状态"}
+              ? `隔离测试模式 · ${data.baseUrlConfigured ? data.baseUrl : "未配置 BettaFish Base URL"} · 监控 ${totalMonitorItems} 条 · 导入目录 ${data.importDir}`
+              : "准备读取 BettaFish 测试状态，并解释指标、组件和操作的用途"}
           </p>
         </div>
         <div className="lab-actions">
@@ -581,12 +751,14 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
 
       {error ? <div className="error-strip">{error}</div> : null}
 
+      <BettaFishGlossaryPanel />
+
       <section className="metrics-grid lab-metrics">
-        <Metric label="监控条目" value={totalMonitorItems} tone="green" hint={`${totalMonitorAlerts} 条高风险`} />
-        <Metric label="导入命中" value={totalItems} tone="green" hint={`${totalRows} 行导出数据`} />
-        <Metric label="只读端点" value={`${reachableEndpoints}/${data?.endpointProbes.length ?? 0}`} tone="blue" hint="不触发搜索/爬虫/报告生成" />
-        <Metric label="能力就绪" value={`${readyCapabilities}/${data?.capabilities.length ?? 0}`} tone="gold" hint="测试层覆盖情况" />
-        <Metric label="测试窗口" value={`${data?.windowHours ?? windowHours}h`} tone="red" hint={data ? `截止 ${formatDateTime(data.freshnessCutoff)}` : "沿用看板窗口"} />
+        <Metric label="监控条目" value={totalMonitorItems} tone="green" hint={`${totalMonitorAlerts} 条高风险 · 复用主看板采集`} />
+        <Metric label="导入命中" value={totalItems} tone="green" hint={`${totalRows} 行外部导出里匹配项目关键词`} />
+        <Metric label="只读端点" value={`${reachableEndpoints}/${data?.endpointProbes.length ?? 0}`} tone="blue" hint="只检查状态，不触发搜索/爬虫/报告" />
+        <Metric label="能力就绪" value={`${readyCapabilities}/${data?.capabilities.length ?? 0}`} tone="gold" hint="已可测试的 BettaFish 能力" />
+        <Metric label="测试窗口" value={`${data?.windowHours ?? windowHours}h`} tone="red" hint={data ? `只统计 ${formatDateTime(data.freshnessCutoff)} 之后` : "沿用看板窗口"} />
       </section>
 
       {!data && loading ? <p className="empty">读取 BettaFish 测试状态...</p> : null}
@@ -600,8 +772,9 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
           <section className="lab-section">
             <div className="section-title">
               <Plug size={18} />
-              <h2>未接入能力测试</h2>
+              <h2>能力说明与测试覆盖</h2>
             </div>
+            <p className="section-note">每张卡片说明一个 BettaFish 能力：它是什么、当前在本平台怎么用、测试台能覆盖哪些检查，以及下一步该验证什么。</p>
             <div className="capability-grid">
               {data.capabilities.map((capability) => (
                 <CapabilityCard capability={capability} key={capability.id} />
@@ -614,6 +787,7 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
               <Database size={18} />
               <h2>导入解析测试</h2>
             </div>
+            <p className="section-note">这里只读取授权导出和轻量 JSON 文本，验证外部数据能否被解析、匹配项目关键词并进入统一风险分析。</p>
             <div className="import-grid">
               {data.importPreviews.map((preview) => (
                 <div className="import-preview" key={preview.gameId}>
@@ -648,6 +822,7 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
               <FileText size={18} />
               <h2>只读端点探测</h2>
             </div>
+            <p className="section-note">只读端点用于检查 BettaFish 是否在线、日志或模板是否可读，不会启动 Agent、爬虫或报告任务。</p>
             <div className="endpoint-list">
               {data.endpointProbes.map((probe) => (
                 <div className="endpoint-row" key={probe.id}>
@@ -687,6 +862,36 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
   );
 }
 
+function BettaFishGlossaryPanel() {
+  return (
+    <section className="lab-glossary" aria-labelledby="bettafish-glossary-title">
+      <div className="section-title glossary-title">
+        <Info size={18} />
+        <div>
+          <h2 id="bettafish-glossary-title">术语说明</h2>
+          <p className="section-note">先看这里再操作：测试台把 BettaFish 当作外部研究系统，每个名词都标清含义和在当前流程里的作用。</p>
+        </div>
+      </div>
+      <div className="glossary-grid">
+        {bettaFishGlossaryGroups.map((group) => (
+          <article className="glossary-group" key={group.title}>
+            <h3>{group.title}</h3>
+            <dl>
+              {group.terms.map((item) => (
+                <div key={item.term}>
+                  <dt>{item.term}</dt>
+                  <dd><b>含义</b>{item.meaning}</dd>
+                  <dd><b>作用</b>{item.role}</dd>
+                </div>
+              ))}
+            </dl>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function LabGameMonitorSection({
   monitors,
   loading,
@@ -707,6 +912,7 @@ function LabGameMonitorSection({
           {loading ? "刷新中..." : "刷新监控"}
         </button>
       </div>
+      <p className="section-note">这个区域复用正式看板的采集、语义判定、风险分类、来源健康和最新条目逻辑，只展示测试快照，不发送通知。</p>
       <div className="game-monitor-grid">
         {monitors.map((monitor) => (
           <LabGameMonitorCard monitor={monitor} key={monitor.gameId} />
@@ -737,10 +943,10 @@ function LabGameMonitorCard({ monitor }: { monitor: BettaFishGameMonitor }) {
       {response && stats ? (
         <>
           <div className="game-monitor-summary">
-            <GameMonitorStat label="总声量" value={stats.total} />
-            <GameMonitorStat label="高风险" value={stats.highRisk} />
-            <GameMonitorStat label="负面占比" value={formatPercent(stats.negativeRate)} />
-            <GameMonitorStat label="BettaFish" value={stats.bettafish} />
+            <GameMonitorStat label="总声量" value={stats.total} note="窗口内全部条目" />
+            <GameMonitorStat label="高风险" value={stats.highRisk} note="优先复盘对象" />
+            <GameMonitorStat label="负面占比" value={formatPercent(stats.negativeRate)} note="负面/总声量" />
+            <GameMonitorStat label="BettaFish" value={stats.bettafish} note="授权导入条目" />
           </div>
 
           <div className="game-monitor-subgrid">
@@ -803,11 +1009,12 @@ function LabGameMonitorCard({ monitor }: { monitor: BettaFishGameMonitor }) {
   );
 }
 
-function GameMonitorStat({ label, value }: { label: string; value: React.ReactNode }) {
+function GameMonitorStat({ label, value, note }: { label: string; value: React.ReactNode; note?: string }) {
   return (
-    <div className="game-monitor-stat">
+    <div className="game-monitor-stat" title={note}>
       <span>{label}</span>
       <strong>{value}</strong>
+      {note ? <small>{note}</small> : null}
     </div>
   );
 }
@@ -856,20 +1063,22 @@ function LabActionPanel({
         <TestTube2 size={18} />
         <h2>研究操作测试台</h2>
       </div>
+      <p className="section-note">这里的按钮用于验证 BettaFish 能力，不会进入正式监控链路；带 research 的操作可能启动服务、搜索、爬取或生成报告。</p>
 
       <div className="lab-status-strip">
-        <StatusFact label="研究操作" value={data.runtime.actionsEnabled ? "已开启" : "未开启"} tone={data.runtime.actionsEnabled ? "ok" : "warning"} />
-        <StatusFact label="BettaFish URL" value={baseUrlValue} tone={data.runtime.baseUrlConfigured ? "ok" : "skipped"} />
-        <StatusFact label="Repo" value={repoValue} tone={data.runtime.repoConfigured ? "ok" : "skipped"} />
-        <StatusFact label="Python" value={pythonValue} tone={data.runtime.pythonAvailable ? "ok" : "error"} />
-        <StatusFact label="MindSpider DB" value={mindSpiderDbValue} tone={data.mindSpider.dbDirectConfigured ? "ok" : "warning"} />
-        <StatusFact label="部署命令" value={deployValue} tone={data.runtime.deployCommandConfigured ? "ok" : "skipped"} />
-        <StatusFact label="本地进程" value={data.runtime.localProcessRunning ? "运行中" : "未运行"} tone={data.runtime.localProcessRunning ? "ok" : "skipped"} />
+        <StatusFact label="研究操作" value={data.runtime.actionsEnabled ? "已开启" : "未开启"} tone={data.runtime.actionsEnabled ? "ok" : "warning"} note="是否允许测试台执行启动、搜索、爬取和报告动作" />
+        <StatusFact label="BettaFish URL" value={baseUrlValue} tone={data.runtime.baseUrlConfigured ? "ok" : "skipped"} note="外部 BettaFish Flask/API 服务地址" />
+        <StatusFact label="Repo" value={repoValue} tone={data.runtime.repoConfigured ? "ok" : "skipped"} note="本机 BettaFish 仓库路径，本地命令依赖它" />
+        <StatusFact label="Python" value={pythonValue} tone={data.runtime.pythonAvailable ? "ok" : "error"} note="执行 BettaFish 与 MindSpider 脚本的解释器" />
+        <StatusFact label="MindSpider DB" value={mindSpiderDbValue} tone={data.mindSpider.dbDirectConfigured ? "ok" : "warning"} note="爬虫数据库直连状态，用来确认数据表可读" />
+        <StatusFact label="部署命令" value={deployValue} tone={data.runtime.deployCommandConfigured ? "ok" : "skipped"} note="预先配置的固定部署脚本，不从页面拼命令" />
+        <StatusFact label="本地进程" value={data.runtime.localProcessRunning ? "运行中" : "未运行"} tone={data.runtime.localProcessRunning ? "ok" : "skipped"} note="由测试台启动的 BettaFish 子进程状态" />
       </div>
 
       <div className="action-grid">
         <div className="action-panel">
           <h3>Query / Media / Insight Agent</h3>
+          <p className="action-panel-note">启动三个 Agent 后，可以把同一个舆情问题交给 BettaFish 检索、抽取和归纳。</p>
           <div className="mini-button-grid">
             {(["insight", "media", "query"] as const).map((name) => (
               <React.Fragment key={name}>
@@ -880,6 +1089,7 @@ function LabActionPanel({
           </div>
           <label className="lab-input">
             <span>Agent 问题</span>
+            <small>发送给 /api/search，用来验证 Agent 对真实舆情问题的回答质量。</small>
             <textarea value={agentQuery} onChange={(event) => setAgentQuery(event.target.value)} rows={3} />
           </label>
           <ActionButton operation={op("agent.search")} busy={loadingAction === "agent.search"} disabled={isBusy} onClick={() => run({ action: "agent.search", query: agentQuery })} />
@@ -887,6 +1097,7 @@ function LabActionPanel({
 
         <div className="action-panel">
           <h3>ForumEngine</h3>
+          <p className="action-panel-note">控制多 Agent 讨论引擎，并读取日志确认讨论是否产出稳定结论。</p>
           <div className="mini-button-grid three">
             <ActionButton operation={op("forum.start")} busy={loadingAction === "forum.start"} disabled={isBusy} onClick={() => run({ action: "forum.start" })} />
             <ActionButton operation={op("forum.stop")} busy={loadingAction === "forum.stop"} disabled={isBusy} onClick={() => run({ action: "forum.stop" })} />
@@ -901,13 +1112,16 @@ function LabActionPanel({
 
         <div className="action-panel">
           <h3>ReportEngine</h3>
+          <p className="action-panel-note">生成专项舆情报告，并用 Task ID 跟踪进度、读取结果或取消任务。</p>
           <label className="lab-input">
             <span>报告主题</span>
+            <small>报告生成时传给 BettaFish 的主题或分析问题。</small>
             <input value={reportQuery} onChange={(event) => setReportQuery(event.target.value)} />
           </label>
           <ActionButton operation={op("report.generate")} busy={loadingAction === "report.generate"} disabled={isBusy} onClick={() => run({ action: "report.generate", query: reportQuery })} />
           <label className="lab-input">
             <span>Task ID</span>
+            <small>生成报告后返回的任务编号，用于查询同一份报告。</small>
             <input value={reportTaskId} onChange={(event) => setReportTaskId(event.target.value)} placeholder="report_..." />
           </label>
           <div className="mini-button-grid three">
@@ -919,6 +1133,7 @@ function LabActionPanel({
 
         <div className="action-panel">
           <h3>MindSpider</h3>
+          <p className="action-panel-note">检查 BettaFish 采集模块的 CLI、数据库、登录态和少量测试爬虫调度。</p>
           <div className="mini-button-grid">
             <ActionButton operation={op("mindspider.status")} busy={loadingAction === "mindspider.status"} disabled={isBusy} onClick={() => run({ action: "mindspider.status" })} />
             <ActionButton operation={op("mindspider.dbProbe")} busy={loadingAction === "mindspider.dbProbe"} disabled={isBusy} onClick={() => run({ action: "mindspider.dbProbe" })} />
@@ -934,14 +1149,17 @@ function LabActionPanel({
           <div className="lab-inline-fields">
             <label className="lab-input">
               <span>平台</span>
+              <small>传给测试爬虫的平台缩写，例如 dy。</small>
               <input value={platformsText} onChange={(event) => setPlatformsText(event.target.value)} />
             </label>
             <label className="lab-input">
               <span>关键词</span>
+              <small>本次最多取多少个关键词。</small>
               <input type="number" min={1} max={50} value={maxKeywords} onChange={(event) => setMaxKeywords(Number(event.target.value))} />
             </label>
             <label className="lab-input">
               <span>条数</span>
+              <small>每个测试任务最多抓取多少条。</small>
               <input type="number" min={1} max={50} value={maxNotes} onChange={(event) => setMaxNotes(Number(event.target.value))} />
             </label>
           </div>
@@ -955,12 +1173,14 @@ function LabActionPanel({
 
         <div className="action-panel">
           <h3>情感模型 / LLM</h3>
+          <p className="action-panel-note">把一段文本交给 BettaFish 情感模型或 LLM，和本平台判定结果做并排校验。</p>
           <div className="candidate-list">
             <span>模型候选：{data.sentiment.modelCandidates.length}</span>
             <span>命令：{data.sentiment.commandConfigured ? "已配置" : "未配置"}</span>
           </div>
           <label className="lab-input">
             <span>待分析文本</span>
+            <small>用于测试情绪、风险和语义判断的一段样本文本。</small>
             <textarea value={sentimentText} onChange={(event) => setSentimentText(event.target.value)} rows={4} />
           </label>
           <ActionButton operation={op("sentiment.analyze")} busy={loadingAction === "sentiment.analyze"} disabled={isBusy} onClick={() => run({ action: "sentiment.analyze", text: sentimentText })} />
@@ -968,6 +1188,7 @@ function LabActionPanel({
 
         <div className="action-panel">
           <h3>自动启动 / 控制 / 部署</h3>
+          <p className="action-panel-note">验证外部 BettaFish 服务能否由测试台启动、关闭或执行固定部署命令。</p>
           <div className="mini-button-grid">
             <ActionButton operation={op("runtime.localStart")} busy={loadingAction === "runtime.localStart"} disabled={isBusy} onClick={() => run({ action: "runtime.localStart" })} />
             <ActionButton operation={op("runtime.localStop")} busy={loadingAction === "runtime.localStop"} disabled={isBusy} onClick={() => run({ action: "runtime.localStop" })} />
@@ -1003,10 +1224,13 @@ function ActionButton({
   );
 }
 
-function StatusFact({ label, value, tone }: { label: string; value: string; tone: BettaFishProbeStatus }) {
+function StatusFact({ label, value, tone, note }: { label: string; value: string; tone: BettaFishProbeStatus; note?: string }) {
   return (
-    <div className="status-fact">
-      <span>{label}</span>
+    <div className="status-fact" title={note}>
+      <div>
+        <span>{label}</span>
+        {note ? <small>{note}</small> : null}
+      </div>
       <StatusPill status={tone} label={value} />
     </div>
   );
@@ -1031,7 +1255,10 @@ function CapabilityCard({ capability }: { capability: BettaFishCapability }) {
   return (
     <article className={`capability-card ${capability.status}`}>
       <div className="capability-head">
-        <strong>{capability.name}</strong>
+        <div>
+          <strong>{capability.name}</strong>
+          <small>{capabilityRoleNotes[capability.id] || "BettaFish 测试能力"}</small>
+        </div>
         <StatusPill status={capability.status} />
       </div>
       <p>{capability.goal}</p>

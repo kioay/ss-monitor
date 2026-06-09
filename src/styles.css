@@ -359,6 +359,90 @@ h2 {
   gap: 10px;
 }
 
+.section-note {
+  max-width: 980px;
+  margin: -4px 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.lab-glossary {
+  padding: 18px 0 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.glossary-title {
+  align-items: flex-start;
+}
+
+.glossary-title .section-note {
+  margin: 3px 0 0;
+}
+
+.glossary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.glossary-group {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 253, 248, 0.96), rgba(250, 251, 246, 0.9)),
+    var(--paper);
+  box-shadow: var(--shadow-soft);
+}
+
+.glossary-group h3 {
+  margin: 0 0 10px;
+  color: var(--ink-strong);
+  font-size: 15px;
+}
+
+.glossary-group dl {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.glossary-group dl > div {
+  display: grid;
+  gap: 4px;
+  padding-top: 9px;
+  border-top: 1px solid var(--line);
+}
+
+.glossary-group dl > div:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.glossary-group dt {
+  color: var(--ink-strong);
+  font-size: 13px;
+  font-weight: 780;
+}
+
+.glossary-group dd {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 6px;
+  margin: 0;
+  color: #4b5a53;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.glossary-group dd b {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 760;
+}
+
 .lab-metrics {
   padding-bottom: 12px;
 }
@@ -461,6 +545,12 @@ h2 {
 .game-monitor-stat span {
   color: var(--muted);
   font-size: 12px;
+}
+
+.game-monitor-stat small {
+  color: var(--muted-soft);
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .game-monitor-stat strong {
@@ -610,18 +700,30 @@ h2 {
 }
 
 .status-fact {
-  min-height: 56px;
+  min-height: 72px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
   padding: 10px 12px;
 }
 
-.status-fact > span {
+.status-fact > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.status-fact span {
   color: var(--muted);
   font-size: 13px;
   font-weight: 680;
+}
+
+.status-fact small {
+  color: var(--muted-soft);
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .action-grid {
@@ -641,6 +743,12 @@ h2 {
 .action-panel h3 {
   color: var(--ink-strong);
   font-size: 16px;
+}
+
+.action-panel-note {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .mini-button-grid {
@@ -700,6 +808,13 @@ h2 {
   color: var(--muted);
   font-size: 12px;
   font-weight: 720;
+}
+
+.lab-input small {
+  margin-top: -3px;
+  color: var(--muted-soft);
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .lab-input input,
@@ -830,9 +945,21 @@ h2 {
   gap: 10px;
 }
 
+.capability-head > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
 .capability-head strong {
   min-width: 0;
   color: var(--ink-strong);
+}
+
+.capability-head small {
+  color: var(--muted-soft);
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .capability-card p {
@@ -1751,6 +1878,7 @@ button.metric:focus-visible {
 @media (max-width: 980px) {
   .metrics-grid,
   .workspace-grid,
+  .glossary-grid,
   .capability-grid,
   .game-monitor-grid,
   .import-grid,
@@ -1800,6 +1928,7 @@ button.metric:focus-visible {
   .metrics-grid,
   .workspace-grid,
   .health-row,
+  .glossary-grid,
   .capability-grid,
   .game-monitor-grid,
   .game-monitor-subgrid,
