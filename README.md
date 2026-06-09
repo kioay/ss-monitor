@@ -211,7 +211,7 @@ For production, sync only the lightweight semantic model subset instead of the f
 npm run sync:bettafish-semantic
 ```
 
-Configure `SYNC_BETTAFISH_REMOTE`, `SYNC_BETTAFISH_SSH_PORT`, `SYNC_BETTAFISH_PASSWORD`, and `SYNC_BETTAFISH_ROOT_PASSWORD` in `.env.local`. The sync uploads `utils.py`, `data/stopwords.txt`, and the selected pickle model files under `/opt/BettaFish/SentimentAnalysisModel/WeiboSentiment_MachineLearning/`; it does not upload browser profiles, cookies, crawler media, or training data. By default it installs a small Python venv at `/opt/BettaFish/.venv` with `scikit-learn==0.24.2` and `jieba==0.42.1`.
+Configure `SYNC_BETTAFISH_REMOTE`, `SYNC_BETTAFISH_SSH_PORT`, `SYNC_BETTAFISH_PASSWORD`, and `SYNC_BETTAFISH_ROOT_PASSWORD` in `.env.local`. The sync uploads `utils.py`, `data/stopwords.txt`, and the selected pickle model files under `/opt/BettaFish/SentimentAnalysisModel/WeiboSentiment_MachineLearning/`; it does not upload browser profiles, cookies, crawler media, or training data. By default it installs a small Python venv at `/opt/BettaFish/.venv` with `numpy<2`, `scipy<1.14`, `scikit-learn==0.24.2`, and `jieba==0.42.1`.
 
 The frontend also has a separate `BettaFish 测试台` tab. It keeps BettaFish outside the main monitor pipeline, but can now test every major integration surface:
 

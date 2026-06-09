@@ -26,7 +26,7 @@ const rootPassword = process.env.SYNC_BETTAFISH_ROOT_PASSWORD || sshPassword;
 const remoteRoot = normalizeRemoteRoot(process.env.SYNC_BETTAFISH_REMOTE_ROOT || "/opt/BettaFish");
 const installDeps = parseBoolean(process.env.SYNC_BETTAFISH_INSTALL_DEPS || "true");
 const models = parseModels(process.env.SYNC_BETTAFISH_MODELS || "bayes");
-const pythonPackages = (process.env.SYNC_BETTAFISH_PYTHON_PACKAGES || "scikit-learn==0.24.2 jieba==0.42.1")
+const pythonPackages = (process.env.SYNC_BETTAFISH_PYTHON_PACKAGES || "numpy<2 scipy<1.14 scikit-learn==0.24.2 jieba==0.42.1")
   .split(/\s+/)
   .map((entry) => entry.trim())
   .filter(Boolean);
