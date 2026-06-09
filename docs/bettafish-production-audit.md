@@ -36,6 +36,7 @@ Set these in `.env.local` or a separate ignored file passed as `BETTAFISH_CREDEN
 Recommended local filename: `.env.bettafish-credentials.local`, which is covered by the repository `.env.*` ignore rule.
 The apply helper auto-loads non-empty values from `.env.bettafish-credentials.local` when it exists.
 The local ignored template is present and intentionally empty as of `2026-06-09T21:41:13.892Z`; `npm run apply:bettafish-credentials -- --dry-run` correctly reports no usable credentials until real values are filled.
+Dummy dry-runs on `2026-06-09T21:44:36Z` confirmed the helper expands both supported fill paths without printing secret values: `BETTAFISH_SHARED_LLM_*` plus `BOCHA_WEB_SEARCH_API_KEY`, and `BETTAFISH_USE_OPENAI_API_KEY_AS_SHARED_LLM=1` plus `ANSPIRE_API_KEY`.
 
 ```env
 REPORT_ENGINE_API_KEY=
