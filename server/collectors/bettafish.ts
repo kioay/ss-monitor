@@ -21,7 +21,7 @@ export interface BettaFishStatus {
   message: string;
 }
 
-const sourceLabel = "BettaFish";
+const sourceLabel = "BettaFish导入";
 const textPartTypes = new Set<ContentPart["type"]>([
   "title",
   "description",

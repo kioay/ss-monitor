@@ -317,7 +317,7 @@ async function collectAll(selectedGames: GameConfig[], cutoff: Date) {
 function sourceLabel(source: SourceType) {
   if (source === "bilibili") return "B站视频";
   if (source === "douyin") return "抖音视频";
-  if (source === "bettafish") return "BettaFish";
+  if (source === "bettafish") return "BettaFish导入";
   return "百度贴吧";
 }
 

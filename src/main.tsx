@@ -98,7 +98,7 @@ const bettaFishGlossaryGroups: Array<{ title: string; terms: LabTerm[] }> = [
       },
       {
         term: "导入命中",
-        meaning: "BettaFish 或 MindSpider 导出里匹配到 SS1/SS2 关键词的条目数。",
+        meaning: "BettaFish导入或 MindSpider 导出里匹配到 SS1/SS2 关键词的条目数。",
         role: "验证外部导出是否真的能进入本平台监控链路。"
       },
       {
@@ -113,7 +113,7 @@ const bettaFishGlossaryGroups: Array<{ title: string; terms: LabTerm[] }> = [
       },
       {
         term: "来源健康",
-        meaning: "B站、贴吧、抖音、BettaFish 等来源的采集结果和异常状态。",
+        meaning: "B站、贴吧、抖音、BettaFish导入等来源的采集结果和异常状态。",
         role: "定位数据少、阻塞、过期或接口失败的问题。"
       },
       {
@@ -670,7 +670,7 @@ function App() {
             <option value="bilibili">B站</option>
             <option value="tieba">贴吧</option>
             <option value="douyin">抖音</option>
-            <option value="bettafish">BettaFish</option>
+            <option value="bettafish">BettaFish导入</option>
           </select>
           <select value={risk} onChange={(event) => setRisk(event.target.value as "all" | RiskLevel)}>
             <option value="all">全部风险</option>
@@ -1072,7 +1072,7 @@ function LabGameMonitorCard({ monitor }: { monitor: BettaFishGameMonitor }) {
             <GameMonitorStat label="总声量" value={stats.total} note="窗口内全部条目" />
             <GameMonitorStat label="高风险" value={stats.highRisk} note="优先复盘对象" />
             <GameMonitorStat label="负面占比" value={formatPercent(stats.negativeRate)} note="负面/总声量" />
-            <GameMonitorStat label="BettaFish" value={stats.bettafish} note="授权导入条目" />
+            <GameMonitorStat label="BettaFish导入" value={stats.bettafish} note="授权导出条目" />
           </div>
 
           <div className="game-monitor-subgrid">
