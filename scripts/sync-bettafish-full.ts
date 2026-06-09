@@ -27,8 +27,10 @@ const installDeps = parseBoolean(process.env.SYNC_BETTAFISH_FULL_INSTALL_DEPS ||
 const installPlaywright = parseBoolean(process.env.SYNC_BETTAFISH_FULL_INSTALL_PLAYWRIGHT || "true");
 const updateMonitorEnv = parseBoolean(process.env.SYNC_BETTAFISH_FULL_UPDATE_MONITOR_ENV || "true");
 const restartMonitor = parseBoolean(process.env.SYNC_BETTAFISH_FULL_RESTART_MONITOR || "true");
-const includeTrainingData = parseBoolean(process.env.SYNC_BETTAFISH_FULL_INCLUDE_TRAINING_DATA || "false");
+const includeTrainingData = parseBoolean(process.env.SYNC_BETTAFISH_FULL_INCLUDE_TRAINING_DATA || "true");
 const includeRuntimeState = parseBoolean(process.env.SYNC_BETTAFISH_FULL_INCLUDE_RUNTIME_STATE || "false");
+const cloneUpstream = parseBoolean(process.env.SYNC_BETTAFISH_FULL_CLONE_UPSTREAM || "true");
+const upstreamRepoUrl = process.env.SYNC_BETTAFISH_FULL_UPSTREAM_URL || "https://github.com/666ghj/BettaFish.git";
 const semanticModels = process.env.SYNC_BETTAFISH_FULL_SEMANTIC_MODELS || "svm,bayes,xgboost";
 const semanticDependencyPackages = (process.env.SYNC_BETTAFISH_FULL_SEMANTIC_DEP_PACKAGES
   || "numpy==1.26.4 scipy==1.11.4 scikit-learn==1.2.2 xgboost==2.0.3")
@@ -40,7 +42,11 @@ if (!remote) throw new Error("SYNC_BETTAFISH_FULL_REMOTE or SYNC_BETTAFISH_REMOT
 if (!sshPassword) throw new Error("SYNC_BETTAFISH_FULL_PASSWORD or SYNC_BETTAFISH_PASSWORD is required.");
 
 const target = parseRemote(remote);
-const localRevision = await resolveLocalRevision(localRepoDir);
+const localRevisionFull = await resolveLocalRevisionFull(localRepoDir);
+if (cloneUpstream && localRevisionFull === "local") {
+  throw new Error("SYNC_BETTAFISH_FULL_CLONE_UPSTREAM=true requires a Git-backed BettaFish repo.");
+}
+const localRevision = localRevisionFull.slice(0, 7);
 const releaseName = `release-${localRevision}-${timestamp()}`;
 const tempRoot = path.join(os.tmpdir(), `ss-monitor-bettafish-full-${releaseName}`);
 const stageDir = path.join(tempRoot, "stage");
@@ -86,21 +92,26 @@ const archiveExtensions = new Set([".zip", ".rar", ".7z", ".gz", ".bz2", ".xz", 
 console.log(`[bettafish-full-sync] local repo: ${localRepoDir}`);
 console.log(`[bettafish-full-sync] remote root: ${remoteRoot}`);
 console.log(`[bettafish-full-sync] release: ${releaseName}`);
+console.log(`[bettafish-full-sync] upstream clone: ${cloneUpstream ? `${upstreamRepoUrl}#${localRevisionFull}` : "disabled"}`);
 console.log(`[bettafish-full-sync] include training data: ${includeTrainingData}`);
 console.log(`[bettafish-full-sync] include runtime state: ${includeRuntimeState}`);
 
 try {
-  const summary = await createArchive(localRepoDir, stageDir, archivePath);
-  console.log(
-    `[bettafish-full-sync] archive ready: ${summary.includedFiles} files, ${formatBytes(summary.includedBytes)} included, ${summary.excludedFiles} excluded`
-  );
-  for (const [reason, count] of Object.entries(summary.excludedByReason).sort()) {
-    if (count) console.log(`[bettafish-full-sync] excluded ${reason}: ${count}`);
+  if (!cloneUpstream) {
+    const summary = await createArchive(localRepoDir, stageDir, archivePath);
+    console.log(
+      `[bettafish-full-sync] archive ready: ${summary.includedFiles} files, ${formatBytes(summary.includedBytes)} included, ${summary.excludedFiles} excluded`
+    );
+    for (const [reason, count] of Object.entries(summary.excludedByReason).sort()) {
+      if (count) console.log(`[bettafish-full-sync] excluded ${reason}: ${count}`);
+    }
   }
 
   const client = await withTimeout(connectSsh(target, sshPort, sshPassword), 20_000, "SSH connection timed out");
   try {
-    await withTimeout(uploadFile(client, archivePath, remoteArchive), 10 * 60_000, "SFTP upload timed out");
+    if (!cloneUpstream) {
+      await withTimeout(uploadFile(client, archivePath, remoteArchive), 10 * 60_000, "SFTP upload timed out");
+    }
     await withTimeout(installRemoteRelease(client), 45 * 60_000, "remote full BettaFish install timed out");
   } finally {
     client.end();
@@ -112,7 +123,9 @@ try {
         synced: true,
         remoteRoot,
         releaseName,
-        localRevision,
+        localRevision: localRevisionFull,
+        cloneUpstream,
+        upstreamRepoUrl,
         installDeps,
         installPlaywright,
         updateMonitorEnv,
@@ -176,7 +189,7 @@ function exclusionReason(relPath: string, isDirectory: boolean) {
   const basename = segments[segments.length - 1];
   const first = segments[0];
 
-  if (basename === ".git" || segments.includes(".git") || first === ".github") return "vcs";
+  if (basename === ".git" || segments.includes(".git")) return "vcs";
   if (segments.some((segment) => runtimeCacheDirs.has(segment))) return "cache";
   if (basename === ".env" || /^\.env\.(?!example$)/.test(basename)) return "secret";
   if (secretFileNames.has(basename) || secretExtensions.has(path.extname(basename).toLowerCase())) return "secret";
@@ -210,6 +223,9 @@ set -euo pipefail
 remote_root=${shellQuote(remoteRoot)}
 release_name=${shellQuote(releaseName)}
 archive=${shellQuote(remoteArchive)}
+clone_upstream=${cloneUpstream ? "1" : "0"}
+upstream_repo_url=${shellQuote(upstreamRepoUrl)}
+target_revision=${shellQuote(localRevisionFull)}
 install_deps=${installDeps ? "1" : "0"}
 install_playwright=${installPlaywright ? "1" : "0"}
 update_monitor_env=${updateMonitorEnv ? "1" : "0"}
@@ -225,9 +241,9 @@ playwright_browsers_path="$remote_root/playwright-browsers"
 if ! id yq >/dev/null 2>&1; then useradd -m -s /bin/bash yq; fi
 
 if command -v dnf >/dev/null 2>&1; then
-  dnf -y install python3.11 python3.11-pip python3.11-devel python3 python3-pip python3-devel gcc gcc-c++ make tar gzip libffi-devel openssl-devel zlib-devel bzip2-devel xz-devel sqlite-devel cairo pango gdk-pixbuf2 libjpeg-turbo-devel freetype-devel mesa-libGL libXext libXrender fontconfig >/dev/null
+  dnf -y install git python3.11 python3.11-pip python3.11-devel python3 python3-pip python3-devel gcc gcc-c++ make tar gzip libffi-devel openssl-devel zlib-devel bzip2-devel xz-devel sqlite-devel cairo pango gdk-pixbuf2 libjpeg-turbo-devel freetype-devel mesa-libGL libXext libXrender fontconfig >/dev/null
 elif command -v yum >/dev/null 2>&1; then
-  yum -y install python3.11 python3.11-pip python3.11-devel python3 python3-pip python3-devel gcc gcc-c++ make tar gzip libffi-devel openssl-devel zlib-devel bzip2-devel xz-devel sqlite-devel cairo pango gdk-pixbuf2 libjpeg-turbo-devel freetype-devel mesa-libGL libXext libXrender fontconfig >/dev/null || yum -y install python3 python3-pip python3-devel gcc gcc-c++ make tar gzip libffi-devel openssl-devel zlib-devel bzip2-devel xz-devel sqlite-devel cairo pango gdk-pixbuf2 libjpeg-turbo-devel freetype-devel mesa-libGL libXext libXrender fontconfig >/dev/null
+  yum -y install git python3.11 python3.11-pip python3.11-devel python3 python3-pip python3-devel gcc gcc-c++ make tar gzip libffi-devel openssl-devel zlib-devel bzip2-devel xz-devel sqlite-devel cairo pango gdk-pixbuf2 libjpeg-turbo-devel freetype-devel mesa-libGL libXext libXrender fontconfig >/dev/null || yum -y install git python3 python3-pip python3-devel gcc gcc-c++ make tar gzip libffi-devel openssl-devel zlib-devel bzip2-devel xz-devel sqlite-devel cairo pango gdk-pixbuf2 libjpeg-turbo-devel freetype-devel mesa-libGL libXext libXrender fontconfig >/dev/null
 fi
 python_cmd="$(command -v python3.11 || command -v python3)"
 if [ -z "$python_cmd" ]; then
@@ -237,8 +253,19 @@ fi
 
 mkdir -p "$remote_root/releases" "$runtime_root" "$playwright_browsers_path" "$runtime_root/logs" "$runtime_root/final_reports" "$runtime_root/insight_engine_streamlit_reports" "$runtime_root/media_engine_streamlit_reports" "$runtime_root/query_engine_streamlit_reports" "$runtime_root/mediacrawler-data" "$runtime_root/mediacrawler-browser_data" "$runtime_root/mediacrawler-temp_image"
 rm -rf "$release_dir"
-mkdir -p "$release_dir"
-tar -xzf "$archive" -C "$release_dir"
+if [ "$clone_upstream" = "1" ]; then
+  if ! command -v git >/dev/null 2>&1; then
+    echo "git is required for full upstream clone mode" >&2
+    exit 1
+  fi
+  git clone --recurse-submodules "$upstream_repo_url" "$release_dir"
+  git -C "$release_dir" fetch origin "$target_revision"
+  git -C "$release_dir" checkout --detach "$target_revision"
+  git -C "$release_dir" submodule update --init --recursive
+else
+  mkdir -p "$release_dir"
+  tar -xzf "$archive" -C "$release_dir"
+fi
 
 set_env_file() {
   file="$1"; key="$2"; value="$3"; tmp="$file.tmp.$$"
@@ -277,11 +304,7 @@ link_runtime_dir() {
   mkdir -p "$source" "$(dirname "$target")"
   ln -sfn "$source" "$target"
 }
-link_runtime_dir "$release_dir/logs" "$runtime_root/logs"
-link_runtime_dir "$release_dir/final_reports" "$runtime_root/final_reports"
-link_runtime_dir "$release_dir/insight_engine_streamlit_reports" "$runtime_root/insight_engine_streamlit_reports"
-link_runtime_dir "$release_dir/media_engine_streamlit_reports" "$runtime_root/media_engine_streamlit_reports"
-link_runtime_dir "$release_dir/query_engine_streamlit_reports" "$runtime_root/query_engine_streamlit_reports"
+mkdir -p "$release_dir/logs" "$release_dir/final_reports" "$release_dir/insight_engine_streamlit_reports" "$release_dir/media_engine_streamlit_reports" "$release_dir/query_engine_streamlit_reports"
 link_runtime_dir "$release_dir/MindSpider/DeepSentimentCrawling/MediaCrawler/data" "$runtime_root/mediacrawler-data"
 link_runtime_dir "$release_dir/MindSpider/DeepSentimentCrawling/MediaCrawler/browser_data" "$runtime_root/mediacrawler-browser_data"
 link_runtime_dir "$release_dir/MindSpider/DeepSentimentCrawling/MediaCrawler/temp_image" "$runtime_root/mediacrawler-temp_image"
@@ -293,7 +316,8 @@ if [ ! -x "$venv/bin/python" ]; then
   "$python_cmd" -m venv "$venv"
 fi
 if [ "$install_deps" = "1" ]; then
-  "$venv/bin/python" -m pip install --upgrade pip setuptools wheel
+  "$venv/bin/python" -m pip install --upgrade pip
+  "$venv/bin/python" -m pip install "setuptools<82" "wheel==0.45.1" "packaging==23.2"
   "$venv/bin/python" -m pip install -r "$release_dir/requirements.txt"
   "$venv/bin/python" -m pip install -r "$release_dir/MindSpider/requirements.txt"
   "$venv/bin/python" -m pip install -r "$release_dir/MindSpider/DeepSentimentCrawling/MediaCrawler/requirements.txt"
@@ -301,19 +325,42 @@ if [ "$install_deps" = "1" ]; then
     read -r -a semantic_dep_package_array <<< "$semantic_dep_packages"
     "$venv/bin/python" -m pip install "\${semantic_dep_package_array[@]}"
   fi
+  "$venv/bin/python" -m pip install "setuptools<82" "wheel==0.45.1" "packaging==23.2"
 fi
 if [ "$install_playwright" = "1" ]; then
   PLAYWRIGHT_BROWSERS_PATH="$playwright_browsers_path" "$venv/bin/python" -m playwright install chromium
 fi
 
 install -m 0640 -o root -g yq "$env_file" "$release_dir/.env"
-chown -R root:yq "$release_dir"
-chown -R root:yq "$playwright_browsers_path"
+chown -R yq:yq "$release_dir"
+chown -R yq:yq "$playwright_browsers_path"
 chown -R yq:yq "$runtime_root"
 find "$release_dir" -type d -exec chmod 0755 {} +
 find "$release_dir" -type f -exec chmod a+r {} +
 find "$playwright_browsers_path" -type d -exec chmod 0755 {} + 2>/dev/null || true
 find "$playwright_browsers_path" -type f -exec chmod a+r {} + 2>/dev/null || true
+for writable_dir in \
+  "$release_dir/logs" \
+  "$release_dir/final_reports" \
+  "$release_dir/insight_engine_streamlit_reports" \
+  "$release_dir/media_engine_streamlit_reports" \
+  "$release_dir/query_engine_streamlit_reports" \
+  "$release_dir/agent_zone" \
+  "$release_dir/debug_tools" \
+  "$release_dir/wordcloud_temp" \
+  "$release_dir/test_output" \
+  "$release_dir/test_results" \
+  "$release_dir/temp" \
+  "$release_dir/tmp" \
+  "$release_dir/MindSpider/DeepSentimentCrawling/MediaCrawler/data" \
+  "$release_dir/MindSpider/DeepSentimentCrawling/MediaCrawler/browser_data" \
+  "$release_dir/MindSpider/DeepSentimentCrawling/MediaCrawler/temp_image"; do
+  mkdir -p "$writable_dir"
+  resolved_dir="$(readlink -f "$writable_dir" || printf '%s' "$writable_dir")"
+  chown -R yq:yq "$resolved_dir"
+  chmod -R u+rwX,go+rX "$resolved_dir"
+done
+chown root:yq "$release_dir/.env" "$env_file" 2>/dev/null || true
 chmod 0640 "$release_dir/.env" "$env_file" 2>/dev/null || true
 
 ln -sfn "releases/$release_name" "$remote_root/current.tmp"
@@ -367,6 +414,20 @@ if [ "$restart_monitor" = "1" ] && systemctl list-unit-files ss-monitor.service 
 fi
 sleep 5
 systemctl --no-pager --full status bettafish-full | sed -n '1,18p'
+if [ -d "$release_dir/.git" ]; then
+  git config --global --add safe.directory "$release_dir" || true
+  git config --global --add safe.directory "$release_dir/MindSpider/DeepSentimentCrawling/MediaCrawler" || true
+  printf '\\nBETTAFISH_GIT_HEAD='
+  git -C "$release_dir" rev-parse HEAD
+  printf 'BETTAFISH_GIT_STATUS_BEGIN\\n'
+  git -C "$release_dir" -c core.quotepath=false status --short --untracked-files=no --ignore-submodules=dirty
+  printf 'BETTAFISH_GIT_STATUS_END\\n'
+  printf 'BETTAFISH_SUBMODULES_BEGIN\\n'
+  git -C "$release_dir" -c core.quotepath=false submodule status --recursive
+  printf 'BETTAFISH_SUBMODULES_END\\n'
+fi
+printf '\\nBETTAFISH_PIP_CHECK='
+"$venv/bin/python" -m pip check
 printf '\\nBETTAFISH_STATUS='
 curl -fsS http://127.0.0.1:5000/api/status
 printf '\\n'
@@ -400,9 +461,9 @@ function isBettaFishRepo(candidate: string) {
   return existsSync(path.join(candidate, "app.py")) && existsSync(path.join(candidate, "MindSpider", "main.py"));
 }
 
-async function resolveLocalRevision(repoDir: string) {
+async function resolveLocalRevisionFull(repoDir: string) {
   try {
-    const result = await runLocalCapture("git", ["-C", repoDir, "rev-parse", "--short", "HEAD"]);
+    const result = await runLocalCapture("git", ["-C", repoDir, "rev-parse", "HEAD"]);
     return result.trim() || "local";
   } catch {
     return "local";

@@ -30,7 +30,7 @@ const bettaFishRuntimeRepoDetected = Boolean(detectedBettaFishRepoDir && isBetta
 const bettaFishRepoAutoDetected = Boolean(bettaFishRuntimeRepoDetected && !process.env.BETTAFISH_REPO_DIR);
 const bettaFishPython = process.env.BETTAFISH_PYTHON || detectBettaFishPython(detectedBettaFishRepoDir) || detectPythonCommand();
 const bettaFishStartCommand = process.env.BETTAFISH_START_COMMAND || (bettaFishRuntimeRepoDetected ? `${quoteShell(bettaFishPython)} app.py` : "");
-const bettaFishDeployCommand = process.env.BETTAFISH_DEPLOY_COMMAND || (bettaFishRuntimeRepoDetected ? "git pull --ff-only" : "");
+const bettaFishDeployCommand = process.env.BETTAFISH_DEPLOY_COMMAND || (bettaFishRuntimeRepoDetected ? "git pull --ff-only && git submodule update --init --recursive" : "");
 const bettaFishBaseUrl = normalizeOptionalBaseUrl(process.env.BETTAFISH_BASE_URL || (bettaFishRuntimeRepoDetected ? "http://127.0.0.1:5000" : ""));
 const mindSpiderDouyinImportDir = process.env.MINDSPIDER_DOUYIN_IMPORT_DIR
   || process.env.MINDSPIDER_IMPORT_DIR
