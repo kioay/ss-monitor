@@ -126,7 +126,7 @@ export async function getBettaFishLabResponse(rawQuery: unknown): Promise<BettaF
   ]);
 
   const runtime = makeRuntimeStatus();
-  const operations = makeOperations(runtime, mindSpider, sentiment);
+  const operations = makeOperations(runtime, mindSpider, sentiment, endpointProbes);
   const capabilities = makeCapabilities(gameMonitors, importPreviews, endpointProbes, nativeStatus, runtime, mindSpider, sentiment);
   return {
     generatedAt: generatedAt.toISOString(),
@@ -419,7 +419,8 @@ function makeRuntimeStatus(): BettaFishRuntimeStatus {
 function makeOperations(
   runtime: BettaFishRuntimeStatus,
   mindSpider: BettaFishMindSpiderStatus,
-  sentiment: BettaFishSentimentStatus
+  sentiment: BettaFishSentimentStatus,
+  endpointProbes: BettaFishEndpointProbe[]
 ): BettaFishOperation[] {
   const baseUrlReason = runtime.baseUrlConfigured ? "" : "需要 BETTAFISH_BASE_URL";
   const repoReason = runtime.repoConfigured ? "" : "需要 BETTAFISH_REPO_DIR";
@@ -434,6 +435,10 @@ function makeOperations(
   const localStartEnabled = runtime.actionsEnabled && runtime.repoConfigured && runtime.pythonAvailable && runtime.startCommandConfigured;
   const deployEnabled = runtime.actionsEnabled && runtime.repoConfigured && runtime.deployCommandConfigured;
   const sentimentEnabled = runtime.actionsEnabled && (runtime.sentimentCommandConfigured || runtime.baseUrlConfigured);
+  const statusProbe = endpointProbes.find((probe) => probe.id === "status");
+  const runningAgents = runningAgentNames(statusProbe?.message || "");
+  const agentSearchEnabled = httpEnabled && runningAgents.length > 0;
+  const agentSearchReason = runningAgents.length ? "" : "需要先启动至少一个 Agent";
   const operations: BettaFishOperation[] = [];
 
   for (const appName of appNames) {
@@ -442,7 +447,7 @@ function makeOperations(
   }
 
   operations.push(
-    operation("agent.search", "agents", "Agent 搜索/分析", "调用 BettaFish /api/search，让运行中的 Query/Media/Insight Agent 处理同一个问题", "research", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/search"),
+    operation("agent.search", "agents", "Agent 搜索/分析", "调用 BettaFish /api/search，让运行中的 Query/Media/Insight Agent 处理同一个问题", "research", agentSearchEnabled, disabledReason(actionsReason, baseUrlReason, agentSearchReason), "/api/search"),
     operation("forum.start", "forum", "启动 ForumEngine", "调用 BettaFish /api/forum/start", "research", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/forum/start"),
     operation("forum.stop", "forum", "停止 ForumEngine", "调用 BettaFish /api/forum/stop", "research", httpEnabled, disabledReason(actionsReason, baseUrlReason), "/api/forum/stop"),
     operation("forum.log", "forum", "读取 ForumEngine 日志", "调用 BettaFish /api/forum/log", "read", httpReadEnabled, disabledReason(actionsReason, baseUrlReason), "/api/forum/log"),
@@ -476,6 +481,14 @@ function operation(
   target?: string
 ): BettaFishOperation {
   return { id, group, label, description, safety, enabled, ...(disabledReason && !enabled ? { disabledReason } : {}), ...(target ? { target } : {}) };
+}
+
+function runningAgentNames(statusMessage: string) {
+  const lower = statusMessage.toLowerCase();
+  return appNames.filter((name) => {
+    const match = lower.match(new RegExp(`${name}\\s*:\\s*([a-z_]+)`));
+    return match?.[1] === "running";
+  });
 }
 
 function makeCapabilities(

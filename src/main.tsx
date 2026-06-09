@@ -1213,6 +1213,10 @@ function LabActionPanel({
   const sentimentOperationIds = ["sentiment.analyze"];
   const runtimeOperationIds = ["runtime.localStart", "runtime.localStop", "runtime.systemStart", "runtime.systemShutdown", "runtime.deploy"];
   const opsById = (ids: string[]) => ids.map(op);
+  const statusProbeMessage = data.endpointProbes.find((probe) => probe.id === "status")?.message || "";
+  const runningAgents = runningAgentNamesFromStatus(statusProbeMessage);
+  const agentSearchReady = runningAgents.length > 0;
+  const agentActionResult = actionResult && (actionResult.action === "agent.search" || actionResult.action.startsWith("agent.")) ? actionResult : undefined;
 
   return (
     <section className="lab-section action-console interactive-zone">
@@ -1239,6 +1243,10 @@ function LabActionPanel({
         <div className={`action-panel interactive-card ${operationPanelClass(opsById(agentOperationIds))}`}>
           <ActionPanelTitle title="Query / Media / Insight Agent" operations={opsById(agentOperationIds)} />
           <p className="action-panel-note">启动三个 Agent 后，可以把同一个舆情问题交给 BettaFish 检索、抽取和归纳。</p>
+          <div className={`agent-search-state ${agentSearchReady ? "ready" : "blocked"}`}>
+            <StatusPill status={agentSearchReady ? "ok" : "warning"} label={agentSearchReady ? `运行中：${runningAgents.join(" / ")}` : "尚未启动 Agent"} />
+            <span>{agentSearchReady ? "现在可以点击 Agent 搜索/分析。" : "先点上方启动 insight、media 或 query Agent，状态变为 running 后再搜索。"}</span>
+          </div>
           <div className="mini-button-grid">
             {(["insight", "media", "query"] as const).map((name) => (
               <React.Fragment key={name}>
@@ -1253,6 +1261,7 @@ function LabActionPanel({
             <textarea value={agentQuery} onChange={(event) => setAgentQuery(event.target.value)} rows={3} />
           </label>
           <ActionButton operation={op("agent.search")} busy={loadingAction === "agent.search"} disabled={isBusy} onClick={() => run({ action: "agent.search", query: agentQuery })} />
+          {agentActionResult ? <ActionResultView result={agentActionResult} /> : null}
         </div>
 
         <div className={`action-panel interactive-card ${operationPanelClass(opsById(forumOperationIds))}`}>
@@ -1374,7 +1383,7 @@ function LabActionPanel({
         />
       ) : null}
 
-      {actionResult ? <ActionResultView result={actionResult} /> : null}
+      {actionResult && !agentActionResult ? <ActionResultView result={actionResult} /> : null}
     </section>
   );
 }
@@ -1401,6 +1410,14 @@ function RuntimeActionGuide({ operations }: { operations: Array<BettaFishOperati
       })}
     </div>
   );
+}
+
+function runningAgentNamesFromStatus(statusMessage: string) {
+  const lower = statusMessage.toLowerCase();
+  return (["insight", "media", "query"] as const).filter((name) => {
+    const match = lower.match(new RegExp(`${name}\\s*:\\s*([a-z_]+)`));
+    return match?.[1] === "running";
+  });
 }
 
 function RuntimeConfirmationDialog({

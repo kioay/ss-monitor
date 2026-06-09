@@ -989,6 +989,29 @@ h2 {
   line-height: 1.5;
 }
 
+.agent-search-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid rgba(182, 138, 51, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 246, 223, 0.58);
+}
+
+.agent-search-state.ready {
+  border-color: rgba(47, 143, 112, 0.24);
+  background: rgba(238, 248, 241, 0.72);
+}
+
+.agent-search-state span:last-child {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .runtime-action-guide {
   display: grid;
   gap: 8px;
