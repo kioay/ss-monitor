@@ -220,6 +220,7 @@ release_dir="$remote_root/releases/$release_name"
 runtime_root="$remote_root/runtime"
 venv="$remote_root/.venv"
 env_file="$remote_root/.env"
+playwright_browsers_path="$remote_root/playwright-browsers"
 
 if ! id yq >/dev/null 2>&1; then useradd -m -s /bin/bash yq; fi
 
@@ -234,7 +235,7 @@ if [ -z "$python_cmd" ]; then
   exit 1
 fi
 
-mkdir -p "$remote_root/releases" "$runtime_root" "$runtime_root/logs" "$runtime_root/final_reports" "$runtime_root/insight_engine_streamlit_reports" "$runtime_root/media_engine_streamlit_reports" "$runtime_root/query_engine_streamlit_reports" "$runtime_root/mediacrawler-data" "$runtime_root/mediacrawler-browser_data" "$runtime_root/mediacrawler-temp_image"
+mkdir -p "$remote_root/releases" "$runtime_root" "$playwright_browsers_path" "$runtime_root/logs" "$runtime_root/final_reports" "$runtime_root/insight_engine_streamlit_reports" "$runtime_root/media_engine_streamlit_reports" "$runtime_root/query_engine_streamlit_reports" "$runtime_root/mediacrawler-data" "$runtime_root/mediacrawler-browser_data" "$runtime_root/mediacrawler-temp_image"
 rm -rf "$release_dir"
 mkdir -p "$release_dir"
 tar -xzf "$archive" -C "$release_dir"
@@ -268,6 +269,7 @@ set_env_file "$env_file" DB_USER "$(get_ss_env MINDSPIDER_DB_USER || true)"
 set_env_file "$env_file" DB_PASSWORD "$(get_ss_env MINDSPIDER_DB_PASSWORD || true)"
 set_env_file "$env_file" DB_NAME "$(get_ss_env MINDSPIDER_DB_NAME || true)"
 set_env_file "$env_file" DB_CHARSET "$(get_ss_env MINDSPIDER_DB_CHARSET || true)"
+set_env_file "$env_file" PLAYWRIGHT_BROWSERS_PATH "$playwright_browsers_path"
 
 link_runtime_dir() {
   target="$1"; source="$2"
@@ -299,16 +301,19 @@ if [ "$install_deps" = "1" ]; then
     read -r -a semantic_dep_package_array <<< "$semantic_dep_packages"
     "$venv/bin/python" -m pip install "\${semantic_dep_package_array[@]}"
   fi
-  if [ "$install_playwright" = "1" ]; then
-    "$venv/bin/python" -m playwright install chromium
-  fi
+fi
+if [ "$install_playwright" = "1" ]; then
+  PLAYWRIGHT_BROWSERS_PATH="$playwright_browsers_path" "$venv/bin/python" -m playwright install chromium
 fi
 
 install -m 0640 -o root -g yq "$env_file" "$release_dir/.env"
 chown -R root:yq "$release_dir"
+chown -R root:yq "$playwright_browsers_path"
 chown -R yq:yq "$runtime_root"
 find "$release_dir" -type d -exec chmod 0755 {} +
 find "$release_dir" -type f -exec chmod a+r {} +
+find "$playwright_browsers_path" -type d -exec chmod 0755 {} + 2>/dev/null || true
+find "$playwright_browsers_path" -type f -exec chmod a+r {} + 2>/dev/null || true
 chmod 0640 "$release_dir/.env" "$env_file" 2>/dev/null || true
 
 ln -sfn "releases/$release_name" "$remote_root/current.tmp"
@@ -348,6 +353,7 @@ if [ "$update_monitor_env" = "1" ] && [ -f /opt/ss-monitor/.env ]; then
   set_env_file /opt/ss-monitor/.env BETTAFISH_SEMANTIC_MODELS "$semantic_models"
   set_env_file /opt/ss-monitor/.env MINDSPIDER_ENV_FILE "$env_file"
   set_env_file /opt/ss-monitor/.env MINDSPIDER_DOUYIN_IMPORT_DIR "/opt/ss-monitor/data/mindspider-douyin-imports:$remote_root/current/MindSpider/DeepSentimentCrawling/MediaCrawler/data"
+  set_env_file /opt/ss-monitor/.env PLAYWRIGHT_BROWSERS_PATH "$playwright_browsers_path"
   if [ -L /opt/ss-monitor/current ] || [ -d /opt/ss-monitor/current ]; then
     install -m 0640 -o root -g yq /opt/ss-monitor/.env /opt/ss-monitor/current/.env
   fi
