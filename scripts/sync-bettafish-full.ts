@@ -271,6 +271,7 @@ apply_bettafish_production_patches() {
   release_dir="$1"
   "$python_cmd" - "$release_dir" <<'PY'
 import sys
+import re
 from pathlib import Path
 
 release_dir = Path(sys.argv[1])
@@ -315,6 +316,148 @@ def redact_config_values(values):
         "return jsonify({'success': True, 'config': redact_config_values(updated_config)})",
         1,
     )
+    app_path.write_text(text, encoding="utf-8")
+
+
+def patch_app_runtime_controls():
+    app_path = release_dir / "app.py"
+    text = app_path.read_text(encoding="utf-8")
+    helper = '''def is_forum_engine_running():
+    """Return whether the in-process ForumEngine monitor thread is alive."""
+    try:
+        from ForumEngine.monitor import get_monitor
+        monitor = get_monitor()
+        thread = getattr(monitor, "monitor_thread", None)
+        return bool(getattr(monitor, "is_monitoring", False) and thread is not None and thread.is_alive())
+    except Exception as exc:
+        logger.debug(f"ForumEngine status check failed: {exc}")
+        return False
+
+
+def refresh_forum_process_status():
+    """Keep /api/status aligned with the ForumEngine background thread."""
+    processes['forum']['status'] = 'running' if is_forum_engine_running() else 'stopped'
+    return processes['forum']['status']
+
+
+'''
+    if "def is_forum_engine_running" not in text:
+        anchor = "def _log_shutdown_step(message: str):\n"
+        if anchor not in text:
+            raise RuntimeError("app.py runtime status anchor not found")
+        text = text.replace(anchor, helper + anchor, 1)
+    if "'--server.address', '127.0.0.1'" not in text:
+        streamlit_port_line = "            '--server.port', str(port),\n"
+        if streamlit_port_line not in text:
+            raise RuntimeError("app.py streamlit port line not found")
+        text = text.replace(
+            streamlit_port_line,
+            streamlit_port_line + "            '--server.address', '127.0.0.1',\n",
+            1,
+        )
+    if "refresh_forum_process_status()\n    for app_name, info in processes.items():" not in text:
+        check_status_pattern = re.compile(
+            r"(def check_app_status\(\):\n(?:    [\"']{3}.*?[\"']{3}\n)?)",
+            re.DOTALL,
+        )
+
+        def add_forum_status_refresh(match):
+            return match.group(1) + "    refresh_forum_process_status()\n"
+
+        text, check_status_replacements = check_status_pattern.subn(add_forum_status_refresh, text, count=1)
+        if check_status_replacements != 1:
+            raise RuntimeError("app.py check_app_status anchor not found")
+    start_forum_pattern = re.compile(
+        r"    if app_name == 'forum':\n.*?\n\n    script_path = STREAMLIT_SCRIPTS\.get\(app_name\)",
+        re.DOTALL,
+    )
+    patched_start_forum_block = """    if app_name == 'forum':
+        try:
+            start_forum_engine()
+            status = refresh_forum_process_status()
+            if status == 'running':
+                return jsonify({'success': True, 'message': 'ForumEngine started'})
+            return jsonify({'success': False, 'message': 'ForumEngine status stayed stopped after start'})
+        except Exception as exc:  # pragma: no cover
+            logger.exception("Manual ForumEngine start failed")
+            return jsonify({'success': False, 'message': f'ForumEngine start failed: {exc}'})
+
+    script_path = STREAMLIT_SCRIPTS.get(app_name)
+"""
+    text, start_replacements = start_forum_pattern.subn(patched_start_forum_block, text, count=1)
+    if start_replacements != 1 and "ForumEngine status stayed stopped after start" not in text:
+        raise RuntimeError("app.py start_app forum block not patched")
+    stop_app_pattern = re.compile(
+        r"@app\.route\('/api/stop/<app_name>'\)\ndef stop_app\(app_name\):\n.*?\n(?=@app\.route\('/api/output/<app_name>'\))",
+        re.DOTALL,
+    )
+    stop_app_match = stop_app_pattern.search(text)
+    if not stop_app_match:
+        raise RuntimeError("app.py stop_app route not found")
+    stop_app_block = stop_app_match.group(0)
+    stop_forum_pattern = re.compile(
+        r"    if app_name == 'forum':\n.*?\n\n    success, message = stop_streamlit_app\(app_name\)",
+        re.DOTALL,
+    )
+    patched_stop_forum_block = """    if app_name == 'forum':
+        try:
+            stop_forum_engine()
+            status = refresh_forum_process_status()
+            if status == 'stopped':
+                return jsonify({'success': True, 'message': 'ForumEngine stopped'})
+            return jsonify({'success': False, 'message': 'ForumEngine status stayed running after stop'})
+        except Exception as exc:  # pragma: no cover
+            logger.exception("Manual ForumEngine stop failed")
+            return jsonify({'success': False, 'message': f'ForumEngine stop failed: {exc}'})
+
+    success, message = stop_streamlit_app(app_name)
+"""
+    stop_app_block, stop_app_replacements = stop_forum_pattern.subn(patched_stop_forum_block, stop_app_block, count=1)
+    if stop_app_replacements != 1 and "ForumEngine status stayed running after stop" not in stop_app_block:
+        raise RuntimeError("app.py stop_app forum block not patched")
+    text = text[:stop_app_match.start()] + stop_app_block + text[stop_app_match.end():]
+    forum_start_pattern = re.compile(
+        r"@app\.route\('/api/forum/start'\)\ndef start_forum_monitoring_api\(\):\n.*?\n(?=@app\.route\('/api/forum/stop'\))",
+        re.DOTALL,
+    )
+    patched_forum_start_api_block = """@app.route('/api/forum/start')
+def start_forum_monitoring_api():
+    \"\"\"Start ForumEngine monitoring.\"\"\"
+    try:
+        from ForumEngine.monitor import start_forum_monitoring
+        success = start_forum_monitoring()
+        status = refresh_forum_process_status()
+        if success or status == 'running':
+            message = 'ForumEngine forum started' if success else 'ForumEngine forum already running'
+            return jsonify({'success': True, 'message': message})
+        else:
+            return jsonify({'success': False, 'message': 'ForumEngine forum start failed'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'ForumEngine forum start failed: {str(e)}'})
+
+"""
+    text, forum_start_replacements = forum_start_pattern.subn(patched_forum_start_api_block, text, count=1)
+    if forum_start_replacements != 1 and "ForumEngine forum already running" not in text:
+        raise RuntimeError("app.py /api/forum/start route not patched")
+    forum_stop_pattern = re.compile(
+        r"@app\.route\('/api/forum/stop'\)\ndef stop_forum_monitoring_api\(\):\n.*?\n(?=@app\.route\('/api/forum/log'\))",
+        re.DOTALL,
+    )
+    patched_forum_stop_api_block = """@app.route('/api/forum/stop')
+def stop_forum_monitoring_api():
+    \"\"\"Stop ForumEngine monitoring.\"\"\"
+    try:
+        from ForumEngine.monitor import stop_forum_monitoring
+        stop_forum_monitoring()
+        refresh_forum_process_status()
+        return jsonify({'success': True, 'message': 'ForumEngine forum stopped'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'ForumEngine forum stop failed: {str(e)}'})
+
+"""
+    text, forum_stop_replacements = forum_stop_pattern.subn(patched_forum_stop_api_block, text, count=1)
+    if forum_stop_replacements != 1 and "Stop ForumEngine monitoring." not in text:
+        raise RuntimeError("app.py /api/forum/stop route not patched")
     app_path.write_text(text, encoding="utf-8")
 
 
@@ -452,6 +595,7 @@ def patch_media_crawler_db_config():
 
 
 patch_app_config_redaction()
+patch_app_runtime_controls()
 patch_platform_crawler_db_config_generation()
 patch_media_crawler_db_config()
 print("Applied BettaFish production compatibility patches")
