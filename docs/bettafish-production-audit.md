@@ -6,7 +6,7 @@ Latest full verifier run: `2026-06-10T04:30:36.590Z` with `--full-actions`
 
 Latest credential dry-run: `2026-06-10T04:11:00.579Z`
 
-Latest local checks: `npm run lint`, `npm run test:semantic-guard`, `npm run test:monitor-history`, `npm run build`, and tracked forbidden-file audit passed on 2026-06-10 12:31 Asia/Hong_Kong
+Latest local checks: `npm run lint`, `npm run test:semantic-guard`, `npm run test:monitor-history`, `npm run build`, tracked forbidden-file audit, and deploy archive audit passed on 2026-06-10 12:33 Asia/Hong_Kong
 
 ## Objective
 
@@ -22,8 +22,9 @@ Current completion status: blocked by missing upstream-required credentials and 
 | Inner BettaFish deployment matches upstream HEAD | `npm run verify:bettafish-production -- --full-actions`; SSH read-only repo audit | Pass for HEAD; warning is limited to untracked MediaCrawler runtime directories/files: `.deps_installed`, `browser_data`, `data`, and `temp_image` |
 | Public BettaFish deployment matches upstream HEAD | `npm run verify:bettafish-production -- --full-actions`; SSH read-only repo audit | Pass for HEAD; warning is a production compatibility patch in `keyword_manager.py` plus MediaCrawler `CUSTOM_BROWSER_PATH` and `CDP_HEADLESS` runtime config |
 | Upstream runtime files and dependencies are present | `npm run verify:bettafish-production -- --full-actions` | Pass for `requirements.txt`, `README.md`, `Dockerfile`, `docker-compose.yml`, `.env.example`, actual `.env` files, `.env.example` key coverage, MediaCrawler directory, MediaCrawler submodule commit, Python 3.9+, core imports, Playwright, Chromium candidates, and real Chromium launch on inner/public hosts |
-| ss-monitor local checks pass | `npm run lint`, `npm run test:semantic-guard`, `npm run test:monitor-history`, `npm run build` | Pass on 2026-06-10 12:31 Asia/Hong_Kong |
+| ss-monitor local checks pass | `npm run lint`, `npm run test:semantic-guard`, `npm run test:monitor-history`, `npm run build` | Pass on 2026-06-10 12:33 Asia/Hong_Kong |
 | No forbidden runtime/secret/build files are tracked | `git ls-files` audit for actual `.env`, cookies, secret key files, deploy archives, `node_modules`, `dist`, and build output | Pass: `forbidden_tracked=none` |
+| Deploy archive includes fresh frontend build without forbidden files | `scripts/create-deploy-archive.ps1 -OutputPath $env:TEMP\ss-monitor-archive-audit-29da653.tar.gz`; `tar -tzf` audit | Pass: archive contains `dist/` (`dist_entries=5`) and `forbidden_archive=none` |
 | Production test lab HTTP page/API reachable | `npm run verify:bettafish-production -- --full-actions` | Pass for `http://ss-monitor.qinoay.top/` and `/api/bettafish/lab` |
 | Production test lab browser acceptance | `npm run verify:bettafish-production -- --full-actions` checks `public.web.http.browser.page`, `.lab`, `.labApi`, and `.errors` using headless Chromium from `192.168.8.242` against `http://ss-monitor.qinoay.top/` | Pass for HTTP page load, lab navigation, lab API `mode=test-lab`, 24 operations, 0 console errors, and 0 page errors; ReportEngine actions remain unavailable because credentials are missing |
 | BettaFish API reachable on inner/public hosts | `npm run verify:bettafish-production -- --full-actions` | Pass for `/api/status` |
