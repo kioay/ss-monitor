@@ -192,6 +192,11 @@ MEDIA_ENGINE_MODEL_NAME=
 TAVILY_API_KEY=
 ANSPIRE_API_KEY=
 BOCHA_WEB_SEARCH_API_KEY=
+
+# After filling this ignored local file, verify and apply:
+# npm run apply:bettafish-credentials -- --dry-run
+# npm run apply:bettafish-credentials -- --restart
+# npm run verify:bettafish-production -- --full-actions
 `;
 }
 
