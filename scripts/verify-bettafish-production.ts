@@ -192,6 +192,16 @@ function printRemoteResult(target: HostTarget, result: any, upstreamHead: string
     ".env.example"
   );
   addCheck(
+    `${target.name}.runtime.env`,
+    result.envFiles?.length ? "pass" : "fail",
+    result.envFiles?.join("; ") || ".env not found"
+  );
+  addCheck(
+    `${target.name}.runtime.envExampleKeys`,
+    result.envExampleMissingKeys?.length === 0 ? "pass" : "fail",
+    result.envExampleMissingKeys?.join(", ") || ".env covers .env.example keys"
+  );
+  addCheck(
     `${target.name}.runtime.mediaCrawler`,
     result.runtime?.mediaCrawlerExists ? "pass" : "fail",
     "MindSpider/DeepSentimentCrawling/MediaCrawler"
@@ -727,7 +737,11 @@ def merged_env():
         candidates.append("/home/yq/BettaFish/.env")
     values = {}
     files = []
+    seen = set()
     for candidate in candidates:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
         parsed = parse_env_file(candidate)
         if parsed:
             files.append(candidate)
@@ -769,6 +783,8 @@ def post_action(body, timeout=75):
 
 repo_path = Path(repo)
 env_files, env_values = merged_env()
+env_example_values = parse_env_file(repo_path / ".env.example")
+env_example_missing_keys = [key for key in env_example_values.keys() if key not in env_values]
 runtime_python = resolve_runtime_python(repo_path)
 playwright_node = resolve_playwright_node(repo_path)
 playwright_prefix = ""
@@ -821,6 +837,7 @@ result = {
         "chromiumLaunchOk": chromium_launch.get("code") == 0,
     },
     "envFiles": env_files,
+    "envExampleMissingKeys": env_example_missing_keys,
     "missingRequiredKeys": [key for key in required_keys if not env_values.get(key)] + ([] if any(env_values.get(key) for key in one_of_search_keys) else [" or ".join(one_of_search_keys)]),
     "http": {
         "status": get_json("http://127.0.0.1:5000/api/status"),
