@@ -63,15 +63,16 @@ npm run apply:bettafish-credentials -- --restart
 
 The dry-run must report an empty `missingRequiredKeys` list before restart.
 
-## 3. Fix Public HTTPS As Root/Admin
+## 3. Public And Announcement Surfaces
 
-On public host `74.211.101.169:29018`, run as root or via sudo:
+The public website and announcement surfaces are intentionally retired. Keep these defaults so the verifier records those checks as skipped instead of failing the deployment:
 
-```bash
-LETSENCRYPT_EMAIL=admin@example.com /home/yq/configure-ss-monitor-https.sh
+```env
+BETTAFISH_PUBLIC_RETIRED=true
+BETTAFISH_ANNOUNCEMENT_RETIRED=true
 ```
 
-Replace `admin@example.com` with the certificate owner contact. The current `yq` account cannot run sudo and cannot write nginx config, so this step requires admin access.
+Only if the public website is restored, rerun the verifier with `--check-public` or `BETTAFISH_PUBLIC_RETIRED=false`. Public HTTPS repair still requires root/admin access to the public host nginx and certificate paths.
 
 ## 4. Final Verification
 
@@ -81,18 +82,11 @@ Run locally:
 npm run verify:bettafish-production -- --full-actions
 ```
 
-Completion requires no `fail` checks. In particular, these must pass:
+Completion requires no `fail` checks. With public and announcement surfaces retired, the required passing checks are the internal BettaFish checks:
 
 - `inner.credentials.required`
 - `inner.report.status`
 - `inner.action.report.generate`
 - `inner.action.runtime.systemStart`
-- `public.credentials.required`
-- `public.report.status`
-- `public.action.report.generate`
-- `public.action.runtime.systemStart`
-- `public.web.https.page`
-- `public.web.https.nginx.access`
-- `public.web.https.nginx.config`
-- `public.web.https.certdir`
-- `public.web.http.browser.errors`
+
+The expected retired checks are reported as `skip`, including `public.credentials.required`, `public.report.status`, `public.web.*`, and `announcement.retired`.

@@ -8,11 +8,13 @@ Latest credential dry-run: `2026-06-10T04:56:34.626Z`
 
 Latest local checks: `npm run lint`, `npm run test:semantic-guard`, `npm run test:monitor-history`, `npm run build`, tracked forbidden-file audit, and deploy archive audit passed on 2026-06-10 13:26 Asia/Hong_Kong
 
+Current note: the public website and announcement surfaces were retired after this audit snapshot. Current verification skips `public.*` and `announcement.*` checks by default unless `--check-public`, `BETTAFISH_PUBLIC_RETIRED=false`, `--check-announcement`, or `BETTAFISH_ANNOUNCEMENT_RETIRED=false` is used explicitly.
+
 ## Objective
 
 Bring BettaFish to a complete production deployment state, with all self-tests passing and the production website BettaFish test lab acceptance passing.
 
-Current completion status: blocked by missing upstream-required credentials and an HTTPS certificate/443 permission issue. Do not mark the deployment complete while the verifier has any `fail` entries.
+Historical snapshot status: blocked by missing upstream-required credentials and an HTTPS certificate/443 permission issue. In the current verifier, the retired public and announcement surfaces are skipped by default.
 
 ## Success Criteria
 

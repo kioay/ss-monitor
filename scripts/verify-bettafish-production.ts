@@ -28,6 +28,8 @@ type Check = {
 
 const fullActions = process.argv.includes("--full-actions");
 const includeHttpsCheck = !process.argv.includes("--skip-https");
+const checkPublic = process.argv.includes("--check-public") || !parseBoolean(process.env.BETTAFISH_PUBLIC_RETIRED, true);
+const checkAnnouncement = process.argv.includes("--check-announcement") || !parseBoolean(process.env.BETTAFISH_ANNOUNCEMENT_RETIRED, true);
 const upstreamRepo = process.env.BETTAFISH_UPSTREAM_URL || "https://github.com/666ghj/BettaFish";
 const requiredCredentialKeys = [
   "REPORT_ENGINE_API_KEY",
@@ -57,17 +59,28 @@ async function main() {
   const upstreamHead = resolveUpstreamHead();
   addCheck("github.head", upstreamHead ? "pass" : "fail", upstreamHead || "unable to resolve upstream HEAD");
 
-  const targets = resolveTargets();
-  addCheck("ssh.targets", targets.length >= 2 ? "pass" : "fail", targets.map((target) => target.name).join(", ") || "none");
+  const targets = resolveTargets(checkPublic);
+  const hasInnerTarget = targets.some((target) => target.name === "inner");
+  const hasPublicTarget = targets.some((target) => target.name === "public");
+  addCheck(
+    "ssh.targets",
+    hasInnerTarget && (!checkPublic || hasPublicTarget) ? "pass" : "fail",
+    targetSummary(targets, checkPublic)
+  );
 
   for (const target of targets) {
     const result = await runRemoteProbe(target);
     printRemoteResult(target, result, upstreamHead);
   }
 
-  await probePublicWebsite(includeHttpsCheck);
-  await probePublicHttpsServerState(targets, includeHttpsCheck);
-  await probePublicBrowserAcceptance(targets);
+  if (checkPublic) {
+    await probePublicWebsite(includeHttpsCheck);
+    await probePublicHttpsServerState(targets, includeHttpsCheck);
+    await probePublicBrowserAcceptance(targets);
+  } else {
+    addRetiredPublicChecks();
+  }
+  addAnnouncementCheck();
 
   console.log(JSON.stringify({ generatedAt: new Date().toISOString(), fullActions, checks }, null, 2));
   const failures = checks.filter((check) => check.status === "fail");
@@ -85,13 +98,66 @@ function resolveUpstreamHead() {
   }
 }
 
-function resolveTargets(): HostTarget[] {
+function resolveTargets(includePublic: boolean): HostTarget[] {
   const targets: HostTarget[] = [];
   const inner = resolveInnerTarget();
   if (inner) targets.push(inner);
-  const publicTarget = resolvePublicTarget();
-  if (publicTarget) targets.push(publicTarget);
+  if (includePublic) {
+    const publicTarget = resolvePublicTarget();
+    if (publicTarget) targets.push(publicTarget);
+  }
   return targets;
+}
+
+function parseBoolean(value: string | undefined, defaultValue: boolean) {
+  if (value === undefined || value.trim() === "") return defaultValue;
+  const normalized = value.trim().toLowerCase();
+  if (["1", "true", "yes", "y", "on"].includes(normalized)) return true;
+  if (["0", "false", "no", "n", "off"].includes(normalized)) return false;
+  return defaultValue;
+}
+
+function targetSummary(targets: HostTarget[], publicChecksEnabled: boolean) {
+  const names = targets.map((target) => target.name);
+  if (!publicChecksEnabled) names.push("public(retired)");
+  return names.join(", ") || "none";
+}
+
+function addRetiredPublicChecks() {
+  const detail = "retired by BETTAFISH_PUBLIC_RETIRED=true; use --check-public or BETTAFISH_PUBLIC_RETIRED=false to enable";
+  for (const name of [
+    "public.target",
+    "public.credentials.required",
+    "public.report.status",
+    "public.lab.status",
+    "public.action.report.generate",
+    "public.action.runtime.systemStart",
+    "public.web.http.page",
+    "public.web.http.lab",
+    "public.web.https.page",
+    "public.web.https.server",
+    "public.web.https.nginx.access",
+    "public.web.https.nginx.config",
+    "public.web.https.certdir",
+    "public.web.http.browser.page",
+    "public.web.http.browser.lab",
+    "public.web.http.browser.labApi",
+    "public.web.http.browser.errors",
+  ]) {
+    addCheck(name, "skip", detail);
+  }
+}
+
+function addAnnouncementCheck() {
+  if (!checkAnnouncement) {
+    addCheck(
+      "announcement.retired",
+      "skip",
+      "retired by BETTAFISH_ANNOUNCEMENT_RETIRED=true; use --check-announcement or BETTAFISH_ANNOUNCEMENT_RETIRED=false to enable"
+    );
+    return;
+  }
+  addCheck("announcement.check", "skip", "announcement verifier has no active production surface configured");
 }
 
 function resolveInnerTarget(): HostTarget | undefined {

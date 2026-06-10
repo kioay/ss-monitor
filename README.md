@@ -220,6 +220,8 @@ Configure `SYNC_BETTAFISH_FULL_REMOTE`, `SYNC_BETTAFISH_FULL_SSH_PORT`, `SYNC_BE
 
 The full sync includes BettaFish app code, Agent engines, ReportEngine, MindSpider, MediaCrawler code, templates, static assets, tracked training datasets, and model weights. It still keeps `.env`, browser profiles, cookies, crawler output, downloaded media, generated runtime reports, and caches out of deployment archives/state by default. Only set `SYNC_BETTAFISH_FULL_INCLUDE_RUNTIME_STATE=true` when intentionally moving runtime state.
 
+The production verifier now treats the old public website and announcement surfaces as retired by default. `npm run verify:bettafish-production` records `public.*` and `announcement.*` checks as `skip` unless `--check-public`, `BETTAFISH_PUBLIC_RETIRED=false`, `--check-announcement`, or `BETTAFISH_ANNOUNCEMENT_RETIRED=false` explicitly restores those checks.
+
 During full sync, the deployment applies a small set of production compatibility patches after cloning upstream: `/api/config` responses redact secret-like values, ForumEngine status is refreshed from its in-process monitor thread, Streamlit Agent apps bind to `127.0.0.1`, MindSpider generates MediaCrawler DB config from runtime environment variables instead of embedding credentials, and MediaCrawler's default DB config reads the same environment variables. MediaCrawler profile/data/temp directories remain runtime state and are not part of the reproducible code patch set.
 
 The older semantic-only sync remains available for emergency rollback or very small servers:
