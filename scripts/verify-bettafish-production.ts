@@ -172,6 +172,21 @@ function printRemoteResult(target: HostTarget, result: any, upstreamHead: string
     "requirements.txt"
   );
   addCheck(
+    `${target.name}.runtime.readme`,
+    result.runtime?.readmeExists ? "pass" : "fail",
+    "README.md"
+  );
+  addCheck(
+    `${target.name}.runtime.dockerfile`,
+    result.runtime?.dockerfileExists ? "pass" : "fail",
+    "Dockerfile"
+  );
+  addCheck(
+    `${target.name}.runtime.dockerCompose`,
+    result.runtime?.dockerComposeExists ? "pass" : "fail",
+    "docker-compose.yml"
+  );
+  addCheck(
     `${target.name}.runtime.envExample`,
     result.runtime?.envExampleExists ? "pass" : "fail",
     ".env.example"
@@ -787,6 +802,9 @@ result = {
     "submoduleStatus": run(["git", "submodule", "status", "--recursive"], cwd=repo).get("out", ""),
     "runtime": {
         "requirementsExists": (repo_path / "requirements.txt").exists(),
+        "readmeExists": (repo_path / "README.md").exists(),
+        "dockerfileExists": (repo_path / "Dockerfile").exists(),
+        "dockerComposeExists": (repo_path / "docker-compose.yml").exists(),
         "envExampleExists": (repo_path / ".env.example").exists(),
         "mediaCrawlerExists": (repo_path / "MindSpider/DeepSentimentCrawling/MediaCrawler").exists(),
         "runtimePython": runtime_python,

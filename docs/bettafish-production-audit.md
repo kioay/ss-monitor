@@ -2,7 +2,7 @@
 
 Last audited: 2026-06-10 11:56 Asia/Hong_Kong
 
-Latest full verifier run: `2026-06-10T03:49:11.530Z` with `--full-actions`
+Latest full verifier run: `2026-06-10T04:10:13.067Z` with `--full-actions`
 
 Latest credential dry-run: `2026-06-10T03:56:15.497Z`
 
@@ -19,7 +19,7 @@ Current completion status: blocked by missing upstream-required credentials and 
 | BettaFish upstream comparison uses current GitHub HEAD | `git ls-remote https://github.com/666ghj/BettaFish HEAD`; temporary shallow clone of upstream | Pass: current HEAD `40327d75b60faaf347bc578f93714b5394079d03` |
 | Inner BettaFish deployment matches upstream HEAD | `npm run verify:bettafish-production -- --full-actions`; SSH read-only repo audit | Pass for HEAD; warning is limited to untracked MediaCrawler runtime directories/files: `.deps_installed`, `browser_data`, `data`, and `temp_image` |
 | Public BettaFish deployment matches upstream HEAD | `npm run verify:bettafish-production -- --full-actions`; SSH read-only repo audit | Pass for HEAD; warning is a production compatibility patch in `keyword_manager.py` plus MediaCrawler `CUSTOM_BROWSER_PATH` and `CDP_HEADLESS` runtime config |
-| Upstream runtime files and dependencies are present | `npm run verify:bettafish-production -- --full-actions` | Pass for `requirements.txt`, `.env.example`, MediaCrawler, Python 3.9+, core imports, Playwright, Chromium candidates, and real Chromium launch on inner/public hosts |
+| Upstream runtime files and dependencies are present | `npm run verify:bettafish-production -- --full-actions` | Pass for `requirements.txt`, `README.md`, `Dockerfile`, `docker-compose.yml`, `.env.example`, MediaCrawler, Python 3.9+, core imports, Playwright, Chromium candidates, and real Chromium launch on inner/public hosts |
 | ss-monitor local checks pass | `npm run lint`, `npm run test:semantic-guard`, `npm run test:monitor-history`, `npm run build` | Pass on 2026-06-10 Asia/Hong_Kong |
 | Production test lab HTTP page/API reachable | `npm run verify:bettafish-production -- --full-actions` | Pass for `http://ss-monitor.qinoay.top/` and `/api/bettafish/lab` |
 | Production test lab browser acceptance | `npm run verify:bettafish-production -- --full-actions` checks `public.web.http.browser.page`, `.lab`, `.labApi`, and `.errors` using headless Chromium from `192.168.8.242` against `http://ss-monitor.qinoay.top/` | Pass for HTTP page load, lab navigation, lab API `mode=test-lab`, 24 operations, 0 console errors, and 0 page errors; ReportEngine actions remain unavailable because credentials are missing |
