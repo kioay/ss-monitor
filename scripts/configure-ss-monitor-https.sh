@@ -9,6 +9,20 @@ NGINX_CONF="${NGINX_CONF:-/etc/nginx/nginx.conf}"
 CERT_DIR="${CERT_DIR:-/etc/letsencrypt/live/${DOMAIN}}"
 LETSENCRYPT_EMAIL="${LETSENCRYPT_EMAIL:-}"
 
+print_certbot_install_hint() {
+  if [ -r /etc/os-release ]; then
+    . /etc/os-release
+    case "${ID:-}" in
+      centos|rhel|almalinux|rocky)
+        echo "CentOS/RHEL example: yum install -y epel-release && yum install -y certbot python2-certbot-nginx" >&2
+        ;;
+      debian|ubuntu)
+        echo "Debian/Ubuntu example: apt-get update && apt-get install -y certbot python3-certbot-nginx" >&2
+        ;;
+    esac
+  fi
+}
+
 if [ "$(id -u)" -ne 0 ]; then
   echo "This script must be run as root or through sudo." >&2
   exit 1
@@ -28,6 +42,7 @@ if [ ! -d "$CERT_DIR" ]; then
   if ! command -v certbot >/dev/null 2>&1; then
     echo "Certificate directory is missing and certbot is not installed: $CERT_DIR" >&2
     echo "Install certbot or provision the certificate before rerunning this script." >&2
+    print_certbot_install_hint
     exit 1
   fi
   if [ -z "$LETSENCRYPT_EMAIL" ]; then
