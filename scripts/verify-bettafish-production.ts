@@ -207,6 +207,11 @@ function printRemoteResult(target: HostTarget, result: any, upstreamHead: string
     "MindSpider/DeepSentimentCrawling/MediaCrawler"
   );
   addCheck(
+    `${target.name}.runtime.mediaCrawlerSubmodule`,
+    result.runtime?.mediaCrawlerSubmoduleOk ? "pass" : "fail",
+    result.submoduleStatus || "MediaCrawler submodule status missing"
+  );
+  addCheck(
     `${target.name}.runtime.python`,
     result.runtime?.pythonVersionOk ? "pass" : "fail",
     `${result.runtime?.runtimePython || "python"}: ${result.runtime?.pythonVersion?.out || result.runtime?.pythonVersion?.err || "missing"}`
@@ -797,6 +802,8 @@ chromium_candidates = find_chromium(repo_path)
 chromium_launch = test_chromium_launch(runtime_python, playwright_node, chromium_candidates)
 git_head = run(["git", "rev-parse", "HEAD"], cwd=repo)
 status = run(["git", "status", "--short"], cwd=repo)
+submodule_status = run(["git", "submodule", "status", "--recursive"], cwd=repo).get("out", "")
+media_crawler_submodule_ok = bool(re.search(r"^[ 0-9a-f][0-9a-f]{39}\s+MindSpider/DeepSentimentCrawling/MediaCrawler(?:\s|$)", submodule_status, re.MULTILINE))
 report_status = get_json("http://127.0.0.1:5000/api/report/status")
 actions = [
     post_action({"action": "sentiment.analyze", "text": "The latest update feels worse and cheaters are more visible."}),
@@ -815,7 +822,7 @@ result = {
     "gitStatusOk": status.get("code") == 0,
     "gitStatusError": status.get("err", ""),
     "gitStatus": [line for line in status.get("out", "").splitlines() if line],
-    "submoduleStatus": run(["git", "submodule", "status", "--recursive"], cwd=repo).get("out", ""),
+    "submoduleStatus": submodule_status,
     "runtime": {
         "requirementsExists": (repo_path / "requirements.txt").exists(),
         "readmeExists": (repo_path / "README.md").exists(),
@@ -823,6 +830,7 @@ result = {
         "dockerComposeExists": (repo_path / "docker-compose.yml").exists(),
         "envExampleExists": (repo_path / ".env.example").exists(),
         "mediaCrawlerExists": (repo_path / "MindSpider/DeepSentimentCrawling/MediaCrawler").exists(),
+        "mediaCrawlerSubmoduleOk": media_crawler_submodule_ok,
         "runtimePython": runtime_python,
         "pythonVersion": python_version,
         "pythonVersionOk": python_version.get("code") == 0 and python_version_ok(python_version.get("out", "") + " " + python_version.get("err", "")),
