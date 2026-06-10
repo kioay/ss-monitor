@@ -244,7 +244,7 @@ The test lab exposes only fixed research operations defined by the server, such 
 
 ## Local Douyin CDP sync
 
-Douyin collection should run on the local workstation with BettaFish / MediaCrawler CDP profile persistence. The production server consumes only lightweight JSON exports and should not receive browser cookies or downloaded media.
+Douyin collection can run in two supported modes. The default mode still runs on the local workstation with BettaFish / MediaCrawler CDP profile persistence and uploads only lightweight JSON exports. When explicitly authorized, `npm run douyin:server-login -- sync-cookie` copies the local Douyin login cookie string into the internal server's ignored BettaFish `.env` files as `DOUYIN_COOKIES_B64`, matching MediaCrawler's upstream `--lt cookie` login path without copying browser profiles, downloaded media, or crawler caches.
 
 One manual sync:
 
@@ -270,4 +270,4 @@ The sync script preflights BettaFish / MediaCrawler before every crawl:
 - `SAVE_LOGIN_STATE=True` so the profile under `MediaCrawler/browser_data/cdp_dy_user_data_dir` keeps the login state across runs.
 - `ENABLE_GET_MEIDAS=False` so large images/videos are not downloaded or synced.
 
-Only the normalized JSON export is uploaded to production. Browser profiles, cookies, raw crawler state, images, and videos remain on the local workstation and are ignored by Git.
+Only the normalized JSON export is uploaded in local-CDP mode. In server-cookie mode, only the compact cookie string is stored in `/opt/BettaFish/.env` and `/opt/BettaFish/current/.env`; browser profiles, raw crawler state, images, and videos remain out of Git and deployment archives.

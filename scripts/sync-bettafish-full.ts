@@ -594,10 +594,65 @@ def patch_media_crawler_db_config():
         db_config.write_text(MEDIA_CRAWLER_DB_CONFIG, encoding="utf-8")
 
 
+def patch_media_crawler_cookie_env_config():
+    base_config = release_dir / "MindSpider" / "DeepSentimentCrawling" / "MediaCrawler" / "config" / "base_config.py"
+    text = base_config.read_text(encoding="utf-8")
+    helper = '''import base64
+import os
+
+
+def _env_cookie_value():
+    """Read optional crawler cookies from environment without exposing them in process args."""
+    for name in ("DOUYIN_COOKIES_B64", "DOUYIN_COOKIE_B64", "MEDIA_CRAWLER_DOUYIN_COOKIES_B64"):
+        value = os.getenv(name, "").strip()
+        if value:
+            try:
+                return base64.b64decode(value).decode("utf-8")
+            except Exception:
+                return ""
+    for name in ("DOUYIN_COOKIES", "DOUYIN_COOKIE", "MEDIA_CRAWLER_DOUYIN_COOKIES"):
+        value = os.getenv(name, "").strip()
+        if value:
+            return value
+    return ""
+
+
+'''
+    if "def _env_cookie_value" not in text:
+        anchor = "# 基础配置\n"
+        if anchor not in text:
+            raise RuntimeError("base_config.py base config anchor not found")
+        text = text.replace(anchor, helper + anchor, 1)
+    if 'COOKIES = _env_cookie_value()' not in text:
+        text = text.replace('COOKIES = ""', 'COOKIES = _env_cookie_value()', 1)
+    base_config.write_text(text, encoding="utf-8")
+
+
+def patch_media_crawler_cdp_localhost():
+    launcher = release_dir / "MindSpider" / "DeepSentimentCrawling" / "MediaCrawler" / "tools" / "browser_launcher.py"
+    text = launcher.read_text(encoding="utf-8")
+    if "--remote-debugging-address=0.0.0.0" in text:
+        text = text.replace(
+            '"--remote-debugging-address=0.0.0.0",  # Allow remote access',
+            '"--remote-debugging-address=127.0.0.1",  # Keep CDP local to the server',
+            1,
+        )
+        text = text.replace(
+            '"--remote-debugging-address=0.0.0.0",',
+            '"--remote-debugging-address=127.0.0.1",',
+            1,
+        )
+    if "--remote-debugging-address=127.0.0.1" not in text:
+        raise RuntimeError("browser_launcher.py CDP localhost patch failed")
+    launcher.write_text(text, encoding="utf-8")
+
+
 patch_app_config_redaction()
 patch_app_runtime_controls()
 patch_platform_crawler_db_config_generation()
 patch_media_crawler_db_config()
+patch_media_crawler_cookie_env_config()
+patch_media_crawler_cdp_localhost()
 print("Applied BettaFish production compatibility patches")
 PY
 }
@@ -606,7 +661,9 @@ apply_bettafish_production_patches "$release_dir"
 "$python_cmd" -m py_compile \
   "$release_dir/app.py" \
   "$release_dir/MindSpider/DeepSentimentCrawling/platform_crawler.py" \
-  "$release_dir/MindSpider/DeepSentimentCrawling/MediaCrawler/config/db_config.py"
+  "$release_dir/MindSpider/DeepSentimentCrawling/MediaCrawler/config/base_config.py" \
+  "$release_dir/MindSpider/DeepSentimentCrawling/MediaCrawler/config/db_config.py" \
+  "$release_dir/MindSpider/DeepSentimentCrawling/MediaCrawler/tools/browser_launcher.py"
 
 set_env_file() {
   file="$1"; key="$2"; value="$3"; tmp="$file.tmp.$$"
