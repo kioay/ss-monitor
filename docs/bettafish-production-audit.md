@@ -1,8 +1,8 @@
 # BettaFish Production Audit
 
-Last audited: 2026-06-10 13:02 Asia/Hong_Kong
+Last audited: 2026-06-10 13:06 Asia/Hong_Kong
 
-Latest full verifier run: `2026-06-10T04:57:50.827Z` with `--full-actions`
+Latest full verifier run: `2026-06-10T05:05:55.215Z` with `--full-actions`
 
 Latest credential dry-run: `2026-06-10T04:56:34.626Z`
 
@@ -26,7 +26,7 @@ Current completion status: blocked by missing upstream-required credentials and 
 | No forbidden runtime/secret/build files are tracked | `git ls-files` audit for actual `.env`, cookies, secret key files, deploy archives, `node_modules`, `dist`, and build output | Pass: `forbidden_tracked=none` |
 | Deploy archive includes fresh frontend build without forbidden files | `scripts/create-deploy-archive.ps1 -OutputPath $env:TEMP\ss-monitor-archive-audit-29da653.tar.gz`; `tar -tzf` audit | Pass: archive contains `dist/` (`dist_entries=5`) and `forbidden_archive=none` |
 | Production test lab HTTP page/API reachable | `npm run verify:bettafish-production -- --full-actions` | Pass for `http://ss-monitor.qinoay.top/` and `/api/bettafish/lab` |
-| Production test lab browser acceptance | `npm run verify:bettafish-production -- --full-actions` checks `public.web.http.browser.page`, `.lab`, `.labApi`, and `.errors` using headless Chromium from `192.168.8.242` against `http://ss-monitor.qinoay.top/` | HTTP page load, lab navigation, and lab API passed in the latest full verifier with `mode=test-lab` and 24 operations; that run reported one console error, but an immediate focused remote Chromium replay from `192.168.8.242` produced 0 console errors, 0 page errors, and no failed requests. Treat full completion as blocked until a fresh full verifier has no `fail` entries. |
+| Production test lab browser acceptance | `npm run verify:bettafish-production -- --full-actions` checks `public.web.http.browser.page`, `.lab`, `.labApi`, and `.errors` using headless Chromium from `192.168.8.242` against `http://ss-monitor.qinoay.top/` | Pass in the latest full verifier: HTTP page load, lab navigation, lab API `mode=test-lab`, 24 operations, 0 console errors, and 0 page errors |
 | Production test lab public API acceptance from workstation | `curl.exe http://ss-monitor.qinoay.top/api/bettafish/lab?windowHours=72` | Pass: `mode=test-lab`, `operations=24`, `baseUrlConfigured=True`, `actionsEnabled=True` |
 | BettaFish API reachable on inner/public hosts | `npm run verify:bettafish-production -- --full-actions` | Pass for `/api/status` |
 | Sentiment bridge self-test passes | `npm run verify:bettafish-production -- --full-actions` | Pass for `sentiment.analyze` |
