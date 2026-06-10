@@ -423,7 +423,7 @@ function defaultPlaywrightBrowsersPath(target: HostTarget) {
 
 function browserAcceptanceDetail(target: HostTarget, result: any) {
   const labApi = result.labApi || {};
-  return [
+  const detail = [
     `target=${target.name}`,
     `title=${result.title || ""}`,
     `root=${result.rootCount ?? 0}`,
@@ -434,7 +434,30 @@ function browserAcceptanceDetail(target: HostTarget, result: any) {
     `operations=${labApi.operations ?? ""}`,
     `consoleErrors=${result.consoleErrors?.length || 0}`,
     `pageErrors=${result.pageErrors?.length || 0}`
-  ].join(" ");
+  ];
+  const firstConsoleError = firstBrowserErrorSample(result.consoleErrors);
+  if (firstConsoleError) detail.push(`firstConsoleError=${firstConsoleError}`);
+  const firstPageError = firstBrowserErrorSample(result.pageErrors);
+  if (firstPageError) detail.push(`firstPageError=${firstPageError}`);
+  return detail.join(" ");
+}
+
+function firstBrowserErrorSample(errors: unknown) {
+  if (!Array.isArray(errors) || errors.length === 0) return "";
+  const first = errors[0];
+  if (typeof first === "string") return compact(first);
+  if (!first || typeof first !== "object") return compact(String(first));
+  const record = first as Record<string, unknown>;
+  const location = record.location && typeof record.location === "object"
+    ? (record.location as Record<string, unknown>).url
+    : "";
+  return compact(
+    [
+      typeof record.type === "string" ? record.type : "",
+      typeof record.text === "string" ? record.text : "",
+      typeof location === "string" ? location : ""
+    ].filter(Boolean).join(" ")
+  );
 }
 
 async function fetchText(url: string, accept: (text: string) => boolean = (text) => Boolean(text.trim())) {
