@@ -1,10 +1,10 @@
 # BettaFish Production Audit
 
-Last audited: 2026-06-10 Asia/Hong_Kong
+Last audited: 2026-06-10 11:56 Asia/Hong_Kong
 
-Latest full verifier run: `2026-06-10T03:07:59.650Z` with `--full-actions`
+Latest full verifier run: `2026-06-10T03:49:11.530Z` with `--full-actions`
 
-Latest credential dry-run: `2026-06-10T03:14:32.861Z`
+Latest credential dry-run: `2026-06-10T03:56:15.497Z`
 
 ## Objective
 
@@ -95,10 +95,11 @@ The apply helper sends credential payloads over SSH stdin, not in the remote com
 ## Notes
 
 - HTTPS repair requires root, sudo, or access to the external TLS/443 proxy on the public host. The verifier checks this explicitly through `public.web.https.nginx.access`, `public.web.https.nginx.config`, and `public.web.https.certdir`.
+- Public root/sudo probes remain blocked: password-backed sudo reports `yq is not in the sudoers file`, default SSH key auth fails for `root@74.211.101.169`, and explicit probes with `~/.ssh/id_ed25519_ss_monitor` and `~/.ssh/id_rsa` also fail for root on port `29018`.
 - DNS is not the current HTTPS blocker: `ss-monitor.qinoay.top` resolves to `74.211.101.169`, and Node `dns.resolveCaa` returns `ENODATA` for both `qinoay.top` and `ss-monitor.qinoay.top`, so no CAA record is blocking normal certificate issuance.
 - `scripts/ss-monitor.nginx.conf` includes an optional 443 block for `ss-monitor.qinoay.top`, but it must be enabled only after a valid certificate exists and by someone with root/admin access to nginx.
 - A read-only public nginx include audit found no user-writable include path: `/etc/nginx/nginx.conf` only includes `/etc/nginx/mime.types`, `/etc/nginx/conf.d` is root-owned, and `yq` has no writable include directory that nginx already loads.
-- The active public nginx master runs as root with `/usr/sbin/nginx -c /etc/nginx/nginx.conf`; the readable config currently exposes only port 80 server blocks, including the `ss-monitor.qinoay.top` HTTP reverse proxy, and no editable 443/certificate path is available to `yq`.
+- The active public nginx master runs as root with `/usr/sbin/nginx -c /etc/nginx/nginx.conf`; the readable config currently exposes only port 80 server blocks, including the `ss-monitor.qinoay.top` HTTP reverse proxy, and no editable 443/certificate path is available to `yq`. A process/capability probe found 443 is still controlled by root nginx and `/opt/nodejs/bin/node` has no low-port bind capability.
 - `scripts/configure-ss-monitor-https.sh` is a root/admin helper for the public host. It backs up `/etc/nginx/nginx.conf`, confirms the app is reachable at `127.0.0.1:8787`, provisions or validates the `ss-monitor.qinoay.top` certificate, inserts the 443 reverse proxy block, runs `nginx -t`, reloads nginx, and verifies the HTTPS page and lab API. It is also staged on the public host at `/home/yq/configure-ss-monitor-https.sh`; remote SHA-256 is `9e83c27a8d2e171dfe4f4d18df1fe5d16309ca94ffaf8310e9ed261dc302bc2a`, matching the tracked local helper, and remote `bash -n` passed on 2026-06-10 Asia/Hong_Kong.
 - The public host is CentOS 7 and has nginx at `/usr/sbin/nginx` (`nginx/1.26.1`) but no discovered `certbot` binary at `/usr/bin/certbot`, `/usr/local/bin/certbot`, or `/snap/bin/certbot`. An admin must install certbot, for example `yum install -y epel-release && yum install -y certbot python2-certbot-nginx`, or pre-provision `/etc/letsencrypt/live/ss-monitor.qinoay.top`, and set `LETSENCRYPT_EMAIL` if the helper should request the certificate.
 - Once root/sudo is available, the intended public-host command is `LETSENCRYPT_EMAIL=admin@example.com /home/yq/configure-ss-monitor-https.sh` run as root, with the email replaced by the certificate owner contact.
