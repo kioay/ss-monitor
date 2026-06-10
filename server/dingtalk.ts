@@ -30,7 +30,7 @@ interface DingTalkSendResult {
   retryAfterSeconds?: number;
 }
 
-const monitorUrl = "http://ss-monitor.qinoay.top/";
+const monitorUrl = runtimeConfig.dingTalkMonitorUrl;
 const stateRetentionMs = 30 * 24 * 3_600_000;
 const highHeatScoreThreshold = 800;
 const highNegativeScoreThreshold = -0.45;

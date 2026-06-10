@@ -100,6 +100,7 @@ export const runtimeConfig = {
   dingTalkSs2ExtraSecrets: process.env.DINGTALK_SS2_EXTRA_SECRETS || "",
   dingTalkSs2StatePath: process.env.DINGTALK_SS2_STATE_PATH || "data/dingtalk-ss2-state.json",
   dingTalkTestCooldownSeconds: Math.max(0, Number(process.env.DINGTALK_TEST_COOLDOWN_MINUTES || 240) * 60),
+  dingTalkMonitorUrl: process.env.DINGTALK_MONITOR_URL || "http://ss-monitor.qinoay.top/",
   maxBilibiliSearchPages: Math.max(1, Number(process.env.MAX_BILIBILI_SEARCH_PAGES || 5)),
   maxVideosPerGame: Math.max(1, Number(process.env.MAX_BILIBILI_VIDEOS_PER_GAME || 120)),
   maxVideosToDeepParsePerGame: 8,
