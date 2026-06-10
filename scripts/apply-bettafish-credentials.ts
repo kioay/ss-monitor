@@ -98,6 +98,7 @@ async function main() {
     credentialTemplateExists: fs.existsSync(credentialEnvFileForOutput()),
     credentialKeysPresent: Object.keys(values).sort(),
     sharedLlmKeysPresent: sharedLlmKeysPresent(),
+    explicitOptInKeysAvailable: explicitOptInKeysAvailable(),
     missingRequiredKeys: missing,
     targets: targets.map((target) => ({ name: target.name, host: target.host, port: target.port, envFiles: target.envFiles })),
     nextSteps: missing.length ? credentialNextSteps() : [],
@@ -233,6 +234,18 @@ function sharedLlmKeysPresent() {
     present.push("OPENAI_API_KEY via BETTAFISH_USE_OPENAI_API_KEY_AS_SHARED_LLM");
   }
   return present.sort();
+}
+
+function explicitOptInKeysAvailable() {
+  const available: string[] = [];
+  if (
+    process.env.OPENAI_API_KEY
+    && !process.env[sharedLlmKeys.apiKey]
+    && !isEnabled(process.env[useOpenAiApiKeyAsSharedLlm])
+  ) {
+    available.push("OPENAI_API_KEY available only with BETTAFISH_USE_OPENAI_API_KEY_AS_SHARED_LLM=1");
+  }
+  return available;
 }
 
 function isEnabled(value: string | undefined) {

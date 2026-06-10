@@ -4,7 +4,7 @@ Last audited: 2026-06-10 Asia/Hong_Kong
 
 Latest full verifier run: `2026-06-10T01:54:24.983Z` with `--full-actions`
 
-Latest credential dry-run: `2026-06-10T02:01:48.702Z`
+Latest credential dry-run: `2026-06-10T02:06:28.006Z`
 
 ## Objective
 
@@ -70,7 +70,7 @@ ANSPIRE_API_KEY=
 # or BOCHA_WEB_SEARCH_API_KEY=
 ```
 
-If the local shell already has `OPENAI_API_KEY` and the user explicitly authorizes using it for BettaFish LLM calls, set this opt-in flag instead of copying the secret into the credential file:
+If the local shell already has `OPENAI_API_KEY` and the user explicitly authorizes using it for BettaFish LLM calls, set this opt-in flag instead of copying the secret into the credential file. The dry-run output now reports this as `explicitOptInKeysAvailable` without printing the secret value:
 
 ```env
 BETTAFISH_USE_OPENAI_API_KEY_AS_SHARED_LLM=1
