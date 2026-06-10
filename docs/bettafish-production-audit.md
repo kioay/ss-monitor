@@ -4,7 +4,7 @@ Last audited: 2026-06-10 Asia/Hong_Kong
 
 Latest full verifier run: `2026-06-10T01:54:24.983Z` with `--full-actions`
 
-Latest credential dry-run: `2026-06-10T01:58:45.123Z`
+Latest credential dry-run: `2026-06-10T02:01:48.702Z`
 
 ## Objective
 
