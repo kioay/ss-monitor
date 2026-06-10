@@ -1,10 +1,10 @@
 # BettaFish Production Audit
 
-Last audited: 2026-06-10 11:56 Asia/Hong_Kong
+Last audited: 2026-06-10 13:02 Asia/Hong_Kong
 
-Latest full verifier run: `2026-06-10T04:30:36.590Z` with `--full-actions`
+Latest full verifier run: `2026-06-10T04:57:50.827Z` with `--full-actions`
 
-Latest credential dry-run: `2026-06-10T04:38:21.465Z`
+Latest credential dry-run: `2026-06-10T04:56:34.626Z`
 
 Latest local checks: `npm run lint`, `npm run test:semantic-guard`, `npm run test:monitor-history`, `npm run build`, tracked forbidden-file audit, and deploy archive audit passed on 2026-06-10 12:33 Asia/Hong_Kong
 
@@ -26,7 +26,7 @@ Current completion status: blocked by missing upstream-required credentials and 
 | No forbidden runtime/secret/build files are tracked | `git ls-files` audit for actual `.env`, cookies, secret key files, deploy archives, `node_modules`, `dist`, and build output | Pass: `forbidden_tracked=none` |
 | Deploy archive includes fresh frontend build without forbidden files | `scripts/create-deploy-archive.ps1 -OutputPath $env:TEMP\ss-monitor-archive-audit-29da653.tar.gz`; `tar -tzf` audit | Pass: archive contains `dist/` (`dist_entries=5`) and `forbidden_archive=none` |
 | Production test lab HTTP page/API reachable | `npm run verify:bettafish-production -- --full-actions` | Pass for `http://ss-monitor.qinoay.top/` and `/api/bettafish/lab` |
-| Production test lab browser acceptance | `npm run verify:bettafish-production -- --full-actions` checks `public.web.http.browser.page`, `.lab`, `.labApi`, and `.errors` using headless Chromium from `192.168.8.242` against `http://ss-monitor.qinoay.top/` | Pass for HTTP page load, lab navigation, lab API `mode=test-lab`, 24 operations, 0 console errors, and 0 page errors; ReportEngine actions remain unavailable because credentials are missing |
+| Production test lab browser acceptance | `npm run verify:bettafish-production -- --full-actions` checks `public.web.http.browser.page`, `.lab`, `.labApi`, and `.errors` using headless Chromium from `192.168.8.242` against `http://ss-monitor.qinoay.top/` | HTTP page load, lab navigation, and lab API passed in the latest full verifier with `mode=test-lab` and 24 operations; that run reported one console error, but an immediate focused remote Chromium replay from `192.168.8.242` produced 0 console errors, 0 page errors, and no failed requests. Treat full completion as blocked until a fresh full verifier has no `fail` entries. |
 | Production test lab public API acceptance from workstation | `curl.exe http://ss-monitor.qinoay.top/api/bettafish/lab?windowHours=72` | Pass: `mode=test-lab`, `operations=24`, `baseUrlConfigured=True`, `actionsEnabled=True` |
 | BettaFish API reachable on inner/public hosts | `npm run verify:bettafish-production -- --full-actions` | Pass for `/api/status` |
 | Sentiment bridge self-test passes | `npm run verify:bettafish-production -- --full-actions` | Pass for `sentiment.analyze` |
@@ -35,7 +35,7 @@ Current completion status: blocked by missing upstream-required credentials and 
 | ReportEngine initialized and ready | `npm run verify:bettafish-production -- --full-actions` | Fail: `initialized=false`, `engines_ready=false` |
 | Report generation works | `npm run verify:bettafish-production -- --full-actions` | Fail: `ReportEngine` missing LLM API key |
 | Full BettaFish system start works | `npm run verify:bettafish-production -- --full-actions` | Fail: system start returns failed because ReportEngine is not initialized |
-| Public HTTPS route is valid | `npm run verify:bettafish-production -- --full-actions`; `curl.exe https://ss-monitor.qinoay.top/`; public SSH permission probe | Fail: certificate principal mismatch for `ss-monitor.qinoay.top`; verifier now reports `public.web.https.nginx.access` as `sudo_n=no`, `public.web.https.nginx.config` as `http=present https=missing`, and `public.web.https.certdir` as missing. A password-backed sudo probe returned `yq is not in the sudoers file.` |
+| Public HTTPS route is valid | `npm run verify:bettafish-production -- --full-actions`; `curl.exe https://ss-monitor.qinoay.top/`; public SSH permission probe | Fail: certificate principal mismatch for `ss-monitor.qinoay.top`; verifier reports `public.web.https.nginx.access` as `sudo_n=no`, `public.web.https.nginx.config` as `http=present https=missing`, and `public.web.https.certdir` as missing. A password-backed sudo probe returned `Sorry, user yq may not run sudo on valued-gig-1.` |
 
 ## Required Credentials
 
