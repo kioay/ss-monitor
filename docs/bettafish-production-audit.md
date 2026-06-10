@@ -4,7 +4,7 @@ Last audited: 2026-06-10 11:56 Asia/Hong_Kong
 
 Latest full verifier run: `2026-06-10T04:30:36.590Z` with `--full-actions`
 
-Latest credential dry-run: `2026-06-10T04:11:00.579Z`
+Latest credential dry-run: `2026-06-10T04:38:21.465Z`
 
 Latest local checks: `npm run lint`, `npm run test:semantic-guard`, `npm run test:monitor-history`, `npm run build`, tracked forbidden-file audit, and deploy archive audit passed on 2026-06-10 12:33 Asia/Hong_Kong
 
