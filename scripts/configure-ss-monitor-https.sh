@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
+
 DOMAIN="${DOMAIN:-ss-monitor.qinoay.top}"
 UPSTREAM="${UPSTREAM:-http://127.0.0.1:8787}"
 NGINX_CONF="${NGINX_CONF:-/etc/nginx/nginx.conf}"
