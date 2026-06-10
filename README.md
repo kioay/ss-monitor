@@ -17,16 +17,21 @@ npm run dev
 
 生产环境使用域名访问：
 
-- http://ss-monitor.qinoay.top/
+- 外网提示页：http://ss-monitor.qinoay.top/
+- 内网平台：http://192.168.8.242:8787/
 
-服务器上 Node 服务只监听 `127.0.0.1:8787`，由 Nginx 按域名反向代理。不要把生产访问地址写成裸 IP 或 `:8787` 端口。
-
-Nginx 规则模板见 `scripts/ss-monitor.nginx.conf`：未知 Host / 裸 IP 默认返回 `444`，避免把平台暴露在 IP 入口上。
+内网机上的 Node 服务监听 `0.0.0.0:8787`，便于内网用户直接访问。外网机不再承载舆情平台，只保留跳转提示。
 
 ## 数据源
 
 - B站视频：按发布时间排序搜索，补充视频详情、简介、评论、弹幕和可用字幕。
 - 百度贴吧：读取对应吧最新主题，并按最新回复时间过滤。
+
+## Confluence current-version focus
+
+Internal production on `192.168.8.242` can reach Confluence directly. Set `CONFLUENCE_TOKEN`, `CONFLUENCE_PAGE_ID`, and a persistent `CURRENT_VERSION_FOCUS_CACHE_PATH` such as `/opt/ss-monitor/state/current-version-focus.json` in `/opt/ss-monitor/.env` and mirror them into `/opt/ss-monitor/current/.env` before restarting.
+
+The monitor refresh path calls Confluence from the server, so a daily local-workstation `npm run sync:confluence` job is no longer part of normal production operation. Keep `npm run sync:confluence` only as an explicit manual fallback for environments where the server cannot reach Confluence.
 
 ## 更新与新鲜度策略
 
