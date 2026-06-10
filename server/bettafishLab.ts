@@ -530,6 +530,12 @@ function reportEngineDisabledReason(endpointProbes: BettaFishEndpointProbe[]) {
   return "";
 }
 
+function reportCapabilityStatus(reportProbe: BettaFishEndpointProbe | undefined, reportReady: boolean): BettaFishProbeStatus {
+  if (!reportProbe) return "skipped";
+  if (reportProbe.status === "error") return "error";
+  return reportReady ? reportProbe.status : "warning";
+}
+
 function makeCapabilities(
   gameMonitors: BettaFishGameMonitor[],
   importPreviews: BettaFishImportPreview[],
@@ -544,6 +550,8 @@ function makeCapabilities(
   const statusProbe = endpointProbes.find((probe) => probe.id === "status");
   const systemProbe = endpointProbes.find((probe) => probe.id === "system-status");
   const reportProbe = bestProbe(endpointProbes, ["report-status", "report-templates", "report-log"]);
+  const reportReady = isReportEngineReadyFromProbes(endpointProbes);
+  const reportReason = reportEngineDisabledReason(endpointProbes);
   const forumProbe = endpointProbes.find((probe) => probe.id === "forum-log");
   const agentProbe = bestProbe(endpointProbes, ["insight-output", "media-output", "query-output"]);
   const engineStatus = probeStatusFrom(nativeStatus.configured ? nativeStatus.ok : undefined);
@@ -594,8 +602,8 @@ function makeCapabilities(
       goal: "提升舆情分析、复盘和沉淀能力",
       currentProjectUse: "测试台已接入报告生成、进度查询、结果读取与取消；主监控链路不自动生成报告",
       testCoverage: "可调用 /api/report/generate、progress、result/json、cancel，并读取模板和日志",
-      status: reportProbe?.status || "skipped",
-      evidence: reportProbe ? [reportProbe.message] : ["未执行 ReportEngine 探测"],
+      status: reportCapabilityStatus(reportProbe, reportReady),
+      evidence: uniqueStrings([reportProbe?.message || "", reportReady ? "" : reportReason || "ReportEngine 未就绪"].filter(Boolean)),
       nextStep: "把本平台 MonitorResponse 转成 ReportEngine 输入文件，形成固定格式每日/专项舆情报告。"
     },
     {
