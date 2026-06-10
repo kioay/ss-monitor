@@ -136,12 +136,20 @@ function credentialEnvFileForOutput() {
 }
 
 function credentialNextSteps() {
-  return [
+  const steps = [
     `Fill ${credentialEnvFileForOutput()} with BETTAFISH_SHARED_LLM_API_KEY, BETTAFISH_SHARED_LLM_BASE_URL, and BETTAFISH_SHARED_LLM_MODEL_NAME, or fill all four explicit upstream engine triplets.`,
     "Set TAVILY_API_KEY and one of ANSPIRE_API_KEY or BOCHA_WEB_SEARCH_API_KEY.",
     "Rerun: npm run apply:bettafish-credentials -- --dry-run",
     "When missingRequiredKeys is empty, run: npm run apply:bettafish-credentials -- --restart"
   ];
+  if (explicitOptInKeysAvailable().length) {
+    steps.splice(
+      1,
+      0,
+      "If the user explicitly authorizes using the process OPENAI_API_KEY for BettaFish LLM calls, set BETTAFISH_USE_OPENAI_API_KEY_AS_SHARED_LLM=1 plus BETTAFISH_SHARED_LLM_BASE_URL and BETTAFISH_SHARED_LLM_MODEL_NAME; search credentials are still required."
+    );
+  }
+  return steps;
 }
 
 function writeCredentialTemplate(envFile: string) {
