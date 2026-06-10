@@ -1,12 +1,12 @@
 # BettaFish Production Audit
 
-Last audited: 2026-06-10 13:06 Asia/Hong_Kong
+Last audited: 2026-06-10 13:26 Asia/Hong_Kong
 
-Latest full verifier run: `2026-06-10T05:05:55.215Z` with `--full-actions`
+Latest full verifier run: `2026-06-10T05:26:16.869Z` with `--full-actions`
 
 Latest credential dry-run: `2026-06-10T04:56:34.626Z`
 
-Latest local checks: `npm run lint`, `npm run test:semantic-guard`, `npm run test:monitor-history`, `npm run build`, tracked forbidden-file audit, and deploy archive audit passed on 2026-06-10 12:33 Asia/Hong_Kong
+Latest local checks: `npm run lint`, `npm run test:semantic-guard`, `npm run test:monitor-history`, `npm run build`, tracked forbidden-file audit, and deploy archive audit passed on 2026-06-10 13:26 Asia/Hong_Kong
 
 ## Objective
 
@@ -22,12 +22,12 @@ Current completion status: blocked by missing upstream-required credentials and 
 | Inner BettaFish deployment matches upstream HEAD | `npm run verify:bettafish-production -- --full-actions`; SSH read-only repo audit | Pass for HEAD; warning is limited to untracked MediaCrawler runtime directories/files: `.deps_installed`, `browser_data`, `data`, and `temp_image` |
 | Public BettaFish deployment matches upstream HEAD | `npm run verify:bettafish-production -- --full-actions`; SSH read-only repo audit | Pass for HEAD; warning is a production compatibility patch in `keyword_manager.py` plus MediaCrawler `CUSTOM_BROWSER_PATH` and `CDP_HEADLESS` runtime config |
 | Upstream runtime files and dependencies are present | `npm run verify:bettafish-production -- --full-actions` | Pass for `requirements.txt`, `README.md`, `Dockerfile`, `docker-compose.yml`, `.env.example`, actual `.env` files, `.env.example` key coverage, MediaCrawler directory, MediaCrawler submodule commit, Python 3.9+, core imports, Playwright, Chromium candidates, and real Chromium launch on inner/public hosts |
-| ss-monitor local checks pass | `npm run lint`, `npm run test:semantic-guard`, `npm run test:monitor-history`, `npm run build` | Pass on 2026-06-10 12:33 Asia/Hong_Kong |
+| ss-monitor local checks pass | `npm run lint`, `npm run test:semantic-guard`, `npm run test:monitor-history`, `npm run build` | Pass on 2026-06-10 13:26 Asia/Hong_Kong |
 | No forbidden runtime/secret/build files are tracked | `git ls-files` audit for actual `.env`, cookies, secret key files, deploy archives, `node_modules`, `dist`, and build output | Pass: `forbidden_tracked=none` |
-| Deploy archive includes fresh frontend build without forbidden files | `scripts/create-deploy-archive.ps1 -OutputPath $env:TEMP\ss-monitor-archive-audit-29da653.tar.gz`; `tar -tzf` audit | Pass: archive contains `dist/` (`dist_entries=5`) and `forbidden_archive=none` |
+| Deploy archive includes fresh frontend build without forbidden files | `scripts/create-deploy-archive.ps1 -OutputPath $env:TEMP\ss-monitor-3897e6e-bettafish-lab.tar.gz`; `tar -tzf` audit | Pass: archive contains `dist/` (`dist_entries=5`) and `forbidden_archive=none` |
 | Production test lab HTTP page/API reachable | `npm run verify:bettafish-production -- --full-actions` | Pass for `http://ss-monitor.qinoay.top/` and `/api/bettafish/lab` |
 | Production test lab browser acceptance | `npm run verify:bettafish-production -- --full-actions` checks `public.web.http.browser.page`, `.lab`, `.labApi`, and `.errors` using headless Chromium from `192.168.8.242` against `http://ss-monitor.qinoay.top/` | Pass in the latest full verifier: HTTP page load, lab navigation, lab API `mode=test-lab`, 24 operations, 0 console errors, and 0 page errors |
-| Production test lab public API acceptance from workstation | `curl.exe http://ss-monitor.qinoay.top/api/bettafish/lab?windowHours=72` | Pass: `mode=test-lab`, `operations=24`, `baseUrlConfigured=True`, `actionsEnabled=True` |
+| Production test lab public API acceptance from workstation | `fetch('http://ss-monitor.qinoay.top/api/bettafish/lab?windowHours=72&sampleLimit=1&monitorLimit=20')` | Pass: HTTP 200, `mode=test-lab`, `operations=24`, `ReportEngine` capability now reports `warning` with evidence `initialized:false / engines_ready:false` and `ReportEngine 未初始化或缺少 LLM API key` |
 | BettaFish API reachable on inner/public hosts | `npm run verify:bettafish-production -- --full-actions` | Pass for `/api/status` |
 | Sentiment bridge self-test passes | `npm run verify:bettafish-production -- --full-actions` | Pass for `sentiment.analyze` |
 | MindSpider status and DB probe pass | `npm run verify:bettafish-production -- --full-actions` | Pass for `mindspider.status` and `mindspider.dbProbe` |
@@ -110,7 +110,7 @@ The apply helper sends credential payloads over SSH stdin, not in the remote com
 - The public host is CentOS 7 and has nginx at `/usr/sbin/nginx` (`nginx/1.26.1`) but no discovered `certbot` binary at `/usr/bin/certbot`, `/usr/local/bin/certbot`, or `/snap/bin/certbot`. An admin must install certbot, for example `yum install -y epel-release && yum install -y certbot python2-certbot-nginx`, or pre-provision `/etc/letsencrypt/live/ss-monitor.qinoay.top`, and set `LETSENCRYPT_EMAIL` if the helper should request the certificate.
 - Once root/sudo is available, the intended public-host command is `LETSENCRYPT_EMAIL=admin@example.com /home/yq/configure-ss-monitor-https.sh` run as root, with the email replaced by the certificate owner contact.
 - Public `curl.exe -I http://ss-monitor.qinoay.top/` returns HTTP 200 from Express behind nginx. Public `curl.exe -I https://ss-monitor.qinoay.top/` fails strict TLS verification with `SEC_E_WRONG_PRINCIPAL`; `curl.exe -k -I https://ss-monitor.qinoay.top/` reaches an nginx default page over 443, confirming that 443 is not serving the ss-monitor app for this hostname.
-- The public `ss-monitor` website currently points to `/opt/ss-monitor/releases/release-8bdf4fc-20260609234201`. Comparing `8bdf4fc..HEAD` shows only docs, verifier/helper scripts, nginx template, credential example, and `package.json` script-entry changes; no frontend or server runtime code changed, so the already-passing HTTP BettaFish test lab was not redeployed merely to pick up audit tooling.
+- The public `ss-monitor` website currently points to `/opt/ss-monitor/releases/release-3897e6e-20260610131410`. This release includes the BettaFish test lab ReportEngine readiness fix from commit `3897e6e`, preserves the canonical `/opt/ss-monitor/.env`, reuses the existing production `node_modules`, and serves a freshly generated `dist/` bundle. Post-deploy HTTP checks confirm the page is HTTP 200 and the test lab reports ReportEngine as `warning` instead of `ok` while credentials are missing.
 - Local credential discovery found only process-level and user-level `OPENAI_API_KEY`; no non-empty Tavily, Bocha, Anspire, or BettaFish engine keys were found in the project credential file, local project env files, Windows environment variables, MCP resources, production env files, or obvious Desktop/Documents credential filenames.
 - Upstream `.env.example` at `40327d75b60faaf347bc578f93714b5394079d03` confirms the required LLM `KEY/BASE_URL/MODEL_NAME` triplets plus Tavily and Anspire/Bocha search credentials.
 - Existing `scripts/douyin-server-login.ts` changes are pre-existing and intentionally excluded from BettaFish deployment commits.
