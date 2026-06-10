@@ -226,13 +226,16 @@ function printRemoteResult(target: HostTarget, result: any, upstreamHead: string
 }
 
 async function probePublicWebsite(checkHttps: boolean) {
-  const httpPage = await fetchText("http://ss-monitor.qinoay.top/");
+  const httpPage = await fetchText("http://ss-monitor.qinoay.top/", looksLikeAppShell);
   addCheck(
     "public.web.http.page",
     httpPage.ok && looksLikeAppShell(httpPage.text) ? "pass" : "fail",
     httpPage.ok ? `HTTP ${httpPage.status}` : httpPage.error
   );
-  const httpLab = await fetchText("http://ss-monitor.qinoay.top/api/bettafish/lab?windowHours=72");
+  const httpLab = await fetchText(
+    "http://ss-monitor.qinoay.top/api/bettafish/lab?windowHours=72",
+    (text) => text.includes("test-lab")
+  );
   addCheck(
     "public.web.http.lab",
     httpLab.ok && httpLab.text.includes("test-lab") ? "pass" : "fail",
@@ -242,7 +245,7 @@ async function probePublicWebsite(checkHttps: boolean) {
     addCheck("public.web.https", "skip", "--skip-https");
     return;
   }
-  const httpsPage = await fetchText("https://ss-monitor.qinoay.top/");
+  const httpsPage = await fetchText("https://ss-monitor.qinoay.top/", looksLikeAppShell);
   addCheck(
     "public.web.https.page",
     httpsPage.ok && looksLikeAppShell(httpsPage.text) ? "pass" : "fail",
@@ -404,14 +407,14 @@ function browserAcceptanceDetail(target: HostTarget, result: any) {
   ].join(" ");
 }
 
-async function fetchText(url: string) {
+async function fetchText(url: string, accept: (text: string) => boolean = (text) => Boolean(text.trim())) {
   let last = { ok: false, status: 0, text: "", error: "not attempted" };
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
       const response = await fetch(url);
       const text = await response.text();
       last = { ok: response.ok, status: response.status, text, error: "" };
-      if (response.ok && text.trim()) return last;
+      if (response.ok && accept(text)) return last;
     } catch (error) {
       last = { ok: false, status: 0, text: "", error: errorMessageWithCause(error) };
     }
