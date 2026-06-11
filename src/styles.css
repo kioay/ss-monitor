@@ -2255,6 +2255,89 @@ button.metric:focus-visible {
   line-height: 1.55;
 }
 
+.qa-summary {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  color: #3c4b44;
+}
+
+.qa-pair {
+  display: grid;
+  gap: 4px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(46, 91, 72, 0.1);
+}
+
+.qa-pair:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.qa-pair dt,
+.qa-pair dd {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  margin: 0;
+}
+
+.qa-pair dt {
+  color: #183c30;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.qa-pair dd {
+  color: #43534b;
+  font-size: 14px;
+  line-height: 1.62;
+}
+
+.qa-pair dt > span,
+.qa-pair dd > span {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  min-height: 22px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.qa-pair dt > span {
+  background: rgba(210, 146, 39, 0.14);
+  color: #8b5a0c;
+}
+
+.qa-pair dd > span {
+  background: rgba(34, 126, 91, 0.12);
+  color: #176b4d;
+}
+
+.qa-pair p {
+  margin: 0;
+  color: inherit;
+  line-height: inherit;
+  overflow-wrap: anywhere;
+}
+
+.qa-pair ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.qa-pair li {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .search-hit-meta {
   display: flex;
   flex-wrap: wrap;

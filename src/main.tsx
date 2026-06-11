@@ -1926,7 +1926,7 @@ function MonitorCard({ item, searchResult }: { item: MonitorItem; searchResult?:
           <span>{item.parsedContentCount} 段解析</span>
         </div>
         <h3>{item.title}</h3>
-        <p>{item.summary}</p>
+        <MonitorBrief item={item} />
         {searchResult ? (
           <div className="search-hit-meta">
             <span>{searchOriginText(searchResult.origin)}</span>
@@ -1967,6 +1967,116 @@ function MonitorCard({ item, searchResult }: { item: MonitorItem; searchResult?:
       </div>
     </article>
   );
+}
+
+function MonitorBrief({ item }: { item: MonitorItem }) {
+  const brief = makeMonitorBrief(item);
+
+  return (
+    <dl className="qa-summary" aria-label="内容问答摘要">
+      <div className="qa-pair">
+        <dt><span>问</span>这条在说什么？</dt>
+        <dd><span>答</span><p>{brief.overview}</p></dd>
+      </div>
+      <div className="qa-pair">
+        <dt><span>问</span>为什么要关注？</dt>
+        <dd><span>答</span><p>{brief.attention}</p></dd>
+      </div>
+      {brief.evidence.length ? (
+        <div className="qa-pair">
+          <dt><span>问</span>原文依据是什么？</dt>
+          <dd>
+            <span>答</span>
+            <ul>
+              {brief.evidence.map((snippet) => (
+                <li key={snippet}>{snippet}</li>
+              ))}
+            </ul>
+          </dd>
+        </div>
+      ) : null}
+    </dl>
+  );
+}
+
+function makeMonitorBrief(item: MonitorItem) {
+  const overview = summaryLead(item.summary) || compactSnippet(normalizeBriefText(item.title), 120);
+  const topicText = item.topics.slice(0, 3).join("、");
+  const reasonText = item.riskReasons.length
+    ? item.riskReasons.slice(0, 2).join("；")
+    : item.riskLevel === "low"
+      ? "当前未触发中高风险原因"
+      : "存在情绪或互动异常信号";
+  const attention = `${riskText(item.riskLevel)} · ${sentimentText(item.sentiment)}；${topicText ? `聚焦 ${topicText}` : "主题暂不集中"}；${reasonText}。`;
+
+  return {
+    overview,
+    attention,
+    evidence: makeEvidenceSnippets(item)
+  };
+}
+
+function makeEvidenceSnippets(item: MonitorItem) {
+  const preferredTypes = ["description", "post", "comment", "danmaku", "subtitle", "title", "tag"];
+  const seen = new Set<string>();
+  const snippets: string[] = [];
+  const title = normalizeBriefText(item.title);
+  const parts = [...item.contentParts].sort((left, right) => preferredTypes.indexOf(left.type) - preferredTypes.indexOf(right.type));
+
+  for (const part of parts) {
+    if (snippets.length >= 2) break;
+    const text = normalizeBriefText(part.text);
+    if (!text || text === title) continue;
+    const key = text.slice(0, 64);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    snippets.push(`${contentPartLabel(part.type)}：${compactSnippet(text, 92)}`);
+  }
+
+  if (snippets.length) return snippets;
+
+  for (const segment of summaryEvidenceSegments(item.summary)) {
+    if (snippets.length >= 2) break;
+    const text = normalizeBriefText(segment);
+    if (!text || text === title) continue;
+    snippets.push(`摘要：${compactSnippet(text, 92)}`);
+  }
+  return snippets;
+}
+
+function summaryLead(summary: string) {
+  const normalized = normalizeBriefText(summary);
+  const lead = normalized.split(/\s+\/\s+/)[0] || normalized;
+  const firstSentence = lead.match(/^.+?[。！？]/)?.[0];
+  return compactSnippet(firstSentence || lead, 150);
+}
+
+function summaryEvidenceSegments(summary: string) {
+  return normalizeBriefText(summary).split(/\s+\/\s+/).slice(1);
+}
+
+function normalizeBriefText(value: string) {
+  return value
+    .replace(/\bimage_emoticon\d*\b/gi, "")
+    .replace(/\s+/g, " ")
+    .replace(/\s+([，。！？；、])/g, "$1")
+    .trim();
+}
+
+function compactSnippet(value: string, maxLength: number) {
+  const text = normalizeBriefText(value);
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+}
+
+function contentPartLabel(type: MonitorItem["contentParts"][number]["type"]) {
+  if (type === "description") return "简介";
+  if (type === "comment") return "评论";
+  if (type === "danmaku") return "弹幕";
+  if (type === "subtitle") return "字幕";
+  if (type === "post") return "正文";
+  if (type === "tag") return "标签";
+  return "标题";
 }
 
 function Thumbnail({ item }: { item: MonitorItem }) {
