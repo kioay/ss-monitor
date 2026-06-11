@@ -2,6 +2,7 @@ export type GameId = "ss1" | "ss2";
 export type SourceType = "bilibili" | "tieba" | "douyin" | "bettafish";
 export type Sentiment = "positive" | "neutral" | "negative" | "mixed";
 export type RiskLevel = "low" | "medium" | "high";
+export type RiskSignalSource = "thread" | "new_reply" | "stale_thread";
 
 export interface GameConfig {
   id: GameId;
@@ -16,6 +17,7 @@ export interface ContentPart {
   type: "title" | "description" | "tag" | "comment" | "danmaku" | "subtitle" | "post";
   text: string;
   count?: number;
+  publishedAt?: string;
 }
 
 export interface MonitorItem {
@@ -50,6 +52,8 @@ export interface MonitorItem {
   sentimentScore: number;
   riskLevel: RiskLevel;
   riskReasons: string[];
+  riskSignalSource?: RiskSignalSource;
+  riskSignalAt?: string;
 }
 
 export interface SourceHealth {
@@ -102,6 +106,7 @@ export interface AlertItem {
   reasons: string[];
   url: string;
   publishedAt: string;
+  riskSignalSource?: RiskSignalSource;
 }
 
 export interface MonitorResponse {

@@ -2,8 +2,8 @@ import * as cheerio from "cheerio";
 import { analyzeItem } from "../analyze";
 import { runtimeConfig } from "../config";
 import { fetchText, looksBlocked, SourceError, sourceCookie } from "../http";
-import { hoursBetween, md5, normalizeUrl, nowIso, stripHtml, uniq } from "../utils";
-import type { ContentPart, GameConfig, MonitorItem, SourceHealth } from "../../src/shared";
+import { hoursBetween, md5, normalizeUrl, nowIso, stripHtml } from "../utils";
+import type { ContentPart, GameConfig, MonitorItem, RiskSignalSource, SourceHealth } from "../../src/shared";
 
 interface TiebaThreadCandidate {
   tid: string;
@@ -13,6 +13,7 @@ interface TiebaThreadCandidate {
   thumbnail?: string;
   abstractText: string;
   replyCount?: number;
+  createAt?: Date;
   latestAt?: Date;
 }
 
@@ -46,9 +47,26 @@ interface TiebaFrsResponse {
 interface TiebaPostResponse {
   error_code?: number;
   error_msg?: string;
+  page?: {
+    current_page?: number;
+    total_page?: number;
+    new_total_page?: number;
+    page_size?: number;
+    total_num?: number;
+  };
   post_list?: Array<{
     content?: Array<{ text?: string; type?: number }>;
+    floor?: number;
+    id?: string | number;
+    time?: string | number;
   }>;
+}
+
+interface TiebaThreadPost {
+  id?: string;
+  text: string;
+  floor?: number;
+  publishedAt?: Date;
 }
 
 export async function collectTieba(game: GameConfig, cutoff: Date) {
@@ -164,6 +182,7 @@ async function fetchMobileBarThreads(bar: string, page: number): Promise<TiebaTh
         thumbnail: thumbnail ? normalizeUrl(thumbnail) : undefined,
         abstractText,
         replyCount: Number(thread.reply_num) || undefined,
+        createAt,
         latestAt
       };
     })
@@ -208,6 +227,7 @@ async function fetchWebBarThreads(bar: string, page: number): Promise<TiebaThrea
       url: normalizeUrl(href),
       abstractText,
       replyCount,
+      createAt: parseTimestamp(data.create_time),
       latestAt
     });
   });
@@ -222,10 +242,15 @@ async function buildTiebaMonitorItem(game: GameConfig, candidate: TiebaThreadCan
     ...(candidate.abstractText ? [{ type: "description" as const, text: candidate.abstractText, count: 1 }] : [])
   ];
 
+  const posts = deepParse ? await fetchThreadPosts(candidate).catch(() => []) : [];
   if (deepParse) {
-    const posts = await fetchThreadPosts(candidate.tid, candidate.url).catch(() => []);
     for (const post of posts.slice(0, 15)) {
-      contentParts.push({ type: "post", text: post, count: 1 });
+      contentParts.push({
+        type: "post",
+        text: post.text,
+        count: 1,
+        publishedAt: post.publishedAt?.toISOString()
+      });
     }
   }
 
@@ -234,7 +259,8 @@ async function buildTiebaMonitorItem(game: GameConfig, candidate: TiebaThreadCan
     replies: candidate.replyCount,
     comments: candidate.replyCount
   };
-  const analysis = analyzeItem({ title: candidate.title, gameId: game.id, contentParts, metrics });
+  const baseAnalysis = analyzeItem({ title: candidate.title, gameId: game.id, contentParts, metrics });
+  const riskSignal = resolveTiebaRiskSignal(game, candidate, posts, baseAnalysis);
 
   return {
     id: `tieba:${candidate.tid}`,
@@ -253,8 +279,74 @@ async function buildTiebaMonitorItem(game: GameConfig, candidate: TiebaThreadCan
     metrics,
     contentParts,
     parsedContentCount: contentParts.reduce((sum, part) => sum + (part.count || 1), 0),
-    ...analysis
+    ...riskSignal.analysis,
+    riskSignalSource: riskSignal.source,
+    riskSignalAt: riskSignal.at?.toISOString()
   };
+}
+
+function resolveTiebaRiskSignal(
+  game: GameConfig,
+  candidate: TiebaThreadCandidate,
+  posts: TiebaThreadPost[],
+  baseAnalysis: ReturnType<typeof analyzeItem>
+): {
+  analysis: ReturnType<typeof analyzeItem>;
+  source: RiskSignalSource;
+  at?: Date;
+} {
+  if (!isReplyRefreshedThread(candidate)) {
+    return {
+      analysis: baseAnalysis,
+      source: "thread",
+      at: candidate.createAt || candidate.latestAt
+    };
+  }
+
+  const latestReply = latestReplyPost(posts);
+  if (!latestReply) {
+    return {
+      analysis: baseAnalysis,
+      source: "stale_thread",
+      at: candidate.createAt || candidate.latestAt
+    };
+  }
+
+  const latestReplyAnalysis = analyzeItem({
+    title: latestReply.text.slice(0, 48),
+    gameId: game.id,
+    contentParts: [{ type: "post", text: latestReply.text, count: 1, publishedAt: latestReply.publishedAt?.toISOString() }],
+    metrics: { replies: 1, comments: 1 }
+  });
+
+  if (latestReplyAnalysis.riskLevel === "low") {
+    return {
+      analysis: baseAnalysis,
+      source: "stale_thread",
+      at: candidate.createAt || candidate.latestAt
+    };
+  }
+
+  return {
+    analysis: {
+      ...baseAnalysis,
+      riskLevel: latestReplyAnalysis.riskLevel,
+      riskReasons: ["新回复带来风险", ...latestReplyAnalysis.riskReasons].slice(0, 4)
+    },
+    source: "new_reply",
+    at: latestReply.publishedAt || candidate.latestAt
+  };
+}
+
+function isReplyRefreshedThread(candidate: TiebaThreadCandidate) {
+  if (!candidate.createAt || !candidate.latestAt) return false;
+  return candidate.latestAt.getTime() - candidate.createAt.getTime() > 5 * 60_000;
+}
+
+function latestReplyPost(posts: TiebaThreadPost[]) {
+  return posts
+    .filter((post) => post.text && post.floor !== 1 && post.publishedAt)
+    .sort((left, right) => (right.publishedAt?.getTime() || 0) - (left.publishedAt?.getTime() || 0))[0];
 }
 
 function makeDeepParseSet(candidates: TiebaThreadCandidate[]) {
@@ -272,31 +364,47 @@ function needsPostContext(candidate: TiebaThreadCandidate) {
   return /(外挂|外卦|开挂|封号|作弊|科技|辅助|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|穿墙|无后座|无后坐|DMA|驱动|过检测|免封|QQ群|群号|加群|进群|售卖|卡密|代理|举报|水军|诈骗|退款|投诉)/.test(text);
 }
 
-async function fetchThreadPosts(tid: string, url: string) {
+async function fetchThreadPosts(candidate: TiebaThreadCandidate) {
   try {
-    return await fetchMobileThreadPosts(tid);
+    return await fetchMobileThreadPosts(candidate.tid);
   } catch {
-    return fetchWebThreadPosts(url);
+    return fetchWebThreadPosts(candidate.url);
   }
 }
 
 async function fetchMobileThreadPosts(tid: string) {
+  const firstPage = await fetchTiebaMobilePostPage(tid, 1);
+  const totalPage = Math.max(1, Number(firstPage.page?.new_total_page || firstPage.page?.total_page || 1));
+  if (totalPage <= 1) return postsFromMobileResponse(firstPage);
+
+  const latestPage = await fetchTiebaMobilePostPage(tid, totalPage);
+  return uniqPosts([...postsFromMobileResponse(firstPage), ...postsFromMobileResponse(latestPage)]);
+}
+
+async function fetchTiebaMobilePostPage(tid: string, page: number) {
   const data = await fetchTiebaMobileJson<TiebaPostResponse>(
     "/c/f/pb/page",
     {
       kz: tid,
-      pn: "1",
+      pn: String(page),
       rn: "20"
     }
   );
   if (Number(data.error_code || 0) !== 0) {
     throw new SourceError(`贴吧移动端帖子失败：${data.error_msg || data.error_code || "未知错误"}`);
   }
-  return uniq(
-    (data.post_list || [])
-      .map((post) => mobileText(post.content))
-      .filter((text) => text.length > 2)
-  ).slice(0, 30);
+  return data;
+}
+
+function postsFromMobileResponse(data: TiebaPostResponse): TiebaThreadPost[] {
+  return (data.post_list || [])
+    .map((post) => ({
+      id: post.id === undefined ? undefined : String(post.id),
+      text: mobileText(post.content),
+      floor: typeof post.floor === "number" ? post.floor : Number(post.floor) || undefined,
+      publishedAt: parseTimestamp(post.time)
+    }))
+    .filter((post) => post.text.length > 2);
 }
 
 async function fetchWebThreadPosts(url: string) {
@@ -307,12 +415,22 @@ async function fetchWebThreadPosts(url: string) {
   if (looksBlocked(html)) throw new SourceError("帖子详情触发百度安全验证", true);
 
   const $ = cheerio.load(html);
-  const posts: string[] = [];
+  const posts: TiebaThreadPost[] = [];
   $(".d_post_content, .p_content, .l_post .content").each((_, element) => {
     const text = stripHtml($(element).text());
-    if (text.length > 2) posts.push(text);
+    if (text.length > 2) posts.push({ text });
   });
-  return uniq(posts).slice(0, 30);
+  return uniqPosts(posts).slice(0, 30);
+}
+
+function uniqPosts(posts: TiebaThreadPost[]) {
+  const seen = new Set<string>();
+  return posts.filter((post) => {
+    const key = post.id || `${post.floor || ""}:${post.publishedAt?.toISOString() || ""}:${post.text}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 async function fetchTiebaMobileJson<T>(path: string, params: Record<string, string>) {
