@@ -102,6 +102,9 @@ NIGHT_INTERVAL_MINUTES="$(int_or_default "${BETTAFISH_DOUYIN_NIGHT_INTERVAL_MINU
 NIGHT_START_HOUR="$(int_or_default "${BETTAFISH_DOUYIN_NIGHT_START_HOUR:-${NIGHT_START_HOUR:-0}}" 0)"
 NIGHT_END_HOUR="$(int_or_default "${BETTAFISH_DOUYIN_NIGHT_END_HOUR:-${NIGHT_END_HOUR:-8}}" 8)"
 LOCK_STALE_MINUTES="$(int_or_default "${BETTAFISH_DOUYIN_LOCK_STALE_MINUTES:-180}" 180)"
+MAX_NOTES_COUNT="$(int_or_default "${BETTAFISH_DOUYIN_MAX_NOTES_COUNT:-15}" 15)"
+MAX_COMMENTS_PER_ITEM="$(int_or_default "${BETTAFISH_DOUYIN_MAX_COMMENTS_PER_ITEM:-20}" 20)"
+SLEEP_SECONDS="$(int_or_default "${BETTAFISH_DOUYIN_SLEEP_SECONDS:-2}" 2)"
 
 if [ "$NIGHT_START_HOUR" -gt 23 ]; then NIGHT_START_HOUR=0; fi
 if [ "$NIGHT_END_HOUR" -gt 23 ]; then NIGHT_END_HOUR=8; fi
@@ -184,6 +187,25 @@ export PYTHONUNBUFFERED="${PYTHONUNBUFFERED:-1}"
 
 cd "$MEDIA_CRAWLER_DIR"
 
+"$PYTHON" - "$MAX_NOTES_COUNT" "$MAX_COMMENTS_PER_ITEM" "$SLEEP_SECONDS" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+config_path = Path("config/base_config.py")
+updates = {
+    "CRAWLER_MAX_NOTES_COUNT": int(sys.argv[1]),
+    "CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES": int(sys.argv[2]),
+    "CRAWLER_MAX_SLEEP_SEC": int(sys.argv[3]),
+}
+text = config_path.read_text(encoding="utf-8")
+for key, value in updates.items():
+    text, count = re.subn(rf"^{key}\s*=\s*.*$", f"{key} = {value}", text, flags=re.MULTILINE)
+    if count != 1:
+        raise SystemExit(f"Could not update {key} in {config_path}")
+config_path.write_text(text, encoding="utf-8")
+PY
+
 keywords="$("$PYTHON" - <<'PY'
 import base64
 import json
@@ -243,7 +265,7 @@ if login_type == "cookie" and not cookie_configured:
 PY
 )"
 
-log "Starting BettaFish Douyin crawl: mode=$mode interval=${interval_minutes}m save=$save_data_option headless=$headless preflight=$preflight_json"
+log "Starting BettaFish Douyin crawl: mode=$mode interval=${interval_minutes}m save=$save_data_option headless=$headless maxNotes=$MAX_NOTES_COUNT commentsPerItem=$MAX_COMMENTS_PER_ITEM sleepSeconds=$SLEEP_SECONDS preflight=$preflight_json"
 
 "$PYTHON" main.py \
   --platform dy \

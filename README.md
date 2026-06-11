@@ -276,7 +276,7 @@ Only the normalized JSON export is uploaded in local-CDP mode. In server-cookie 
 
 ### Production Douyin scheduler
 
-Internal production uses `ss-monitor-douyin-crawl.timer` to run the BettaFish / MediaCrawler Douyin crawler. The timer wakes hourly, and `scripts/run-bettafish-douyin-crawl.sh` enforces the project cadence before it actually crawls: daytime every 60 minutes, nighttime every 240 minutes by default. Override the cadence with `BETTAFISH_DOUYIN_DAY_INTERVAL_MINUTES`, `BETTAFISH_DOUYIN_NIGHT_INTERVAL_MINUTES`, `BETTAFISH_DOUYIN_NIGHT_START_HOUR`, and `BETTAFISH_DOUYIN_NIGHT_END_HOUR`.
+Internal production uses `ss-monitor-douyin-crawl.timer` to run the BettaFish / MediaCrawler Douyin crawler. The timer wakes hourly, and `scripts/run-bettafish-douyin-crawl.sh` enforces the project cadence before it actually crawls: daytime every 60 minutes, nighttime every 240 minutes by default. Override the cadence with `BETTAFISH_DOUYIN_DAY_INTERVAL_MINUTES`, `BETTAFISH_DOUYIN_NIGHT_INTERVAL_MINUTES`, `BETTAFISH_DOUYIN_NIGHT_START_HOUR`, and `BETTAFISH_DOUYIN_NIGHT_END_HOUR`. The runner also restores MediaCrawler's production crawl parameters before each run: `BETTAFISH_DOUYIN_MAX_NOTES_COUNT=15`, `BETTAFISH_DOUYIN_MAX_COMMENTS_PER_ITEM=20`, and `BETTAFISH_DOUYIN_SLEEP_SECONDS=2` unless overridden.
 
 The service calls upstream MediaCrawler in Douyin search mode:
 
