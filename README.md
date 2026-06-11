@@ -273,3 +273,23 @@ The sync script preflights BettaFish / MediaCrawler before every crawl:
 - `ENABLE_GET_MEIDAS=False` so large images/videos are not downloaded or synced.
 
 Only the normalized JSON export is uploaded in local-CDP mode. In server-cookie mode, only the compact cookie string is stored in `/opt/BettaFish/.env` and `/opt/BettaFish/current/.env`; browser profiles, raw crawler state, images, and videos remain out of Git and deployment archives.
+
+### Production Douyin scheduler
+
+Internal production uses `ss-monitor-douyin-crawl.timer` to run the BettaFish / MediaCrawler Douyin crawler. The timer wakes hourly, and `scripts/run-bettafish-douyin-crawl.sh` enforces the project cadence before it actually crawls: daytime every 60 minutes, nighttime every 240 minutes by default. Override the cadence with `BETTAFISH_DOUYIN_DAY_INTERVAL_MINUTES`, `BETTAFISH_DOUYIN_NIGHT_INTERVAL_MINUTES`, `BETTAFISH_DOUYIN_NIGHT_START_HOUR`, and `BETTAFISH_DOUYIN_NIGHT_END_HOUR`.
+
+The service calls upstream MediaCrawler in Douyin search mode:
+
+```bash
+python main.py --platform dy --lt cookie --type search --save_data_option db --headless true --get_comment true --get_sub_comment false
+```
+
+It reads `/opt/ss-monitor/.env`, `/opt/BettaFish/.env`, and `/opt/BettaFish/current/.env` through systemd `EnvironmentFile`, so the copied compact cookie remains in ignored server env files and never enters Git or deploy archives. Install or refresh the units with:
+
+```bash
+chmod 0755 /opt/ss-monitor/current/scripts/run-bettafish-douyin-crawl.sh
+install -m 0644 /opt/ss-monitor/current/scripts/ss-monitor-douyin-crawl.service /etc/systemd/system/ss-monitor-douyin-crawl.service
+install -m 0644 /opt/ss-monitor/current/scripts/ss-monitor-douyin-crawl.timer /etc/systemd/system/ss-monitor-douyin-crawl.timer
+systemctl daemon-reload
+systemctl enable --now ss-monitor-douyin-crawl.timer
+```

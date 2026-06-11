@@ -1,0 +1,20 @@
+[Unit]
+Description=SS Monitor BettaFish Douyin crawl
+After=network-online.target mariadb.service bettafish-full.service
+Wants=network-online.target mariadb.service
+
+[Service]
+Type=oneshot
+User=yq
+WorkingDirectory=/opt/BettaFish/current/MindSpider/DeepSentimentCrawling/MediaCrawler
+Environment=APP_ROOT=/opt/ss-monitor
+Environment=BETTAFISH_ROOT=/opt/BettaFish
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONIOENCODING=utf-8
+Environment=BETTAFISH_DOUYIN_LOGIN_TYPE=cookie
+EnvironmentFile=-/opt/ss-monitor/.env
+EnvironmentFile=-/opt/BettaFish/.env
+EnvironmentFile=-/opt/BettaFish/current/.env
+ExecStart=/opt/ss-monitor/current/scripts/run-bettafish-douyin-crawl.sh
+TimeoutStartSec=75m
+

@@ -1,0 +1,10 @@
+[Unit]
+Description=Run SS Monitor BettaFish Douyin crawl on the project cadence
+
+[Timer]
+OnCalendar=*-*-* *:00:00
+Persistent=true
+RandomizedDelaySec=10m
+
+[Install]
+WantedBy=timers.target
