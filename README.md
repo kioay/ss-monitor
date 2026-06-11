@@ -1,295 +1,162 @@
-# 生死狙击舆情监测平台
+# SS Monitor 舆情监测平台
 
-面向《生死狙击1》和《生死狙击2》的本地网络舆情监测工作台。
+SS Monitor 是面向《生死狙击1》和《生死狙击2》的内网舆情监测工作台。它把 B 站、贴吧、授权抖音数据、BettaFish / MindSpider 输出和可选的 Confluence 当前版本重点融合到一个 Web 页面里，供运营和项目成员在内网查看趋势、风险、话题和每日简报。
 
-## 运行
+当前生产形态是内网机部署：Node 服务同时提供 API 和已经构建好的前端静态资源，公网入口不再承载完整平台。真实内网地址、机器人 webhook、站点 cookie、数据库密码、Confluence token、LLM key 等只保存在服务器本地环境文件或受控密钥系统中，不写入 Git、README、Issue、Release note 或部署归档。
+
+## 功能概览
+
+- 监控 SS1 / SS2 的 B 站视频、贴吧主题、授权抖音数据和 BettaFish / MindSpider 导入数据。
+- 默认展示最近 72 小时，可切换 24 小时、7 天和 14 天窗口。
+- 后端保留轻量历史池，7 天和 14 天统计不再只依赖当前抓取页。
+- 日间默认每 60 分钟刷新，夜间默认每 240 分钟刷新；手动刷新会强制重新采集。
+- Confluence 当前版本重点由生产服务器直接刷新，失败时使用本地缓存。
+- BettaFish 语义结果只作为辅助信号，不替代 SS1 / SS2 领域规则，也不会单独制造高风险结论。
+- DingTalk 只发送计划内每日简报；不会主动发送测试消息或新条目即时推送。
+
+## 本地开发
+
+要求 Node.js 20+。
 
 ```bash
-npm install
+npm ci
+cp .env.example .env
 npm run dev
 ```
 
-前端：http://127.0.0.1:5173/
+开发地址：
 
-后端：http://127.0.0.1:8787/
+- 前端：`http://127.0.0.1:5173/`
+- 后端：`http://127.0.0.1:8787/`
 
-## 生产访问
+`.env.example` 只包含空占位和安全默认值。复制为 `.env` 后按需填入本机 cookie、授权 API、Confluence、DingTalk、BettaFish 或数据库配置；不要把真实值提交到 Git。
 
-生产环境使用域名访问：
+## Release 快速部署
 
-- 外网提示页：http://ss-monitor.qinoay.top/
-- 内网平台：http://192.168.8.242:8787/
+GitHub Release 应附带由 `scripts/create-deploy-archive.ps1` 生成的 `ss-monitor-<version>.tar.gz`。这个归档包含 Git 源码快照和最新 `dist/`，目标服务器不需要安装前端构建依赖来生成页面资源。
 
-内网机上的 Node 服务监听 `0.0.0.0:8787`，便于内网用户直接访问。外网机不再承载舆情平台，只保留跳转提示。
-
-## 数据源
-
-- B站视频：按发布时间排序搜索，补充视频详情、简介、评论、弹幕和可用字幕。
-- 百度贴吧：读取对应吧最新主题，并按最新回复时间过滤。
-
-## Confluence current-version focus
-
-Internal production on `192.168.8.242` can reach Confluence directly. Set `CONFLUENCE_TOKEN`, `CONFLUENCE_PAGE_ID`, and a persistent `CURRENT_VERSION_FOCUS_CACHE_PATH` such as `/opt/ss-monitor/state/current-version-focus.json` in `/opt/ss-monitor/.env` and mirror them into `/opt/ss-monitor/current/.env` before restarting.
-
-The monitor refresh path calls Confluence from the server, so a daily local-workstation `npm run sync:confluence` job is no longer part of normal production operation. Keep `npm run sync:confluence` only as an explicit manual fallback for environments where the server cannot reach Confluence.
-
-## 更新与新鲜度策略
-
-- 默认只展示最近 72 小时信息，前端可切换到 24 小时、7 天或 14 天。
-- 日间每 1 小时自动更新 1 次。
-- 夜间 `00:00-08:00` 降低为每 4 小时自动更新 1 次。
-- 平台顶部会标注当前更新频率、夜间时段和下次自动更新时间。
-- 后端会按 `freshnessCutoff` 丢弃窗口外内容。
-- 刷新按钮会强制重新采集，不受自动更新频率限制。
-- 采集失败不会用旧数据或假数据补位，来源健康卡会显示异常原因。
-
-## 风控配置
-
-复制 `.env.example` 为 `.env` 后可配置：
+在一台新的 Linux 内网机上部署类似站点：
 
 ```bash
-DAY_UPDATE_INTERVAL_MINUTES=60
-NIGHT_UPDATE_INTERVAL_MINUTES=240
-NIGHT_START_HOUR=0
-NIGHT_END_HOUR=8
-BILIBILI_COOKIE=
-BAIDU_COOKIE=
+sudo mkdir -p /opt/ss-monitor/releases/ss-monitor-<version>
+sudo mkdir -p /opt/ss-monitor/state /opt/ss-monitor/data
+sudo tar -xzf ss-monitor-<version>.tar.gz -C /opt/ss-monitor/releases/ss-monitor-<version>
+sudo ln -sfn /opt/ss-monitor/releases/ss-monitor-<version> /opt/ss-monitor/current
+
+cd /opt/ss-monitor/current
+npm ci --omit=dev
+sudo cp .env.example /opt/ss-monitor/.env
+sudo cp /opt/ss-monitor/.env /opt/ss-monitor/current/.env
 ```
 
-B站或贴吧触发风控时，把浏览器中对应站点的 Cookie 放入 `.env`，然后重启后端。
+编辑 `/opt/ss-monitor/.env`，填入本机允许使用的真实配置；然后再次镜像到当前 release：
 
-## 接口
+```bash
+sudo cp /opt/ss-monitor/.env /opt/ss-monitor/current/.env
+```
+
+如果直接给内网用户访问，可把 `HOST` 设为 `0.0.0.0`；如果前面有 nginx 或其他反向代理，建议让应用监听 `127.0.0.1`，由代理暴露站点。生产默认端口是 `8787`。
+
+一个最小 systemd 服务示例：
+
+```ini
+[Unit]
+Description=SS Monitor
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/ss-monitor/current
+EnvironmentFile=/opt/ss-monitor/.env
+ExecStart=/usr/bin/npm run start
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+部署更新时保持 `/opt/ss-monitor/.env` 作为配置基线，并在重启前同步到 `/opt/ss-monitor/current/.env`。不要只改 release 目录里的 `.env`，否则下次切换版本时容易丢失配置。
+
+## 生成 Release 归档
+
+维护者在发布前应先完成本地检查，再生成归档：
+
+```powershell
+npm ci
+npm run lint
+npm run test:search
+npm run test:topic-bars
+npm run test:monitor-history
+npm run test:douyin-game-routing
+npm run test:risk-alerts
+npm run test:dingtalk-daily-markdown
+npm run test:semantic-guard
+.\scripts\create-deploy-archive.ps1 -OutputPath "$env:TEMP\ss-monitor-<version>.tar.gz"
+```
+
+`create-deploy-archive.ps1` 会先执行 `npm run build`，再把 Git 归档和新生成的 `dist/` 打进压缩包。归档文件本身、`.env*`、`data/`、`node_modules/`、浏览器 profile、cookie、缓存、媒体下载和报告输出都不应进入 Git。
+
+## 关键配置
+
+常用配置在 `.env.example` 中维护。部署时通常只需要关注这些类别：
+
+- 服务监听：端口、监听地址、日夜刷新频率、默认时间窗口。
+- 基础采集：B 站和贴吧 cookie，可留空；被风控时再在服务器本地配置。
+- 当前版本重点：Confluence 页面和访问凭证，只放在服务器本地。
+- 抖音数据：优先使用授权导出、授权 API、MindSpider / MediaCrawler 输出或数据库读取。
+- BettaFish：完整运行时独立维护在本项目之外，本项目只读取它的状态、导出数据或本地语义模型结果。
+- DingTalk：只配置每日简报机器人；测试接口仅允许本机访问。
+- 状态文件：建议放在 `/opt/ss-monitor/state` 或 `/opt/ss-monitor/data`，并保持目录不入 Git。
+
+## 数据源说明
+
+### B 站和贴吧
+
+默认尝试公开页面和接口。若触发安全验证，可在服务器本地 `.env` 中配置对应站点 cookie 后重启服务。cookie 是敏感信息，不要写进文档、代码、Release note 或聊天记录。
+
+### Confluence 当前版本重点
+
+内网生产机可以直接访问 Confluence 时，由服务端刷新当前版本重点并写入缓存。无法直连 Confluence 的环境可以手动运行同步脚本作为备用方案。
+
+### 抖音
+
+主流程只读取授权来源或 BettaFish / MindSpider 产物，不实现验证码绕过、私有签名生成或未授权反爬规避。可用来源顺序：
+
+1. MindSpider / MediaCrawler 导出的 JSON、CSV 或 JSONL。
+2. MindSpider 数据库中的抖音作品和评论表。
+3. 授权 API 源，配置文件可参考 `examples/douyin-authorized-sources.example.json`。
+4. 本地授权导入目录中的 CSV 或 JSON。
+
+### BettaFish / MindSpider
+
+BettaFish 是独立的上游系统，部署时应按上游 README、依赖、Docker / Python 要求和 MediaCrawler 子模块维护。本项目不要复制 BettaFish 的 `.env`、浏览器 profile、cookie、爬虫输出、下载媒体、报告、缓存或训练数据到 Git 或 release 归档中。
+
+## API
 
 - `GET /api/config`
 - `GET /api/health`
 - `GET /api/monitor?games=ss1,ss2&windowHours=72&limit=1000&force=1`
-- `GET /api/bettafish/lab?windowHours=72`：BettaFish 测试台状态、能力覆盖、导入预览和只读探测。
-- `POST /api/bettafish/lab/action`：BettaFish 测试台固定研究操作代理。默认启用；设置 `BETTAFISH_LAB_ACTIONS_ENABLED=false` 可关闭。
+- `GET /api/search`
+- `GET /api/bettafish/lab?windowHours=72`
+- `POST /api/bettafish/lab/action`
 
-## Monitor history retention
+`/api/bettafish/lab/action` 只暴露服务端定义好的固定研究操作。若一个部署应完全只读，把测试台操作开关设为关闭。
 
-The monitor now keeps a lightweight local history file at `data/monitor-history.json` by default. Every refresh merges the latest Bilibili, Tieba, Douyin, and BettaFish items into that history pool, then 7-day and 14-day windows are calculated from the retained pool instead of only the current fetch page.
+## 适配到类似网站
 
-Relevant configuration:
+要把 release 用作类似舆情站点的起点，通常需要调整：
 
-```bash
-MONITOR_HISTORY_PATH=data/monitor-history.json
-MONITOR_HISTORY_RETENTION_HOURS=720
-MONITOR_HISTORY_MAX_ITEMS=5000
-MAX_BILIBILI_SEARCH_PAGES=5
-MAX_BILIBILI_VIDEOS_PER_GAME=120
-MAX_TIEBA_LIST_PAGES=5
-TIEBA_THREADS_PER_PAGE=30
-MAX_TIEBA_THREADS_PER_BAR=150
-MAX_DOUYIN_ITEMS_PER_GAME=300
-MAX_DOUYIN_IMPORTED_ITEMS_PER_GAME=300
-MAX_BETTAFISH_IMPORTED_ITEMS_PER_GAME=300
-MINDSPIDER_DB_LIMIT=1000
-```
+- `server/config.ts` 中的游戏列表、搜索关键词和贴吧吧名。
+- `server/analyze.ts`、`server/domainSafeTerms.ts` 和 `src/topicBars.ts` 中的领域词、保护语境和话题分类。
+- `.env.example` 中的授权来源、刷新频率、状态文件路径和机器人配置模板。
+- 页面文案和视觉样式：`src/main.tsx`、`src/styles.css`。
 
-`limit` on `/api/monitor` now controls only how many newest rows are returned in `items`; stats, trends, topics, and alerts are calculated from the full selected time window.
+改完后重新运行检查并生成新的 release 归档。
 
-## Douyin authorized import
+## 安全边界
 
-Use this path for Douyin data that you have exported or received through an authorized channel. The importer does not log in to Douyin, bypass anti-bot checks, solve captchas, or call private signed endpoints.
-
-1. Put `.csv` or `.json` files under `data/douyin-imports/` on the machine that runs the monitor. The whole `data/` directory is ignored by Git.
-2. Set `DOUYIN_IMPORT_DIR` if the files live elsewhere.
-3. Refresh `/api/monitor?...&force=1` or use the frontend refresh button. Imported rows are merged with MindSpider experimental rows and analyzed as `douyin` items.
-
-Recommended CSV headers:
-
-```csv
-gameId,title,url,author,publishedAt,description,comments,likes,commentsCount,shares,views
-ss1,Example title,https://www.douyin.com/video/123456,Creator,2026-05-23T10:00:00+08:00,Caption text,"comment one|comment two",120,18,5,3000
-```
-
-JSON can be either an array or `{ "items": [...] }`. Supported aliases include `awemeId`, `videoId`, `caption`, `desc`, `nickname`, `createTime`, `likeCount`, `commentCount`, `shareCount`, `playCount`, `tags`, `comments`, `danmaku`, `subtitles`, and `contentParts`.
-
-## Douyin authorized API sources
-
-Use `DOUYIN_AUTHORIZED_SOURCES_PATH` for APIs from Douyin Open Platform, 巨量算数, or an authorized data vendor. Copy `examples/douyin-authorized-sources.example.json` to `data/douyin-authorized-sources.json`, enable the relevant source, and keep real endpoints/tokens in `.env` or another ignored server-side secret store.
-
-Each source fetches JSON and maps rows into the same Douyin sentiment shape used by file imports:
-
-```json
-{
-  "sources": [
-    {
-      "id": "vendor-feed",
-      "enabled": true,
-      "urlEnv": "DOUYIN_VENDOR_ENDPOINT",
-      "tokenEnv": "DOUYIN_VENDOR_TOKEN",
-      "rowsPath": "items",
-      "fieldMap": {
-        "gameId": "game_id",
-        "sourceItemId": "aweme_id",
-        "title": "title",
-        "description": "summary",
-        "url": "url",
-        "publishedAt": "publish_time",
-        "comments": "comments",
-        "likes": "like_count"
-      }
-    }
-  ]
-}
-```
-
-Notes:
-- Douyin Open Platform access requires app approval, user authorization, and the relevant scopes such as comment/data permissions.
-- 巨量算数 and third-party vendors should provide an authorized API or export endpoint; map their response fields through `fieldMap`.
-- The monitor only reads authorized JSON endpoints. It does not perform login automation, captcha handling, private signature generation, or anti-bot bypass.
-
-## Douyin experimental crawler takeover
-
-The main Douyin monitor now prefers experimental and authorized sources in this order:
-
-1. MindSpider / MediaCrawler experimental output from `MINDSPIDER_DOUYIN_IMPORT_DIR`. Multiple directories are supported; without an explicit value the monitor also checks BettaFish `MindSpider/DeepSentimentCrawling/MediaCrawler/data` when the repo is detected.
-2. MindSpider DB direct reads from `douyin_aweme` and `douyin_aweme_comment` when `MINDSPIDER_DB_*` or `DB_*` is configured. MySQL, PostgreSQL, and SQLite are supported.
-3. Douyin authorized API sources.
-4. Douyin authorized local imports.
-
-Public Sogou discovery is disabled by default. Set `DOUYIN_PUBLIC_SEARCH_ENABLED=true` only when you explicitly want that fallback.
-
-For DB takeover, configure either `MINDSPIDER_ENV_FILE=/home/yq/BettaFish/MindSpider/.env` or these values in the monitor environment:
-
-```bash
-MINDSPIDER_DOUYIN_ENABLED=true
-MINDSPIDER_DB_DIALECT=mysql
-MINDSPIDER_DB_HOST=127.0.0.1
-MINDSPIDER_DB_PORT=3306
-MINDSPIDER_DB_USER=...
-MINDSPIDER_DB_PASSWORD=...
-MINDSPIDER_DB_NAME=mindspider
-MINDSPIDER_DOUYIN_TABLE=douyin_aweme
-MINDSPIDER_DOUYIN_COMMENTS_TABLE=douyin_aweme_comment
-```
-
-For a production machine without a user-managed MySQL/PostgreSQL service, use the SQLite bridge instead:
-
-```bash
-MINDSPIDER_DOUYIN_ENABLED=true
-MINDSPIDER_DB_DIALECT=sqlite
-MINDSPIDER_SQLITE_PATH=/opt/ss-monitor/data/mindspider.sqlite
-MINDSPIDER_SQLITE_COMMAND=sqlite3
-MINDSPIDER_DOUYIN_TABLE=douyin_aweme
-MINDSPIDER_DOUYIN_COMMENTS_TABLE=douyin_aweme_comment
-```
-
-If neither DB nor export files are available, the source-health card says that MindSpider has not produced data yet instead of silently falling back to public collection.
-
-## BettaFish / MindSpider integration
-
-BettaFish is a full Python public-opinion system with its own Flask app, Streamlit agents, MindSpider crawler, database, and GPL-2.0 licensing. This platform integrates it as an optional external data source instead of vendoring its code.
-
-1. Run and maintain BettaFish separately, with its own database, LLM keys, cookies, and crawler login state.
-2. Export authorized BettaFish or MindSpider rows as `.json` or `.csv` into `data/bettafish-imports/`, or set `BETTAFISH_IMPORT_DIR` to another ignored directory.
-3. Optionally set `BETTAFISH_BASE_URL=http://127.0.0.1:5000` so the monitor can show BettaFish `/api/status` health. If a sibling BettaFish repo is present, the test lab auto-detects the repo and defaults the base URL to local port `5000`.
-4. Refresh `/api/monitor?...&force=1`. Rows matching SS1/SS2 terms are merged as `bettafish` items and passed through the same sentiment/risk analyzer.
-
-See `examples/bettafish-import.example.json` for supported fields. Common MindSpider tables such as `douyin_aweme`, `bilibili_video`, `xhs_note`, `weibo_note`, `tieba_note`, and `zhihu_content` are mapped by alias.
-
-### BettaFish semantic fusion
-
-The main monitor can now use BettaFish local sentiment models as an auxiliary semantic signal. This is a conservative fusion, not a replacement:
-
-- Existing SS1/SS2 domain rules still make the primary call for player skill shares, help posts, routine player sharing, player-behavior complaints, illegal cheat context, SS1 weapon names, and current-version focus.
-- BettaFish models are batch-run after collection through `scripts/bettafish-semantic-bridge.py`, so the model loads once per refresh instead of once per item.
-- BettaFish high-confidence positive/negative output can adjust sentiment score and add a supporting reason, but it cannot create high risk by itself.
-- If BettaFish, Python, or model dependencies are unavailable, the monitor logs the issue and falls back to the existing analyzer.
-
-Configuration:
-
-```bash
-BETTAFISH_SEMANTIC_ENABLED=true
-BETTAFISH_SEMANTIC_MODELS=bayes
-BETTAFISH_SEMANTIC_MAX_ITEMS=80
-BETTAFISH_SEMANTIC_TIMEOUT_MS=15000
-```
-
-`svm` and `xgboost` can be added to `BETTAFISH_SEMANTIC_MODELS` when the BettaFish Python environment has compatible `scikit-learn` / `xgboost` versions. Full BettaFish production deployments set this to `svm,bayes,xgboost`.
-
-For production, deploy the full BettaFish runtime tree:
-
-```bash
-npm run sync:bettafish-full
-```
-
-Configure `SYNC_BETTAFISH_FULL_REMOTE`, `SYNC_BETTAFISH_FULL_SSH_PORT`, `SYNC_BETTAFISH_FULL_PASSWORD`, and `SYNC_BETTAFISH_FULL_LOCAL_REPO` in `.env.local` or the shell. The sync installs BettaFish under `/opt/BettaFish/current`, creates `bettafish-full.service`, installs Python dependencies into `/opt/BettaFish/.venv`, starts the Flask API on `127.0.0.1:5000`, and updates `/opt/ss-monitor/.env` so the monitor uses the full runtime via `BETTAFISH_BASE_URL`, `BETTAFISH_REPO_DIR`, and `BETTAFISH_PYTHON`. By default it clones the exact upstream Git revision with MediaCrawler submodules on the production server, leaving `.git`, `.github`, and tracked training datasets available for completeness checks. It then installs `SYNC_BETTAFISH_FULL_SEMANTIC_DEP_PACKAGES` so the legacy `svm,bayes,xgboost` pickle models load with their compatible `numpy` / `scikit-learn` / `xgboost` versions.
-
-The full sync includes BettaFish app code, Agent engines, ReportEngine, MindSpider, MediaCrawler code, templates, static assets, tracked training datasets, and model weights. It still keeps `.env`, browser profiles, cookies, crawler output, downloaded media, generated runtime reports, and caches out of deployment archives/state by default. Only set `SYNC_BETTAFISH_FULL_INCLUDE_RUNTIME_STATE=true` when intentionally moving runtime state.
-
-The production verifier now treats the old public website and announcement surfaces as retired by default. `npm run verify:bettafish-production` records `public.*` and `announcement.*` checks as `skip` unless `--check-public`, `BETTAFISH_PUBLIC_RETIRED=false`, `--check-announcement`, or `BETTAFISH_ANNOUNCEMENT_RETIRED=false` explicitly restores those checks.
-
-During full sync, the deployment applies a small set of production compatibility patches after cloning upstream: `/api/config` responses redact secret-like values, ForumEngine status is refreshed from its in-process monitor thread, Streamlit Agent apps bind to `127.0.0.1`, MindSpider generates MediaCrawler DB config from runtime environment variables instead of embedding credentials, and MediaCrawler's default DB config reads the same environment variables. MediaCrawler profile/data/temp directories remain runtime state and are not part of the reproducible code patch set.
-
-The older semantic-only sync remains available for emergency rollback or very small servers:
-
-```bash
-npm run sync:bettafish-semantic
-```
-
-Configure `SYNC_BETTAFISH_REMOTE`, `SYNC_BETTAFISH_SSH_PORT`, `SYNC_BETTAFISH_PASSWORD`, and `SYNC_BETTAFISH_ROOT_PASSWORD` in `.env.local`. The sync uploads `utils.py`, `data/stopwords.txt`, and the selected pickle model files under `/opt/BettaFish/SentimentAnalysisModel/WeiboSentiment_MachineLearning/`; it does not upload browser profiles, cookies, crawler media, or training data. By default it installs a small Python venv at `/opt/BettaFish/.venv` with `numpy<2`, `scipy<1.14`, `scikit-learn==0.24.2`, and `jieba==0.42.1`.
-
-The frontend also has a separate `BettaFish 测试台` tab. It keeps BettaFish outside the main monitor pipeline, but can now test every major integration surface:
-
-- SS1/SS2 game monitoring snapshots that reuse the current collector, semantic analysis, risk classification, source health, topics, alerts, and latest-feed logic without sending notifications.
-- Query / Media / Insight Agent start, stop, output probing, and `/api/search`.
-- ForumEngine start, stop, and log reading.
-- ReportEngine status, template/log probing, report generation, progress, result JSON, and cancellation.
-- MindSpider export import, login-state directory inspection, CLI status, database table/stat probing, DB initialization, and test-mode crawler scheduling.
-- BettaFish sentiment model or LLM analysis through `BETTAFISH_SENTIMENT_COMMAND` or the running Agent stack.
-- Local BettaFish start/stop, full-system start/shutdown, and an optional fixed deploy command.
-
-The test lab exposes only fixed research operations defined by the server, such as log/progress/status probes, Agent start/search, MindSpider test crawling, report generation, and optional deployment. These operations are enabled by default for the academic research test bench; set `BETTAFISH_LAB_ACTIONS_ENABLED=false` to close the operation surface on a deployment that should be read-only.
-
-## Local Douyin CDP sync
-
-Douyin collection can run in two supported modes. The default mode still runs on the local workstation with BettaFish / MediaCrawler CDP profile persistence and uploads only lightweight JSON exports. When explicitly authorized, `npm run douyin:server-login -- sync-cookie` copies the local Douyin login cookie string into the internal server's ignored BettaFish `.env` files as `DOUYIN_COOKIES_B64`, matching MediaCrawler's upstream `--lt cookie` login path without copying browser profiles, downloaded media, or crawler caches.
-
-One manual sync:
-
-```powershell
-.\scripts\sync-local-douyin-cdp.ps1 -InstallDependencies -Force
-```
-
-By default this sync exports the last 14 days and up to 300 rows per game. Override with `-RetentionDays` or `-MaxItemsPerGame` only when you intentionally want a smaller export.
-
-After the first successful run, omit `-InstallDependencies`; the script will reuse `BettaFish\.venv-mediacrawler` when it exists.
-
-Run the sync manually when Douyin data needs to be refreshed. The project no longer registers a local Windows scheduled task because hidden workstation tasks are hard to maintain. `sync-local-douyin-cdp.ps1` still includes daytime/night throttling for manual or explicitly managed external schedulers. It writes the local export to `data/mindspider-douyin-imports/local-cdp/latest.json` and uploads the same file to:
-
-```text
-/opt/ss-monitor/data/mindspider-douyin-imports/local-cdp/latest.json
-```
-
-Production already reads `/opt/ss-monitor/data/mindspider-douyin-imports` through `MINDSPIDER_DOUYIN_IMPORT_DIR`.
-
-The sync script preflights BettaFish / MediaCrawler before every crawl:
-
-- `ENABLE_CDP_MODE=True` so Douyin runs through the local Chrome/Edge CDP session.
-- `SAVE_LOGIN_STATE=True` so the profile under `MediaCrawler/browser_data/cdp_dy_user_data_dir` keeps the login state across runs.
-- `ENABLE_GET_MEIDAS=False` so large images/videos are not downloaded or synced.
-
-Only the normalized JSON export is uploaded in local-CDP mode. In server-cookie mode, only the compact cookie string is stored in `/opt/BettaFish/.env` and `/opt/BettaFish/current/.env`; browser profiles, raw crawler state, images, and videos remain out of Git and deployment archives.
-
-### Production Douyin scheduler
-
-Internal production uses `ss-monitor-douyin-crawl.timer` to run the BettaFish / MediaCrawler Douyin crawler. The timer wakes hourly, and `scripts/run-bettafish-douyin-crawl.sh` enforces the project cadence before it actually crawls: daytime every 60 minutes, nighttime every 240 minutes by default. Override the cadence with `BETTAFISH_DOUYIN_DAY_INTERVAL_MINUTES`, `BETTAFISH_DOUYIN_NIGHT_INTERVAL_MINUTES`, `BETTAFISH_DOUYIN_NIGHT_START_HOUR`, and `BETTAFISH_DOUYIN_NIGHT_END_HOUR`. The runner also restores MediaCrawler's production crawl parameters before each run: `BETTAFISH_DOUYIN_MAX_NOTES_COUNT=15`, `BETTAFISH_DOUYIN_MAX_COMMENTS_PER_ITEM=20`, and `BETTAFISH_DOUYIN_SLEEP_SECONDS=2` unless overridden.
-
-The service calls upstream MediaCrawler in Douyin search mode:
-
-```bash
-python main.py --platform dy --lt cookie --type search --save_data_option db --headless true --get_comment true --get_sub_comment false
-```
-
-It reads `/opt/ss-monitor/.env`, `/opt/BettaFish/.env`, and `/opt/BettaFish/current/.env` through systemd `EnvironmentFile`, so the copied compact cookie remains in ignored server env files and never enters Git or deploy archives. Install or refresh the units with:
-
-```bash
-chmod 0755 /opt/ss-monitor/current/scripts/run-bettafish-douyin-crawl.sh
-install -m 0644 /opt/ss-monitor/current/scripts/ss-monitor-douyin-crawl.service /etc/systemd/system/ss-monitor-douyin-crawl.service
-install -m 0644 /opt/ss-monitor/current/scripts/ss-monitor-douyin-crawl.timer /etc/systemd/system/ss-monitor-douyin-crawl.timer
-systemctl daemon-reload
-systemctl enable --now ss-monitor-douyin-crawl.timer
-```
+- 不提交 `.env`、`.env.local`、任何真实凭证、cookie、浏览器 profile、爬虫输出、下载媒体、生成报告、缓存、`node_modules/`、`dist/` 或部署归档。
+- Release 归档可以包含 `dist/`，但不包含运行时状态和密钥。
+- 生产配置以服务器本地 `/opt/ss-monitor/.env` 为准，切换 release 前同步到 `/opt/ss-monitor/current/.env`。
+- 不主动发送 DingTalk 测试消息。
+- 不把 BettaFish 情绪分析当成硬替代，SS1 / SS2 领域分析仍是主判定。
