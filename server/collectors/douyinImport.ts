@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { analyzeItem } from "../analyze";
 import { runtimeConfig } from "../config";
+import { douyinTextMatchesGame, inferDouyinGameId } from "../douyinGameRouting";
 import { hoursBetween, md5, normalizeUrl, stripHtml, uniq } from "../utils";
 import type { ContentPart, GameConfig, MonitorItem } from "../../src/shared";
 
@@ -239,13 +240,16 @@ function parseCsv(raw: string) {
 
 function belongsToGame(row: ImportedRow, game: GameConfig) {
   const explicitGame = stringValue(row, ["gameId", "game_id", "game", "product", "project"]).toLowerCase();
-  if (explicitGame) return explicitGame === game.id || explicitGame === game.shortName.toLowerCase() || explicitGame === game.name.toLowerCase();
-
   const text = [
     stringValue(row, ["title", "caption", "description", "desc", "text", "content"]),
     ...arrayValue(row, ["tags", "tag", "hashtags", "sourceKeyword", "source_keyword", "comments", "comment"])
   ].join(" ");
-  return [game.name, game.shortName, ...game.douyinKeywords].some((term) => term && text.includes(term));
+  if (explicitGame) {
+    const explicitMatches = explicitGame === game.id || explicitGame === game.shortName.toLowerCase() || explicitGame === game.name.toLowerCase();
+    const routedGameId = inferDouyinGameId(text);
+    return explicitMatches && (!routedGameId || routedGameId === game.id);
+  }
+  return douyinTextMatchesGame(text, game);
 }
 
 function customContentParts(row: ImportedRow): ContentPart[] {

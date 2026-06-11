@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { runtimeConfig } from "./config";
+import { isDouyinMonitorItemGameConsistent } from "./douyinGameRouting";
 import type { GameId, MonitorItem } from "../src/shared";
 
 interface MonitorHistoryFile {
@@ -42,6 +43,7 @@ export function mergeHistoryItems(existingItems: MonitorItem[], currentItems: Mo
   for (const item of [...existingItems, ...currentItems]) {
     const publishedMs = publishedTime(item);
     if (publishedMs === undefined || publishedMs < cutoffMs) continue;
+    if (!isDouyinMonitorItemGameConsistent(item)) continue;
     byId.set(historyKey(item), item);
   }
 
