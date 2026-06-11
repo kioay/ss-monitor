@@ -51,6 +51,8 @@ const api = {
 };
 const clientCacheMaxAgeMs = 4 * 3_600_000;
 const searchWindowHours = 24 * 30;
+const feedInitialLimit = 60;
+const feedBatchSize = 60;
 
 type AppPage = "monitor" | "bettafish-lab";
 type TrendSeries = "negative" | "neutral" | "positive" | "total";
@@ -343,6 +345,7 @@ function App() {
   const [data, setData] = React.useState<MonitorResponse>();
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
+  const [visibleItemLimit, setVisibleItemLimit] = React.useState(feedInitialLimit);
   const [trendSeries, setTrendSeries] = React.useState<TrendSeriesVisibility>(defaultTrendSeriesVisibility);
   const [isControlFloating, setControlFloating] = React.useState(false);
   const controlSentinelRef = React.useRef<HTMLDivElement>(null);
@@ -494,6 +497,14 @@ function App() {
   }, [data?.items, query, risk, sentiment, source, topic]);
   const searchActive = query.trim().length > 0;
   const searchResults = searchData?.items || [];
+  const feedItemsTotal = searchActive ? searchResults.length : filteredItems.length;
+  const visibleFeedCount = Math.min(visibleItemLimit, feedItemsTotal);
+  const visibleSearchResults = searchActive ? searchResults.slice(0, visibleItemLimit) : [];
+  const visibleFilteredItems = searchActive ? [] : filteredItems.slice(0, visibleItemLimit);
+
+  React.useEffect(() => {
+    setVisibleItemLimit(feedInitialLimit);
+  }, [data?.generatedAt, query, risk, searchActive, searchData?.generatedAt, sentiment, source, topic]);
 
   const visiblePolicy = data?.updatePolicy || config?.updatePolicy;
   const configuredGameIds = React.useMemo(() => {
@@ -737,12 +748,12 @@ function App() {
           <p>
             {searchActive
               ? searchData
-                ? `近 30 天命中 ${searchData.totalMatched} 条 · ${searchData.sources.map((entry) => entry.message).join(" / ")}`
+                ? `近 30 天命中 ${searchData.totalMatched} 条 · 当前显示 ${visibleFeedCount}/${feedItemsTotal} 条 · ${searchData.sources.map((entry) => entry.message).join(" / ")}`
                 : searchLoading
                   ? "检索中..."
                   : "等待检索"
               : data
-                ? `仅显示 ${formatDateTime(data.freshnessCutoff)} 之后的信息`
+                ? `仅显示 ${formatDateTime(data.freshnessCutoff)} 之后的信息 · 当前显示 ${visibleFeedCount}/${feedItemsTotal} 条`
                 : "等待数据"}
           </p>
         </div>
@@ -779,12 +790,17 @@ function App() {
         {!searchActive && loading && !data ? <p className="empty">采集中...</p> : null}
         {searchActive && searchLoading ? <p className="empty">检索中...</p> : null}
         {searchActive
-          ? searchResults.map((result, index) => (
+          ? visibleSearchResults.map((result, index) => (
               <MonitorCard item={result.item} searchResult={result} key={`${result.origin}-${result.item.id}-${index}`} />
             ))
-          : filteredItems.map((item) => (
+          : visibleFilteredItems.map((item) => (
               <MonitorCard item={item} key={item.id} />
             ))}
+        {feedItemsTotal > visibleFeedCount ? (
+          <button className="load-more-button" type="button" onClick={() => setVisibleItemLimit((limit) => limit + feedBatchSize)}>
+            加载更多 {Math.min(feedBatchSize, feedItemsTotal - visibleFeedCount)} 条
+          </button>
+        ) : null}
         {!searchActive && !loading && data && filteredItems.length === 0 ? <p className="empty">当前筛选下没有新鲜条目</p> : null}
         {searchActive && !searchLoading && searchData && searchResults.length === 0 ? <p className="empty">未找到匹配条目</p> : null}
       </section>

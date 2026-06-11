@@ -2189,15 +2189,14 @@ button.metric:focus-visible {
   gap: 16px;
   padding: 14px;
   border-left: 4px solid var(--neutral);
+  content-visibility: auto;
+  contain-intrinsic-size: 190px;
   transition:
-    transform 0.16s ease,
-    box-shadow 0.16s ease,
     border-color 0.16s ease;
 }
 
 .monitor-card:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-lift);
+  border-left-width: 5px;
 }
 
 .monitor-card.high {
@@ -2336,6 +2335,24 @@ button.metric:focus-visible {
 .qa-pair li {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.load-more-button {
+  width: min(260px, 100%);
+  min-height: 42px;
+  justify-self: center;
+  border: 1px solid rgba(46, 91, 72, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--green-deep);
+  font-weight: 800;
+  box-shadow: 0 8px 22px rgba(29, 55, 43, 0.08);
+}
+
+.load-more-button:hover,
+.load-more-button:focus-visible {
+  border-color: rgba(34, 126, 91, 0.36);
+  background: #ffffff;
 }
 
 .search-hit-meta {
