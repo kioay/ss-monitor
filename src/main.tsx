@@ -39,6 +39,7 @@ import type {
   SourceType,
   TrendPoint
 } from "./shared";
+import { topicBarWidthPercent } from "./topicBars";
 import "./styles.css";
 
 const api = {
@@ -496,6 +497,10 @@ function App() {
     [configuredGameIds, data?.health, selectedGames]
   );
   const topicOptions = React.useMemo(() => makeTopicOptions(data?.items || []), [data?.items]);
+  const maxTopicCount = React.useMemo(
+    () => Math.max(0, ...(data?.topicStats || []).map((topic) => topic.count)),
+    [data?.topicStats]
+  );
   const selectGames = React.useCallback(
     (gameIds: GameId[]) => {
       const sameSelection = sameGameSelection(selectedGames, gameIds);
@@ -681,7 +686,7 @@ function App() {
               <div className="topic-row" key={topic.topic}>
                 <span>{topic.topic}</span>
                 <div className="topic-bar">
-                  <i style={{ width: `${Math.min(100, topic.count * 12)}%` }} />
+                  <i style={{ width: `${topicBarWidthPercent(topic.count, maxTopicCount)}%` }} />
                 </div>
                 <b>{topic.count}</b>
               </div>

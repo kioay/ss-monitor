@@ -11,6 +11,7 @@
     "preview": "vite preview --host 127.0.0.1",
     "lint": "tsc --noEmit",
     "test:search": "tsx scripts/test-search.ts",
+    "test:topic-bars": "tsx scripts/test-topic-bars.ts",
     "test:monitor-history": "tsx scripts/test-monitor-history.ts",
     "test:douyin-game-routing": "tsx scripts/test-douyin-game-routing.ts",
     "test:risk-alerts": "tsx scripts/test-risk-alerts.ts",
