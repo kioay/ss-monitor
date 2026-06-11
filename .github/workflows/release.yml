@@ -48,9 +48,10 @@ jobs:
         run: |
           set -euo pipefail
           archive="ss-monitor-${GITHUB_REF_NAME}.tar.gz"
-          tar -tzf "$archive" | grep -q '^./dist/index.html$'
-          tar -tzf "$archive" | grep -q '^./dist/assets/'
-          if tar -tzf "$archive" | grep -E '(^|/)(\.env|\.env\.local|node_modules|data)(/|$)|\.tar\.gz$'; then
+          tar -tzf "$archive" > archive-list.txt
+          grep -Eq '^(\./)?dist/index[.]html$' archive-list.txt
+          grep -Eq '^(\./)?dist/assets/' archive-list.txt
+          if grep -E '(^|/)(\.env|\.env\.local|node_modules|data)(/|$)|[.]tar[.]gz$' archive-list.txt; then
             echo "Forbidden runtime files found in archive"
             exit 1
           fi
