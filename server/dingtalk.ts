@@ -88,8 +88,7 @@ export async function sendDingTalkDailyReport(
   }
 
   const items = gameItemsForLocalDay(response, gameId, reportDay);
-  const ongoingRiskItems = gameItemsWithin72Hours(response, gameId).filter(isMediumOrHighRiskItem);
-  await sendMarkdownToRobots(robots, buildDailyReportMarkdown(robot, items, ongoingRiskItems, reportDay, now));
+  await sendMarkdownToRobots(robots, buildDailyReportMarkdown(robot, items, reportDay, now));
   await writeState(robot, {
     ...state,
     initialized: true,
@@ -178,10 +177,6 @@ function isDingTalkRelevantItem(item: MonitorItem) {
   return Boolean(dingTalkPushReason(item));
 }
 
-function isMediumOrHighRiskItem(item: MonitorItem) {
-  return item.riskLevel === "high" || item.riskLevel === "medium";
-}
-
 function dingTalkPushReason(item: MonitorItem) {
   if (item.riskLevel === "high") return "高风险";
   if (isHighNegativeItem(item)) return "高负面";
@@ -236,7 +231,6 @@ function buildTestMarkdown(robot: DingTalkRobotConfig, items: MonitorItem[], res
 function buildDailyReportMarkdown(
   robot: DingTalkRobotConfig,
   items: MonitorItem[],
-  ongoingRiskItems: MonitorItem[],
   reportDay: Date,
   sentAt: Date
 ) {
@@ -248,17 +242,13 @@ function buildDailyReportMarkdown(
     "",
     `> 发送时间：${formatLocalTime(sentAt.toISOString())} | 统计范围：${reportDate} 00:00-24:00`,
     "",
-    buildDailySummaryTable(items, ongoingRiskItems.length),
+    buildDailySummaryTable(items),
     "",
     buildDailySourceTable(items),
     "",
     "### 重点关注",
     "",
     buildDailyFocusTable(focusItems),
-    "",
-    "### 中高风险持续汇总（近72小时）",
-    "",
-    buildDailyOngoingRiskTable(ongoingRiskItems),
     "",
     `[打开舆情平台](${monitorUrl})`
   ];
@@ -276,7 +266,7 @@ function buildBriefTable(items: MonitorItem[]) {
   ].join("\n");
 }
 
-function buildDailySummaryTable(items: MonitorItem[], ongoingRiskCount = 0) {
+function buildDailySummaryTable(items: MonitorItem[]) {
   const sentimentCounts = countBy(items, (item) => sentimentName(item.sentiment));
   const highRisk = items.filter((item) => item.riskLevel === "high").length;
   const mediumRisk = items.filter((item) => item.riskLevel === "medium").length;
@@ -288,7 +278,6 @@ function buildDailySummaryTable(items: MonitorItem[], ongoingRiskCount = 0) {
     `| 总量 | ${items.length}条 |`,
     `| 高风险 | ${highRisk}条 |`,
     `| 中风险 | ${mediumRisk}条 |`,
-    `| 近72小时中高风险存量 | ${ongoingRiskCount}条 |`,
     `| 负面率 | ${negativeRate} |`,
     `| 情绪 | ${joinCounts(sentimentCounts)} |`
   ].join("\n");
@@ -314,19 +303,6 @@ function buildDailyFocusTable(items: MonitorItem[]) {
       .map((item) => [linkCell(item), `${pushReasonName(item)} / ${sentimentName(item.sentiment)}`, shortDigest(item)].join(" | "))
       .map((row) => `| ${row} |`)
   ].join("\n");
-}
-
-function buildDailyOngoingRiskTable(items: MonitorItem[]) {
-  if (!items.length) return "近72小时暂无中高风险舆情存量。";
-  const visibleItems = items.slice(0, 8);
-  const moreText = items.length > visibleItems.length ? `\n\n> 仅展示风险排序前 ${visibleItems.length} 条，剩余 ${items.length - visibleItems.length} 条可在平台查看。` : "";
-  return [
-    "| 时间 | 来源 | 风险 | 舆情 | 简报 |",
-    "| --- | --- | --- | --- | --- |",
-    ...visibleItems.map(
-      (item) => `| ${formatShortTime(item.publishedAt)} | ${sourceName(item.source)} | ${riskName(item.riskLevel)} | ${linkCell(item)} | ${shortDigest(item)} |`
-    )
-  ].join("\n") + moreText;
 }
 
 function buildHighRiskSection(items: MonitorItem[], title = "高风险舆情") {

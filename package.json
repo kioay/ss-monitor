@@ -13,6 +13,7 @@
     "test:monitor-history": "tsx scripts/test-monitor-history.ts",
     "test:douyin-game-routing": "tsx scripts/test-douyin-game-routing.ts",
     "test:risk-alerts": "tsx scripts/test-risk-alerts.ts",
+    "test:dingtalk-daily-markdown": "tsx scripts/test-dingtalk-daily-markdown.ts",
     "test:semantic-guard": "tsx scripts/test-bettafish-semantic-guard.ts",
     "start": "tsx server/index.ts",
     "sync:confluence": "tsx scripts/sync-current-version-focus.ts",
