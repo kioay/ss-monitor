@@ -752,7 +752,6 @@ function App() {
             <option value="bilibili">B站</option>
             <option value="tieba">贴吧</option>
             <option value="douyin">抖音</option>
-            <option value="bettafish">BettaFish导入</option>
           </select>
           <select value={risk} onChange={(event) => setRisk(event.target.value as "all" | RiskLevel)}>
             <option value="all">全部风险</option>
@@ -2045,12 +2044,13 @@ function sameGameSelection(left: GameId[], right: GameId[]) {
 }
 
 function makeVisibleHealth(health: SourceHealth[], aggregateBySource: boolean) {
-  if (!aggregateBySource) return health;
+  const visibleHealth = health.filter((entry) => entry.source !== "bettafish");
+  if (!aggregateBySource) return visibleHealth;
   const bySource = new Map<SourceType, SourceHealth[]>();
-  for (const entry of health) {
+  for (const entry of visibleHealth) {
     bySource.set(entry.source, [...(bySource.get(entry.source) || []), entry]);
   }
-  const sourceOrder: SourceType[] = ["bilibili", "tieba", "douyin", "bettafish"];
+  const sourceOrder: SourceType[] = ["bilibili", "tieba", "douyin"];
   return Array.from(bySource.values())
     .map((entries) => {
       const [first] = entries;
