@@ -32,6 +32,8 @@ import type {
   MonitorItem,
   MonitorResponse,
   RiskLevel,
+  SearchResponse,
+  SearchResult,
   Sentiment,
   SourceHealth,
   SourceType,
@@ -42,10 +44,12 @@ import "./styles.css";
 const api = {
   config: "/api/config",
   monitor: "/api/monitor",
+  search: "/api/search",
   bettafishLab: "/api/bettafish/lab",
   bettafishLabAction: "/api/bettafish/lab/action"
 };
 const clientCacheMaxAgeMs = 4 * 3_600_000;
+const searchWindowHours = 24 * 30;
 
 type AppPage = "monitor" | "bettafish-lab";
 type TrendSeries = "negative" | "neutral" | "positive" | "total";
@@ -324,6 +328,9 @@ function App() {
   const [sentiment, setSentiment] = React.useState<"all" | Sentiment>("all");
   const [topic, setTopic] = React.useState("all");
   const [query, setQuery] = React.useState("");
+  const [searchData, setSearchData] = React.useState<SearchResponse>();
+  const [searchLoading, setSearchLoading] = React.useState(false);
+  const [searchError, setSearchError] = React.useState("");
   const [data, setData] = React.useState<MonitorResponse>();
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -331,6 +338,7 @@ function App() {
   const [isControlFloating, setControlFloating] = React.useState(false);
   const controlSentinelRef = React.useRef<HTMLDivElement>(null);
   const latestRequestRef = React.useRef(0);
+  const latestSearchRequestRef = React.useRef(0);
 
   React.useEffect(() => {
     fetch(api.config)
@@ -380,6 +388,48 @@ function App() {
   }, [load]);
 
   React.useEffect(() => {
+    const keyword = query.trim();
+    const requestId = latestSearchRequestRef.current + 1;
+    latestSearchRequestRef.current = requestId;
+
+    if (!keyword) {
+      setSearchData(undefined);
+      setSearchError("");
+      setSearchLoading(false);
+      return;
+    }
+
+    const timer = window.setTimeout(async () => {
+      setSearchLoading(true);
+      setSearchError("");
+      try {
+        const params = new URLSearchParams({
+          q: keyword,
+          games: selectedGames.join(","),
+          windowHours: String(searchWindowHours),
+          limit: "120",
+          source,
+          risk,
+          sentiment,
+          topic
+        });
+        const response = await fetch(`${api.search}?${params.toString()}`);
+        if (!response.ok) throw new Error(`API ${response.status}`);
+        const payload = (await response.json()) as SearchResponse;
+        if (latestSearchRequestRef.current !== requestId) return;
+        setSearchData(payload);
+      } catch (reason) {
+        if (latestSearchRequestRef.current !== requestId) return;
+        setSearchError(reason instanceof Error ? reason.message : String(reason));
+      } finally {
+        if (latestSearchRequestRef.current === requestId) setSearchLoading(false);
+      }
+    }, 320);
+
+    return () => window.clearTimeout(timer);
+  }, [query, risk, selectedGames, sentiment, source, topic]);
+
+  React.useEffect(() => {
     if (!data?.updatePolicy.nextUpdateAt) return;
     const delayMs = Math.max(1000, new Date(data.updatePolicy.nextUpdateAt).getTime() - Date.now() + 1000);
     const timer = window.setTimeout(() => load(false), delayMs);
@@ -426,6 +476,8 @@ function App() {
         .includes(keyword);
     });
   }, [data?.items, query, risk, sentiment, source, topic]);
+  const searchActive = query.trim().length > 0;
+  const searchResults = searchData?.items || [];
 
   const visiblePolicy = data?.updatePolicy || config?.updatePolicy;
   const configuredGameIds = React.useMemo(() => {
@@ -551,11 +603,11 @@ function App() {
         </label>
         <label className="field search-field">
           <Search size={16} />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索标题、作者、关键词" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索标题、作者、关键词、评论" />
         </label>
       </section>
 
-      {error ? <div className="error-strip">{error}</div> : null}
+      {error || searchError ? <div className="error-strip">{error || searchError}</div> : null}
 
       <section className="metrics-grid">
         <Metric label="总声量" value={data?.stats.total ?? 0} tone="green" hint="跳到全部条目" onClick={() => jumpToFeed()} />
@@ -661,8 +713,18 @@ function App() {
 
       <section className="feed-toolbar" id="latest-feed">
         <div>
-          <h2>最新条目</h2>
-          <p>{data ? `仅显示 ${formatDateTime(data.freshnessCutoff)} 之后的信息` : "等待数据"}</p>
+          <h2>{searchActive ? "搜索结果" : "最新条目"}</h2>
+          <p>
+            {searchActive
+              ? searchData
+                ? `近 30 天命中 ${searchData.totalMatched} 条 · ${searchData.sources.map((entry) => entry.message).join(" / ")}`
+                : searchLoading
+                  ? "检索中..."
+                  : "等待检索"
+              : data
+                ? `仅显示 ${formatDateTime(data.freshnessCutoff)} 之后的信息`
+                : "等待数据"}
+          </p>
         </div>
         <div className="filters">
           <select value={source} onChange={(event) => setSource(event.target.value as "all" | SourceType)}>
@@ -695,11 +757,17 @@ function App() {
       </section>
 
       <section className="feed-list">
-        {loading && !data ? <p className="empty">采集中...</p> : null}
-        {filteredItems.map((item) => (
-          <MonitorCard item={item} key={item.id} />
-        ))}
-        {!loading && data && filteredItems.length === 0 ? <p className="empty">当前筛选下没有新鲜条目</p> : null}
+        {!searchActive && loading && !data ? <p className="empty">采集中...</p> : null}
+        {searchActive && searchLoading ? <p className="empty">检索中...</p> : null}
+        {searchActive
+          ? searchResults.map((result, index) => (
+              <MonitorCard item={result.item} searchResult={result} key={`${result.origin}-${result.item.id}-${index}`} />
+            ))
+          : filteredItems.map((item) => (
+              <MonitorCard item={item} key={item.id} />
+            ))}
+        {!searchActive && !loading && data && filteredItems.length === 0 ? <p className="empty">当前筛选下没有新鲜条目</p> : null}
+        {searchActive && !searchLoading && searchData && searchResults.length === 0 ? <p className="empty">未找到匹配条目</p> : null}
       </section>
         </>
       ) : (
@@ -1827,7 +1895,7 @@ function clampLineY(value: number) {
   return Math.min(trendLineMaxY, Math.max(trendLineMinY, value));
 }
 
-function MonitorCard({ item }: { item: MonitorItem }) {
+function MonitorCard({ item, searchResult }: { item: MonitorItem; searchResult?: SearchResult }) {
   return (
     <article className={`monitor-card ${item.riskLevel}`}>
       <Thumbnail item={item} />
@@ -1840,6 +1908,23 @@ function MonitorCard({ item }: { item: MonitorItem }) {
         </div>
         <h3>{item.title}</h3>
         <p>{item.summary}</p>
+        {searchResult ? (
+          <div className="search-hit-meta">
+            <span>{searchOriginText(searchResult.origin)}</span>
+            <span>匹配 {searchResult.matchedFields.slice(0, 5).join(" / ")}</span>
+            <span>{searchResult.score} 分</span>
+          </div>
+        ) : null}
+        {searchResult?.snippets.length ? (
+          <div className="search-snippets">
+            {searchResult.snippets.map((snippet, index) => (
+              <div className="search-snippet" key={`${snippet.field}-${index}`}>
+                <strong>{snippet.label}</strong>
+                <span>{snippet.text}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
         <div className="pill-row">
           <span className={`risk-pill ${item.riskLevel}`}>{riskText(item.riskLevel)}</span>
           <span className={`sentiment-pill ${item.sentiment}`}>{sentimentText(item.sentiment)}</span>
@@ -1878,6 +1963,10 @@ function Thumbnail({ item }: { item: MonitorItem }) {
   }
 
   return <img src={imageUrl} alt="" loading="lazy" onError={() => setFailed(true)} />;
+}
+
+function searchOriginText(origin: SearchResult["origin"]) {
+  return origin === "mindspider-douyin-db" ? "MindSpider DB" : "历史记录";
 }
 
 function metricLine(item: MonitorItem) {

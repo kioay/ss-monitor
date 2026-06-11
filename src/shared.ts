@@ -134,6 +134,42 @@ export interface MonitorResponse {
   items: MonitorItem[];
 }
 
+export type SearchResultOrigin = "monitor-history" | "mindspider-douyin-db";
+
+export interface SearchMatchSnippet {
+  field: string;
+  label: string;
+  text: string;
+}
+
+export interface SearchResult {
+  item: MonitorItem;
+  score: number;
+  matchedFields: string[];
+  snippets: SearchMatchSnippet[];
+  origin: SearchResultOrigin;
+}
+
+export interface SearchSourceSummary {
+  origin: SearchResultOrigin;
+  label: string;
+  checked: boolean;
+  matched: number;
+  message: string;
+}
+
+export interface SearchResponse {
+  generatedAt: string;
+  query: string;
+  terms: string[];
+  windowHours: number;
+  limit: number;
+  totalMatched: number;
+  sources: SearchSourceSummary[];
+  items: SearchResult[];
+  errors: string[];
+}
+
 export type BettaFishProbeStatus = "ok" | "warning" | "error" | "skipped";
 export type BettaFishOperationSafety = "read" | "manual" | "research";
 

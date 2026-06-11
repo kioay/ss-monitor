@@ -9,6 +9,7 @@ import { games, getUpdatePolicy, runtimeConfig } from "./config";
 import { sendDingTalkDailyReport, sendDingTalkTest } from "./dingtalk";
 import { getBettaFishLabResponse, runBettaFishLabAction } from "./bettafishLab";
 import { getMonitorResponse } from "./monitor";
+import { getSearchResponse } from "./search";
 import type { GameId } from "../src/shared";
 
 const app = express();
@@ -83,6 +84,17 @@ app.get("/api/image", async (request, response) => {
 app.get("/api/monitor", async (request, response) => {
   try {
     const data = await getMonitorResponse(request.query);
+    response.json(data);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "未知错误"
+    });
+  }
+});
+
+app.get("/api/search", async (request, response) => {
+  try {
+    const data = await getSearchResponse(request.query);
     response.json(data);
   } catch (error) {
     response.status(500).json({

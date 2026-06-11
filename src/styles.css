@@ -2251,6 +2251,55 @@ button.metric:focus-visible {
   line-height: 1.55;
 }
 
+.search-hit-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.search-hit-meta span {
+  max-width: 100%;
+  padding: 4px 8px;
+  border: 1px solid rgba(63, 120, 168, 0.18);
+  border-radius: 999px;
+  background: rgba(232, 242, 244, 0.76);
+  color: #345f68;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.search-snippets {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.search-snippet {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(46, 91, 72, 0.12);
+  border-radius: 8px;
+  background: rgba(250, 253, 249, 0.82);
+  color: #40534b;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.search-snippet strong {
+  color: var(--green-deep);
+  font-size: 12px;
+}
+
+.search-snippet span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .pill-row {
   gap: 6px;
   flex-wrap: wrap;

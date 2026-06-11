@@ -36,6 +36,11 @@ export async function mergeMonitorHistory(currentItems: MonitorItem[], gameIds: 
   }
 }
 
+export async function readMonitorHistoryItems(gameIds: GameId[], now: Date, retentionHours: number) {
+  await loadMonitorHistory();
+  return filterHistoryItems(historyItems, gameIds, now, retentionHours);
+}
+
 export function mergeHistoryItems(existingItems: MonitorItem[], currentItems: MonitorItem[], options: HistoryMergeOptions) {
   const cutoffMs = options.now.getTime() - options.retentionHours * 3_600_000;
   const byId = new Map<string, MonitorItem>();
