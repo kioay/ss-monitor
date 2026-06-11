@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run local checks
+        run: |
+          npm run lint
+          npm run test:search
+          npm run test:topic-bars
+          npm run test:monitor-history
+          npm run test:douyin-game-routing
+          npm run test:risk-alerts
+          npm run test:dingtalk-daily-markdown
+          npm run test:semantic-guard
+
+      - name: Build deployment archive
+        shell: pwsh
+        run: ./scripts/create-deploy-archive.ps1 -OutputPath "${{ github.workspace }}/ss-monitor-${{ github.ref_name }}.tar.gz"
+
+      - name: Verify deployment archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="ss-monitor-${GITHUB_REF_NAME}.tar.gz"
+          tar -tzf "$archive" | grep -q '^./dist/index.html$'
+          tar -tzf "$archive" | grep -q '^./dist/assets/'
+          if tar -tzf "$archive" | grep -E '(^|/)(\.env|\.env\.local|node_modules|data)(/|$)|\.tar\.gz$'; then
+            echo "Forbidden runtime files found in archive"
+            exit 1
+          fi
+
+      - name: Write release notes
+        shell: bash
+        run: |
+          cat > release-notes.md <<'NOTES'
+          SS Monitor release package for internal-machine deployments.
+
+          - Includes the Git source snapshot plus a freshly generated `dist/` directory.
+          - Excludes `.env`, local credentials, cookies, runtime data, caches, `node_modules`, and deploy archives.
+          - Deploy with Node.js 20+ using `npm ci --omit=dev` and `npm run start`.
+          - Copy `.env.example` to the target server's local `.env` and fill real secrets only on that server.
+          NOTES
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          archive="ss-monitor-${tag}.tar.gz"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$archive" --clobber
+            gh release edit "$tag" --title "SS Monitor ${tag}" --notes-file release-notes.md
+          else
+            gh release create "$tag" "$archive" --title "SS Monitor ${tag}" --notes-file release-notes.md
+          fi
