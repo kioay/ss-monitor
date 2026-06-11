@@ -16,6 +16,7 @@ load_env_file() {
   local file="$1"
   local line key value first last
   [ -f "$file" ] || return 0
+  [ -r "$file" ] || return 0
 
   while IFS= read -r line || [ -n "$line" ]; do
     line="${line%$'\r'}"
