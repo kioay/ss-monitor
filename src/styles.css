@@ -1826,6 +1826,21 @@ button.metric:focus-visible {
   border-bottom: 1px solid var(--line);
 }
 
+.workspace-grid.trend-collapsed {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.workspace-grid.trend-collapsed .trend-details,
+.workspace-grid.trend-collapsed .topic-area {
+  grid-column: 1 / -1;
+}
+
+.workspace-grid.trend-collapsed .topic-list {
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  align-items: start;
+}
+
 .chart-area,
 .topic-area {
   min-width: 0;
@@ -2591,6 +2606,10 @@ button.metric:focus-visible {
   .action-grid,
   .lab-status-strip,
   .lab-item-row {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-grid.trend-collapsed .topic-list {
     grid-template-columns: 1fr;
   }
 

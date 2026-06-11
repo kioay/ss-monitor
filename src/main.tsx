@@ -685,14 +685,14 @@ function App() {
         ))}
       </section>
 
-      <section className="workspace-grid">
+      <section className={`workspace-grid ${trendOpen ? "trend-open" : "trend-collapsed"}`}>
         <details className="chart-area trend-details" open={trendOpen} onToggle={(event) => setTrendOpen(event.currentTarget.open)}>
           <summary className="chart-collapse-summary">
             <div className="section-title">
               <Waves size={18} />
               <h2>声量趋势</h2>
             </div>
-            <span>默认收起 · 点击展开</span>
+            <span>{trendOpen ? "已展开 · 点击收起" : "默认收起 · 点击展开"}</span>
             <ChevronDown size={16} />
           </summary>
           {trendOpen ? (
