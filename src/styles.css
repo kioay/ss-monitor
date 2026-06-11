@@ -2161,6 +2161,10 @@ button.metric:focus-visible {
   margin-top: 4px;
 }
 
+#latest-feed {
+  scroll-margin-top: 86px;
+}
+
 .filters {
   flex-wrap: wrap;
 }

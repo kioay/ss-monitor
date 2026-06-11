@@ -315,6 +315,14 @@ function clearCachedMonitor(key: string) {
   }
 }
 
+function scrollToSearchResults() {
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      document.getElementById("latest-feed")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+}
+
 function App() {
   const [config, setConfig] = React.useState<{
     games: GameConfig[];
@@ -340,6 +348,7 @@ function App() {
   const controlSentinelRef = React.useRef<HTMLDivElement>(null);
   const latestRequestRef = React.useRef(0);
   const latestSearchRequestRef = React.useRef(0);
+  const latestAutoScrolledSearchRef = React.useRef("");
 
   React.useEffect(() => {
     fetch(api.config)
@@ -397,6 +406,7 @@ function App() {
       setSearchData(undefined);
       setSearchError("");
       setSearchLoading(false);
+      latestAutoScrolledSearchRef.current = "";
       return;
     }
 
@@ -419,6 +429,11 @@ function App() {
         const payload = (await response.json()) as SearchResponse;
         if (latestSearchRequestRef.current !== requestId) return;
         setSearchData(payload);
+        const scrollKey = params.toString();
+        if (latestAutoScrolledSearchRef.current !== scrollKey) {
+          latestAutoScrolledSearchRef.current = scrollKey;
+          scrollToSearchResults();
+        }
       } catch (reason) {
         if (latestSearchRequestRef.current !== requestId) return;
         setSearchError(reason instanceof Error ? reason.message : String(reason));
@@ -530,7 +545,7 @@ function App() {
       setSentiment(filters?.sentiment ?? "all");
       setTopic("all");
       setQuery("");
-      window.requestAnimationFrame(() => document.getElementById("latest-feed")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+      scrollToSearchResults();
     },
     []
   );
