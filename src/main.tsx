@@ -346,6 +346,7 @@ function App() {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
   const [visibleItemLimit, setVisibleItemLimit] = React.useState(feedInitialLimit);
+  const [trendOpen, setTrendOpen] = React.useState(false);
   const [trendSeries, setTrendSeries] = React.useState<TrendSeriesVisibility>(defaultTrendSeriesVisibility);
   const [isControlFloating, setControlFloating] = React.useState(false);
   const controlSentinelRef = React.useRef<HTMLDivElement>(null);
@@ -685,22 +686,28 @@ function App() {
       </section>
 
       <section className="workspace-grid">
-        <div className="chart-area">
-          <div className="chart-heading">
+        <details className="chart-area trend-details" open={trendOpen} onToggle={(event) => setTrendOpen(event.currentTarget.open)}>
+          <summary className="chart-collapse-summary">
             <div className="section-title">
               <Waves size={18} />
               <h2>声量趋势</h2>
             </div>
-            <div className="chart-legend" aria-label="声量趋势筛选">
-              <TrendLegendButton series="negative" label="负面" active={trendSeries.negative} onToggle={toggleTrendSeries} />
-              <TrendLegendButton series="neutral" label="中性" active={trendSeries.neutral} onToggle={toggleTrendSeries} />
-              <TrendLegendButton series="positive" label="正面" active={trendSeries.positive} onToggle={toggleTrendSeries} />
-              <TrendLegendButton series="total" label="总声量折线" active={trendSeries.total} onToggle={toggleTrendSeries} />
-              <small>柱子=情绪构成 · 折线=平滑趋势</small>
+            <span>默认收起 · 点击展开</span>
+            <ChevronDown size={16} />
+          </summary>
+          {trendOpen ? (
+            <div className="trend-details-body">
+              <div className="chart-legend" aria-label="声量趋势筛选">
+                <TrendLegendButton series="negative" label="负面" active={trendSeries.negative} onToggle={toggleTrendSeries} />
+                <TrendLegendButton series="neutral" label="中性" active={trendSeries.neutral} onToggle={toggleTrendSeries} />
+                <TrendLegendButton series="positive" label="正面" active={trendSeries.positive} onToggle={toggleTrendSeries} />
+                <TrendLegendButton series="total" label="总声量折线" active={trendSeries.total} onToggle={toggleTrendSeries} />
+                <small>柱子=情绪构成 · 折线=平滑趋势</small>
+              </div>
+              <TrendChart data={data?.trends || []} visibleSeries={trendSeries} />
             </div>
-          </div>
-          <TrendChart data={data?.trends || []} visibleSeries={trendSeries} />
-        </div>
+          ) : null}
+        </details>
 
         <div className="topic-area">
           <div className="section-title">

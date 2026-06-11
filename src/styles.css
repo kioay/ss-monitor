@@ -1854,6 +1854,58 @@ button.metric:focus-visible {
   margin-bottom: 0;
 }
 
+.trend-details {
+  min-height: 52px;
+}
+
+.chart-collapse-summary {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--ink-strong);
+  cursor: pointer;
+  box-shadow: var(--shadow-soft);
+}
+
+.chart-collapse-summary::-webkit-details-marker {
+  display: none;
+}
+
+.chart-collapse-summary::marker {
+  content: "";
+}
+
+.chart-collapse-summary .section-title {
+  margin-bottom: 0;
+}
+
+.chart-collapse-summary > span {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.chart-collapse-summary > svg:last-child {
+  color: var(--muted);
+  transition: transform 0.16s ease;
+}
+
+.trend-details[open] .chart-collapse-summary > svg:last-child {
+  transform: rotate(180deg);
+}
+
+.trend-details-body {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
 .chart-legend {
   display: flex;
   align-items: center;
