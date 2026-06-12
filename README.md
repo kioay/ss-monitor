@@ -31,69 +31,129 @@ npm run dev
 
 `.env.example` 只包含空占位和安全默认值。复制为 `.env` 后按需填入本机 cookie、授权 API、Confluence、DingTalk、BettaFish 或数据库配置；不要把真实值提交到 Git。
 
-## Release 快速部署
+## 傻瓜式部署
 
-GitHub Release 应附带由 `scripts/create-deploy-archive.ps1` 生成的 `ss-monitor-<version>.tar.gz`。这个归档包含 Git 源码快照和最新 `dist/`，目标服务器不需要安装前端构建依赖来生成页面资源。
+下面按“第一次拿到服务器的人”来写。目标是在一台 Ubuntu / Debian Linux 服务器上部署一个监控《失控进化》的站点。其他项目只需要把示例里的项目名和关键词换掉。
 
-在一台新的 Linux 内网机上部署类似站点：
+### 第 1 步：准备服务器
+
+登录服务器后，先安装基础工具和 Node.js 20+：
 
 ```bash
-sudo mkdir -p /opt/ss-monitor/releases/ss-monitor-<version>
-sudo mkdir -p /opt/ss-monitor/state /opt/ss-monitor/data
-sudo tar -xzf ss-monitor-<version>.tar.gz -C /opt/ss-monitor/releases/ss-monitor-<version>
-sudo ln -sfn /opt/ss-monitor/releases/ss-monitor-<version> /opt/ss-monitor/current
+sudo apt-get update
+sudo apt-get install -y curl ca-certificates tar
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs
 
+node -v
+npm -v
+```
+
+看到 Node 版本是 `v20`、`v22` 或更高即可继续。
+
+### 第 2 步：下载 Release 包
+
+这里用当前推荐版本 `v0.1.5`。以后升级时只改 `VERSION`。
+
+```bash
+VERSION=v0.1.5
+curl -L -o /tmp/ss-monitor-${VERSION}.tar.gz \
+  https://github.com/kioay/ss-monitor/releases/download/${VERSION}/ss-monitor-${VERSION}.tar.gz
+```
+
+### 第 3 步：解压到固定目录
+
+```bash
+VERSION=v0.1.5
+sudo mkdir -p /opt/ss-monitor/releases/ss-monitor-${VERSION}
+sudo mkdir -p /opt/ss-monitor/state /opt/ss-monitor/data
+sudo tar -xzf /tmp/ss-monitor-${VERSION}.tar.gz -C /opt/ss-monitor/releases/ss-monitor-${VERSION}
+sudo ln -sfn /opt/ss-monitor/releases/ss-monitor-${VERSION} /opt/ss-monitor/current
+```
+
+目录含义：
+
+- `/opt/ss-monitor/current`：当前正在运行的版本。
+- `/opt/ss-monitor/.env`：服务器本地真实配置，升级时继续沿用。
+- `/opt/ss-monitor/data`：导入数据和自定义项目配置，不进 Git。
+- `/opt/ss-monitor/state`：运行状态文件，不进 Git。
+
+### 第 4 步：安装运行依赖
+
+```bash
 cd /opt/ss-monitor/current
 npm ci --omit=dev
-sudo cp .env.example /opt/ss-monitor/.env
-sudo cp /opt/ss-monitor/.env /opt/ss-monitor/current/.env
 ```
 
-编辑 `/opt/ss-monitor/.env`，填入本机允许使用的真实配置；然后再次镜像到当前 release：
+### 第 5 步：写入最小配置
+
+先复制配置模板：
 
 ```bash
-sudo cp /opt/ss-monitor/.env /opt/ss-monitor/current/.env
+sudo cp /opt/ss-monitor/current/.env.example /opt/ss-monitor/.env
 ```
 
-如果直接给内网用户访问，可把 `HOST` 设为 `0.0.0.0`；如果前面有 nginx 或其他反向代理，建议让应用监听 `127.0.0.1`，由代理暴露站点。生产默认端口是 `8787`。
-
-### 自定义监控项目
-
-不配置时，系统使用内置 SS1 / SS2 默认项目。其他人部署自己的站点时，不需要改源码，可以在 `/opt/ss-monitor/.env` 中写入 `MONITOR_GAMES_JSON`，或把同样的 JSON 保存为服务器本地文件并设置 `MONITOR_GAMES_PATH`。
-
-最小可运行配置示例：
-
-```env
-PORT=8787
-HOST=0.0.0.0
-BETTAFISH_SEMANTIC_ENABLED=false
-MINDSPIDER_DOUYIN_ENABLED=false
-MONITOR_GAMES_JSON=[{"id":"out-of-control","name":"失控进化","shortName":"失控进化","bilibiliKeywords":["失控进化"],"douyinKeywords":["失控进化"],"tiebaBars":["失控进化"]}]
-```
-
-也可以使用文件形式：
+写入“失控进化”监控项目配置：
 
 ```bash
-sudo cp /opt/ss-monitor/current/examples/monitor-games.example.json /opt/ss-monitor/data/monitor-games.json
+sudo tee /opt/ss-monitor/data/monitor-games.json >/dev/null <<'JSON'
+{
+  "games": [
+    {
+      "id": "out-of-control",
+      "name": "失控进化",
+      "shortName": "失控进化",
+      "bilibiliKeywords": ["失控进化"],
+      "douyinKeywords": ["失控进化"],
+      "tiebaBars": ["失控进化"]
+    }
+  ]
+}
+JSON
+```
+
+把服务改成内网可访问，并关闭可选增强项，保证先跑起来：
+
+```bash
+sudo sed -i 's#^HOST=.*#HOST=0.0.0.0#' /opt/ss-monitor/.env
 sudo sed -i 's#^MONITOR_GAMES_PATH=.*#MONITOR_GAMES_PATH=/opt/ss-monitor/data/monitor-games.json#' /opt/ss-monitor/.env
-sudo cp /opt/ss-monitor/.env /opt/ss-monitor/current/.env
-sudo systemctl restart ss-monitor
+sudo sed -i 's#^BETTAFISH_SEMANTIC_ENABLED=.*#BETTAFISH_SEMANTIC_ENABLED=false#' /opt/ss-monitor/.env
+sudo sed -i 's#^MINDSPIDER_DOUYIN_ENABLED=.*#MINDSPIDER_DOUYIN_ENABLED=false#' /opt/ss-monitor/.env
 ```
 
-项目配置字段：
+同步配置到当前 release：
 
-- `id`：API 使用的稳定项目 id，只使用英文字母、数字、`-` 或 `_`，例如 `out-of-control`。
-- `name`：页面展示名，例如 `失控进化`。
-- `shortName`：筛选按钮和日报里使用的短名。
-- `bilibiliKeywords`：B 站搜索关键词。
-- `douyinKeywords`：抖音授权数据、MindSpider 数据和公开搜索的匹配关键词。
-- `tiebaBars`：贴吧吧名，不带“吧”字。
+```bash
+sudo cp /opt/ss-monitor/.env /opt/ss-monitor/current/.env
+```
 
-改完 `/opt/ss-monitor/.env` 后，记得同步到 `/opt/ss-monitor/current/.env` 并重启服务。
+### 第 6 步：先手动启动一次
 
-一个最小 systemd 服务示例：
+```bash
+cd /opt/ss-monitor/current
+npm run start
+```
 
-```ini
+看到类似下面的输出就说明服务启动了：
+
+```text
+Sentiment monitor listening on http://0.0.0.0:8787
+```
+
+这时打开浏览器访问：
+
+```text
+http://服务器IP:8787/
+```
+
+如果能看到页面，就按 `Ctrl+C` 停掉手动进程，然后继续下一步设置后台常驻。
+
+### 第 7 步：设置开机自启
+
+创建 systemd 服务：
+
+```bash
+sudo tee /etc/systemd/system/ss-monitor.service >/dev/null <<'SERVICE'
 [Unit]
 Description=SS Monitor
 After=network.target
@@ -107,7 +167,70 @@ RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
+SERVICE
 ```
+
+启动并设为开机自启：
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now ss-monitor
+sudo systemctl status ss-monitor --no-pager
+```
+
+### 第 8 步：确认部署成功
+
+检查健康接口：
+
+```bash
+curl http://127.0.0.1:8787/api/health
+```
+
+检查项目配置是否已经变成“失控进化”：
+
+```bash
+curl http://127.0.0.1:8787/api/config
+```
+
+浏览器访问：
+
+```text
+http://服务器IP:8787/
+```
+
+页面标题应显示“失控进化舆情监测”，项目筛选按钮也应显示“失控进化”。
+
+### 第 9 步：换成自己的项目
+
+编辑这个文件：
+
+```bash
+sudo nano /opt/ss-monitor/data/monitor-games.json
+```
+
+把 `失控进化` 换成自己的项目名和关键词。字段说明：
+
+- `id`：稳定项目 id，只用英文字母、数字、`-` 或 `_`，例如 `my-game`。
+- `name`：页面展示名，例如 `失控进化`。
+- `shortName`：筛选按钮和日报里使用的短名。
+- `bilibiliKeywords`：B 站搜索关键词。
+- `douyinKeywords`：抖音授权数据、MindSpider 数据和公开搜索的匹配关键词。
+- `tiebaBars`：贴吧吧名，不带“吧”字。
+
+改完重启：
+
+```bash
+sudo cp /opt/ss-monitor/.env /opt/ss-monitor/current/.env
+sudo systemctl restart ss-monitor
+```
+
+### 第 10 步：常见问题
+
+- 页面打不开：先执行 `sudo systemctl status ss-monitor --no-pager`，确认服务是不是 running。
+- 本机能访问、其他电脑不能访问：确认 `.env` 里是 `HOST=0.0.0.0`，并检查服务器防火墙是否放行 `8787`。
+- 页面打开但没有数据：先看页面里的“来源健康”；B 站或贴吧被风控时，可在服务器本地 `.env` 配置对应 cookie。
+- 改了项目但页面还是旧的：执行 `sudo systemctl restart ss-monitor`，然后强制刷新浏览器页面。
+- 升级新版本：重复第 2、3、4 步，然后执行 `sudo cp /opt/ss-monitor/.env /opt/ss-monitor/current/.env && sudo systemctl restart ss-monitor`。
 
 部署更新时保持 `/opt/ss-monitor/.env` 作为配置基线，并在重启前同步到 `/opt/ss-monitor/current/.env`。不要只改 release 目录里的 `.env`，否则下次切换版本时容易丢失配置。
 
