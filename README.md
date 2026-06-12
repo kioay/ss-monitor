@@ -304,12 +304,17 @@ npm run test:monitor-history
 npm run test:custom-games-config
 npm run test:douyin-game-routing
 npm run test:risk-alerts
+npm run test:risk-backtest
 npm run test:dingtalk-daily-markdown
 npm run test:semantic-guard
 .\scripts\create-deploy-archive.ps1 -OutputPath "$env:TEMP\ss-monitor-<version>.tar.gz"
 ```
 
-`create-deploy-archive.ps1` 要求工作区干净，避免源码来自 `HEAD`、前端 `dist/` 却来自未提交工作区的混合产物。脚本会先执行 `npm run build`，再把 Git 归档和新生成的 `dist/` 打进压缩包。归档文件本身、`.env*`、`data/`、`node_modules/`、浏览器 profile、cookie、缓存、媒体下载和报告输出都不应进入 Git。
+`create-deploy-archive.ps1` 要求工作区干净，避免源码来自 `HEAD`、前端 `dist/` 却来自未提交工作区的混合产物。脚本会先执行 `npm run test:risk-backtest` 和 `npm run build`，再把 Git 归档和新生成的 `dist/` 打进压缩包。归档文件本身、`.env*`、`data/`、`node_modules/`、浏览器 profile、cookie、缓存、媒体下载和报告输出都不应进入 Git。
+
+### 风险判定回测
+
+`npm run test:risk-backtest` 使用 `scripts/fixtures/risk-backtest-cases.json` 中的黄金样本回测风险判定。样本同时覆盖误伤保护、真实风险召回和 BettaFish 融合场景；脚本会固定读取 `scripts/fixtures/risk-backtest-current-version-focus.json`，不依赖生产 Confluence 或本地 `data/` 缓存。新增或修正错判后，应把最小复现样本加入回测集，再调整规则。
 
 ## 关键配置
 

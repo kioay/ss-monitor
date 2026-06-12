@@ -14,6 +14,7 @@ if (-not $OutputPath) {
   $OutputPath = Join-Path $env:LOCALAPPDATA "Temp\ss-monitor-$commit.tar.gz"
 }
 
+npm --prefix $repoRoot run test:risk-backtest
 npm --prefix $repoRoot run build
 
 $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) "ss-monitor-deploy-$commit-$([System.Guid]::NewGuid().ToString('N'))"

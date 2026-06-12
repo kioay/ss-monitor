@@ -1,0 +1,156 @@
+{
+  "version": 1,
+  "description": "Golden risk-analysis backtest cases. Keep false-positive guards and true-positive catches together so risk-rule changes are reviewed as a portfolio.",
+  "cases": [
+    {
+      "id": "ss1-team-recruitment-azarras",
+      "kind": "false_positive_guard",
+      "gameId": "ss1",
+      "title": "联通一区Azarras战队宣传片！谨以此片献给我们的青春！",
+      "contentParts": [
+        { "type": "title", "text": "联通一区Azarras战队宣传片！谨以此片献给我们的青春！", "count": 1 },
+        {
+          "type": "description",
+          "text": "联通一区Azarras战队招收各路玩家，无论是你是冒险萌新，还是飞升大佬都欢迎！战队氛围非常好，萌新有什么问题可以在战队群里交流！战队每周都有玩具深海飞升车队，和专七突袭等，还有各种三强化，双强化武器，老唯一皮肤等你来家园租赁！有意向的小伙伴可以来群132578055！",
+          "count": 1
+        },
+        { "type": "tag", "text": "Azarras战队、战队收人、战队宣传片、联通一区、冒险模式、生死狙击", "count": 1 }
+      ],
+      "metrics": { "views": 1297, "replies": 41, "comments": 41, "likes": 69, "danmaku": 2, "favorites": 18 },
+      "maxRiskLevel": "low",
+      "forbiddenTopics": ["当前版本重点"],
+      "forbiddenRiskReasons": ["当前版本重点负反馈"]
+    },
+    {
+      "id": "ss1-positive-yaoguang-purchase",
+      "kind": "false_positive_guard",
+      "gameId": "ss1",
+      "title": "生死狙击氪金1200，拿下瑶光终焉~",
+      "contentParts": [
+        { "type": "title", "text": "生死狙击氪金1200，拿下瑶光终焉~", "count": 1 },
+        { "type": "tag", "text": "生死狙击仲夏之梦赛季、4399生死狙击、生死狙击", "count": 1 },
+        { "type": "comment", "text": "我也是昨晚拿下了", "count": 1 },
+        { "type": "comment", "text": "皮肤是最没用的", "count": 1 },
+        { "type": "comment", "text": "好看，断罪原皮那个能量弹感觉好简陋", "count": 1 },
+        { "type": "comment", "text": "太好了终于有瑶光强化石了[doge]", "count": 1 },
+        { "type": "comment", "text": "氪出强大[doge][doge]，虽然我瑶光已经满配了[吃瓜]", "count": 1 }
+      ],
+      "metrics": { "views": 924, "replies": 17, "comments": 17, "likes": 26, "danmaku": 1, "favorites": 2, "shares": 1 },
+      "maxRiskLevel": "low",
+      "forbiddenRiskReasons": ["当前版本重点负反馈"]
+    },
+    {
+      "id": "ss1-positive-crystal-shop-purchase",
+      "kind": "false_positive_guard",
+      "gameId": "ss1",
+      "title": "生死狙击到账 10750金币 神秘商店买买买 拿下晶刹新皮肤 这科比神兵便宜多了",
+      "contentParts": [
+        { "type": "title", "text": "生死狙击到账 10750金币 神秘商店买买买 拿下晶刹新皮肤 这科比神兵便宜多了", "count": 1 },
+        { "type": "tag", "text": "必剪创作、4399生死狙击、生死狙击", "count": 1 },
+        { "type": "comment", "text": "这皮肤真比红莲好看吧，还便宜[doge]", "count": 1 },
+        { "type": "comment", "text": "神秘商店有幻锋加幻锋配件吗[doge]", "count": 1 },
+        { "type": "comment", "text": "我相信单抽出奇迹[doge]", "count": 1 }
+      ],
+      "metrics": { "views": 717, "replies": 16, "comments": 16, "likes": 7 },
+      "maxRiskLevel": "low",
+      "forbiddenRiskReasons": ["当前版本重点负反馈"]
+    },
+    {
+      "id": "ss1-classic-2022-light-complaint-positive-semantic",
+      "kind": "semantic_guard",
+      "gameId": "ss1",
+      "title": "平民武器在经典2022不好丸QWQ",
+      "contentParts": [
+        { "type": "title", "text": "平民武器在经典2022不好丸QWQ", "count": 1 },
+        { "type": "tag", "text": "4399生死狙击、生死狙击、FPS", "count": 1 }
+      ],
+      "metrics": { "views": 289, "replies": 7, "comments": 7, "likes": 7 },
+      "semanticSignal": { "label": "positive", "score": 0.85, "confidence": 0.85, "positiveProbability": 0.93 },
+      "maxRiskLevel": "low"
+    },
+    {
+      "id": "ss1-account-server-question-negative-semantic",
+      "kind": "semantic_guard",
+      "gameId": "ss1",
+      "title": "有没有战火服的号",
+      "contentParts": [
+        { "type": "title", "text": "有没有战火服的号", "count": 1 },
+        { "type": "description", "text": "便宜点的，能玩就行", "count": 1 }
+      ],
+      "semanticSignal": { "label": "negative", "score": -0.95, "confidence": 0.98, "positiveProbability": 0.02 },
+      "maxRiskLevel": "low",
+      "requiredTopics": ["账号/区服询问"],
+      "forbiddenRiskReasons": ["BettaFish模型辅助确认负面"]
+    },
+    {
+      "id": "ss1-player-help-with-problem-word",
+      "kind": "false_positive_guard",
+      "gameId": "ss1",
+      "title": "冒险萌新有什么问题都可以问",
+      "contentParts": [
+        { "type": "title", "text": "冒险萌新有什么问题都可以问", "count": 1 },
+        { "type": "description", "text": "新手刚回坑，想问问冒险模式武器和皮肤怎么搭配，大家可以交流。", "count": 1 }
+      ],
+      "maxRiskLevel": "low",
+      "forbiddenRiskReasons": ["当前版本重点负反馈", "命中敏感风险词"]
+    },
+    {
+      "id": "ss1-account-rental-lead-negative-semantic",
+      "kind": "true_positive_catch",
+      "gameId": "ss1",
+      "title": "玩生死狙击眼馋别人的无尽光影、幻刃？租个号进去突突两把，不好用直接换",
+      "contentParts": [
+        { "type": "title", "text": "玩生死狙击眼馋别人的无尽光影、幻刃？租个号进去突突两把，不好用直接换", "count": 1 },
+        {
+          "type": "description",
+          "text": "小杰选号网是正规租号平台，提供热门端游、手游、Steam等账号租赁服务。号源充足，客服24小时在线，累计订单量已过千万。平台官网: xiaojie.zhanghaodaren.com",
+          "count": 1
+        },
+        { "type": "tag", "text": "生死狙击租号、游戏租号、4399生死狙击、生死狙击、氪金、FPS、娱乐", "count": 1 }
+      ],
+      "semanticSignal": { "label": "negative", "score": -1, "confidence": 1, "positiveProbability": 0 },
+      "minRiskLevel": "medium",
+      "maxRiskLevel": "medium",
+      "requiredRiskReasons": ["账号租赁/交易导流"]
+    },
+    {
+      "id": "ss1-cheat-promotion",
+      "kind": "true_positive_catch",
+      "gameId": "ss1",
+      "title": "开挂演示加群试用",
+      "contentParts": [
+        { "type": "title", "text": "开挂演示加群试用", "count": 1 },
+        { "type": "description", "text": "锁头透视效果展示，进群体验", "count": 1 }
+      ],
+      "minRiskLevel": "high",
+      "requiredRiskReasons": ["疑似外挂宣传引流"]
+    },
+    {
+      "id": "ss1-cheat-governance-complaint",
+      "kind": "true_positive_catch",
+      "gameId": "ss1",
+      "title": "生死狙击的外挂能不能管管...",
+      "contentParts": [
+        { "type": "title", "text": "生死狙击的外挂能不能管管...", "count": 1 },
+        { "type": "post", "text": "现在外挂太多了，举报也没用，官方能不能处理一下。", "count": 1 }
+      ],
+      "metrics": { "replies": 18, "comments": 18 },
+      "minRiskLevel": "medium",
+      "requiredRiskReasons": ["命中外挂治理线索"]
+    },
+    {
+      "id": "ss1-current-version-real-bug-complaint",
+      "kind": "true_positive_catch",
+      "gameId": "ss1",
+      "title": "破鸿新版本卡模型bug太离谱",
+      "contentParts": [
+        { "type": "title", "text": "破鸿新版本卡模型bug太离谱", "count": 1 },
+        { "type": "comment", "text": "更新后一直卡顿，BUG影响体验，修一下吧。", "count": 1 },
+        { "type": "comment", "text": "这个问题太难受了。", "count": 1 }
+      ],
+      "metrics": { "views": 1200, "comments": 35, "replies": 35, "likes": 40 },
+      "minRiskLevel": "medium",
+      "requiredRiskReasons": ["当前版本重点负反馈"]
+    }
+  ]
+}
