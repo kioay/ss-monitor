@@ -50,6 +50,7 @@ const api = {
   monitor: "/api/monitor",
   search: "/api/search",
   douyinStatus: "/api/douyin/status",
+  douyinRemoteLogin: "/api/douyin/remote-login",
   bettafishLab: "/api/bettafish/lab",
   bettafishLabAction: "/api/bettafish/lab/action"
 };
@@ -2021,7 +2022,7 @@ function DouyinStatusNotice({ status }: { status?: DouyinCrawlStatus }) {
   const loginIssue = status.issues.find((issue) => issue.type === "login");
   const primaryIssue = loginIssue || status.issues[0];
   if (!primaryIssue) return null;
-  const remoteLoginUrl = loginIssue ? status.remoteLoginUrl || defaultDouyinRemoteLoginUrl() : "";
+  const remoteLoginUrl = loginIssue ? api.douyinRemoteLogin : "";
 
   return (
     <div className={`douyin-status-notice ${primaryIssue.severity}`} role="status" title={primaryIssue.detail || primaryIssue.message}>
@@ -2649,11 +2650,6 @@ function makeTopicOptions(items: MonitorItem[]) {
 
 function formatHour(hour: number) {
   return `${String(hour).padStart(2, "0")}:00`;
-}
-
-function defaultDouyinRemoteLoginUrl() {
-  if (typeof window === "undefined") return "";
-  return `http://${window.location.hostname}:6080/vnc.html?autoconnect=1&resize=scale`;
 }
 
 function formatAgo(value: string) {

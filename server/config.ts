@@ -93,6 +93,7 @@ export const runtimeConfig = {
   douyinMediaCrawlerDir: process.env.BETTAFISH_DOUYIN_MEDIA_CRAWLER_DIR
     || path.join(detectedBettaFishRepoDir || path.join(bettaFishRoot, "current"), "MindSpider", "DeepSentimentCrawling", "MediaCrawler"),
   douyinRemoteLoginUrl: process.env.DOUYIN_REMOTE_LOGIN_URL || process.env.BETTAFISH_DOUYIN_REMOTE_LOGIN_URL || "",
+  douyinRemoteLoginServiceName: process.env.DOUYIN_REMOTE_LOGIN_SERVICE || "ss-monitor-douyin-remote-login.service",
   mindSpiderEnvFile: process.env.MINDSPIDER_ENV_FILE || "",
   mindSpiderDouyinTable: process.env.MINDSPIDER_DOUYIN_TABLE || "douyin_aweme",
   mindSpiderDouyinCommentsTable: process.env.MINDSPIDER_DOUYIN_COMMENTS_TABLE || "douyin_aweme_comment",

@@ -1,0 +1,19 @@
+[Unit]
+Description=SS Monitor Douyin remote login noVNC session
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=yq
+WorkingDirectory=/opt/BettaFish/current/MindSpider/DeepSentimentCrawling/MediaCrawler
+Environment=APP_ROOT=/opt/ss-monitor
+Environment=BETTAFISH_ROOT=/opt/BettaFish
+Environment=HOME=/home/yq
+EnvironmentFile=-/opt/ss-monitor/.env
+EnvironmentFile=-/opt/BettaFish/.env
+EnvironmentFile=-/opt/BettaFish/current/.env
+ExecStart=/usr/bin/bash /opt/ss-monitor/current/scripts/run-douyin-remote-login.sh
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15

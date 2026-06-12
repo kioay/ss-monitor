@@ -51,6 +51,29 @@ export async function getDouyinCrawlStatus(force = false): Promise<DouyinCrawlSt
   return value;
 }
 
+export async function startDouyinRemoteLogin(hostHeader = "") {
+  const url = douyinRemoteLoginUrl(hostHeader);
+  if (process.platform === "win32") {
+    return { ok: false, url, message: "远程登录入口仅在生产 Linux 服务上启动" };
+  }
+
+  const result = await runCommand("systemctl", ["start", runtimeConfig.douyinRemoteLoginServiceName], 15_000);
+  if (!result.ok) {
+    return {
+      ok: false,
+      url,
+      message: compactCommandMessage(result)
+    };
+  }
+  return { ok: true, url };
+}
+
+function douyinRemoteLoginUrl(hostHeader: string) {
+  if (runtimeConfig.douyinRemoteLoginUrl) return runtimeConfig.douyinRemoteLoginUrl;
+  const host = hostHeader.replace(/:\d+$/, "") || "127.0.0.1";
+  return `http://${host}:6088/vnc.html?autoconnect=true&resize=scale`;
+}
+
 async function readServiceStatus(): Promise<DouyinCrawlServiceStatus> {
   if (process.platform === "win32") {
     return { available: false, message: "systemd is unavailable on Windows" };
