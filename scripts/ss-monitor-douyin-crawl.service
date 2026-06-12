@@ -15,6 +15,5 @@ Environment=BETTAFISH_DOUYIN_LOGIN_TYPE=cookie
 EnvironmentFile=-/opt/ss-monitor/.env
 EnvironmentFile=-/opt/BettaFish/.env
 EnvironmentFile=-/opt/BettaFish/current/.env
-ExecStart=/opt/ss-monitor/current/scripts/run-bettafish-douyin-crawl.sh
+ExecStart=/usr/bin/bash /opt/ss-monitor/current/scripts/run-bettafish-douyin-crawl.sh
 TimeoutStartSec=75m
-
