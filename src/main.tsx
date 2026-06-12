@@ -685,6 +685,14 @@ function App() {
     },
     []
   );
+  const selectTopicFromDistribution = React.useCallback((topicName: string) => {
+    setSource("all");
+    setRisk("all");
+    setSentiment("all");
+    setTopic(topicName);
+    setQuery("");
+    scrollToSearchResults();
+  }, []);
   const jumpToAlerts = React.useCallback(() => {
     setRisk("high");
     setSource("all");
@@ -810,35 +818,44 @@ function App() {
           </summary>
           {trendOpen ? (
             <div className="trend-details-body">
-              <div className="chart-legend" aria-label="声量趋势筛选">
-                <TrendLegendButton series="negative" label="负面" active={trendSeries.negative} onToggle={toggleTrendSeries} />
-                <TrendLegendButton series="neutral" label="中性" active={trendSeries.neutral} onToggle={toggleTrendSeries} />
-                <TrendLegendButton series="positive" label="正面" active={trendSeries.positive} onToggle={toggleTrendSeries} />
-                <TrendLegendButton series="total" label="总声量折线" active={trendSeries.total} onToggle={toggleTrendSeries} />
-                <small>柱子=情绪构成 · 折线=平滑趋势</small>
+              <div className="trend-chart-panel">
+                <div className="chart-legend" aria-label="声量趋势筛选">
+                  <TrendLegendButton series="negative" label="负面" active={trendSeries.negative} onToggle={toggleTrendSeries} />
+                  <TrendLegendButton series="neutral" label="中性" active={trendSeries.neutral} onToggle={toggleTrendSeries} />
+                  <TrendLegendButton series="positive" label="正面" active={trendSeries.positive} onToggle={toggleTrendSeries} />
+                  <TrendLegendButton series="total" label="总声量折线" active={trendSeries.total} onToggle={toggleTrendSeries} />
+                  <small>柱子=情绪构成 · 折线=平滑趋势</small>
+                </div>
+                <TrendChart data={data?.trends || []} visibleSeries={trendSeries} />
               </div>
-              <TrendChart data={data?.trends || []} visibleSeries={trendSeries} />
+              <div className="topic-area trend-topic-area">
+                <div className="section-title">
+                  <Filter size={18} aria-hidden="true" />
+                  <h2>主题分布</h2>
+                </div>
+                <div className="topic-list">
+                  {(data?.topicStats || []).map((entry) => (
+                    <div className={`topic-row ${topic === entry.topic ? "active" : ""}`} key={entry.topic}>
+                      <button
+                        type="button"
+                        className="topic-button"
+                        aria-pressed={topic === entry.topic}
+                        title={`筛选主题：${entry.topic}`}
+                        onClick={() => selectTopicFromDistribution(entry.topic)}
+                      >
+                        {entry.topic}
+                      </button>
+                      <div className="topic-bar">
+                        <i style={{ width: `${topicBarWidthPercent(entry.count, maxTopicCount)}%` }} />
+                      </div>
+                      <b>{entry.count}</b>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           ) : null}
         </details>
-
-        <div className="topic-area">
-          <div className="section-title">
-            <Filter size={18} aria-hidden="true" />
-            <h2>主题分布</h2>
-          </div>
-          <div className="topic-list">
-            {(data?.topicStats || []).map((topic) => (
-              <div className="topic-row" key={topic.topic}>
-                <span>{topic.topic}</span>
-                <div className="topic-bar">
-                  <i style={{ width: `${topicBarWidthPercent(topic.count, maxTopicCount)}%` }} />
-                </div>
-                <b>{topic.count}</b>
-              </div>
-            ))}
-          </div>
-        </div>
       </section>
 
       <section className="alert-band" id="risk-alerts">
