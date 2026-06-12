@@ -37,11 +37,20 @@ const explicitlyStaleThread = makeItem({
   publishedAt: "2026-06-11T11:00:00.000Z"
 });
 
-const alerts = makeAlerts([staleThread, explicitlyStaleThread, newReplyRisk, freshThreadRisk], new Date("2026-06-08T12:00:00.000Z"));
+const mediumStaleThread = makeItem({
+  id: "tieba:medium-stale-thread",
+  riskLevel: "medium",
+  riskReasons: ["负面表达集中"],
+  riskSignalSource: "stale_thread",
+  publishedAt: "2026-06-11T11:45:00.000Z"
+});
 
-assert.deepEqual(alerts.map((alert) => alert.id), ["tieba:fresh-thread-risk", "tieba:new-reply-risk"]);
+const alerts = makeAlerts([staleThread, explicitlyStaleThread, mediumStaleThread, newReplyRisk, freshThreadRisk], new Date("2026-06-08T12:00:00.000Z"));
+
+assert.deepEqual(alerts.map((alert) => alert.id), ["tieba:explicitly-stale-thread", "tieba:fresh-thread-risk", "tieba:new-reply-risk"]);
 assert.equal(alerts.find((alert) => alert.id === "tieba:new-reply-risk")?.reasons[0], "新回复带来风险");
 assert.equal(alerts.find((alert) => alert.id === "tieba:new-reply-risk")?.publishedAt, "2026-06-11T11:30:00.000Z");
+assert.equal(alerts.some((alert) => alert.id === "tieba:medium-stale-thread"), false);
 
 function makeItem(input: {
   id: string;

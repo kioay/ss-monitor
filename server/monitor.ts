@@ -532,7 +532,7 @@ export function makeAlerts(items: MonitorItem[], freshnessCutoff?: Date): AlertI
 function isRiskAlertCandidate(item: MonitorItem, freshnessCutoff?: Date) {
   if (item.riskLevel === "low") return false;
   if (freshnessCutoff && item.riskSignalAt && new Date(item.riskSignalAt) < freshnessCutoff) return false;
-  return item.riskSignalSource !== "stale_thread";
+  return item.riskSignalSource !== "stale_thread" || item.riskLevel === "high";
 }
 
 function riskAlertTime(item: MonitorItem) {
