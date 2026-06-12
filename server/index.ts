@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { games, getUpdatePolicy, runtimeConfig } from "./config";
 import { sendDingTalkDailyReport, sendDingTalkTest } from "./dingtalk";
 import { getBettaFishLabResponse, runBettaFishLabAction } from "./bettafishLab";
+import { getDouyinCrawlStatus } from "./douyinStatus";
 import { getMonitorResponse } from "./monitor";
 import { getSearchResponse } from "./search";
 import type { GameId } from "../src/shared";
@@ -37,6 +38,17 @@ app.get("/api/health", (_request, response) => {
     hasBaiduCookie: Boolean(runtimeConfig.baiduCookie),
     hasBettaFishBaseUrl: Boolean(runtimeConfig.bettaFishBaseUrl)
   });
+});
+
+app.get("/api/douyin/status", async (request, response) => {
+  try {
+    const force = request.query.force === "1" || request.query.force === "true";
+    response.json(await getDouyinCrawlStatus(force));
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "未知错误"
+    });
+  }
 });
 
 app.get("/api/image", async (request, response) => {

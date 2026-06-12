@@ -29,6 +29,7 @@ export const gameById = new Map<GameId, GameConfig>(games.map((game) => [game.id
 const detectedBettaFishRepoDir = resolveBettaFishRepoDir(process.env.BETTAFISH_REPO_DIR || "");
 const bettaFishRuntimeRepoDetected = Boolean(detectedBettaFishRepoDir && isBettaFishRepo(detectedBettaFishRepoDir));
 const bettaFishRepoAutoDetected = Boolean(bettaFishRuntimeRepoDetected && !process.env.BETTAFISH_REPO_DIR);
+const bettaFishRoot = process.env.BETTAFISH_ROOT || process.env.DOUYIN_SERVER_BETTAFISH_ROOT || inferBettaFishRoot(detectedBettaFishRepoDir);
 const bettaFishPython = process.env.BETTAFISH_PYTHON || detectBettaFishPython(detectedBettaFishRepoDir) || detectPythonCommand();
 const bettaFishStartCommand = process.env.BETTAFISH_START_COMMAND || (bettaFishRuntimeRepoDetected ? `${quoteShell(bettaFishPython)} app.py` : "");
 const bettaFishDeployCommand = process.env.BETTAFISH_DEPLOY_COMMAND || (bettaFishRuntimeRepoDetected ? "git pull --ff-only && git submodule update --init --recursive" : "");
@@ -64,6 +65,7 @@ export const runtimeConfig = {
   bettaFishBaseUrlAutoConfigured: Boolean(bettaFishBaseUrl && !process.env.BETTAFISH_BASE_URL),
   bettaFishImportDir: process.env.BETTAFISH_IMPORT_DIR || "data/bettafish-imports",
   bettaFishLabActionsEnabled: parseBoolean(process.env.BETTAFISH_LAB_ACTIONS_ENABLED || "true"),
+  bettaFishRoot,
   bettaFishRepoDir: detectedBettaFishRepoDir,
   bettaFishRepoAutoDetected,
   bettaFishPython,
@@ -83,6 +85,14 @@ export const runtimeConfig = {
   bettaFishSemanticFailureCooldownSeconds: Math.max(0, Number(process.env.BETTAFISH_SEMANTIC_FAILURE_COOLDOWN_SECONDS || 600)),
   mindSpiderDouyinEnabled: parseBoolean(process.env.MINDSPIDER_DOUYIN_ENABLED || "true"),
   mindSpiderDouyinImportDir,
+  douyinCrawlServiceName: process.env.BETTAFISH_DOUYIN_CRAWL_SERVICE || "ss-monitor-douyin-crawl.service",
+  douyinCrawlTimerName: process.env.BETTAFISH_DOUYIN_CRAWL_TIMER || "ss-monitor-douyin-crawl.timer",
+  douyinCrawlLoginType: process.env.BETTAFISH_DOUYIN_LOGIN_TYPE || process.env.SERVER_DOUYIN_LOGIN_TYPE || "cookie",
+  douyinCrawlStatePath: process.env.BETTAFISH_DOUYIN_STATE_PATH
+    || path.join(process.env.BETTAFISH_DOUYIN_STATE_DIR || path.join(bettaFishRoot, "runtime", "douyin-crawl-scheduler"), "state.env"),
+  douyinMediaCrawlerDir: process.env.BETTAFISH_DOUYIN_MEDIA_CRAWLER_DIR
+    || path.join(detectedBettaFishRepoDir || path.join(bettaFishRoot, "current"), "MindSpider", "DeepSentimentCrawling", "MediaCrawler"),
+  douyinRemoteLoginUrl: process.env.DOUYIN_REMOTE_LOGIN_URL || process.env.BETTAFISH_DOUYIN_REMOTE_LOGIN_URL || "",
   mindSpiderEnvFile: process.env.MINDSPIDER_ENV_FILE || "",
   mindSpiderDouyinTable: process.env.MINDSPIDER_DOUYIN_TABLE || "douyin_aweme",
   mindSpiderDouyinCommentsTable: process.env.MINDSPIDER_DOUYIN_COMMENTS_TABLE || "douyin_aweme_comment",
@@ -271,6 +281,13 @@ function resolveBettaFishRepoDir(explicitPath: string) {
   ];
 
   return candidates.find(isBettaFishRepo) || (explicit ? path.resolve(explicit) : "");
+}
+
+function inferBettaFishRoot(repoDir: string) {
+  if (!repoDir) return process.platform === "win32" ? "" : "/opt/BettaFish";
+  const normalized = path.resolve(repoDir);
+  if (path.basename(normalized) === "current") return path.dirname(normalized);
+  return normalized;
 }
 
 function isBettaFishRepo(candidate: string) {

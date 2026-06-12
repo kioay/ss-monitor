@@ -224,6 +224,73 @@ h2 {
   background: var(--blue-soft);
 }
 
+.douyin-status-notice {
+  min-height: 42px;
+  max-width: 420px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid rgba(195, 123, 49, 0.4);
+  border-radius: 8px;
+  padding: 7px 10px;
+  background: #fff7e8;
+  color: #73470e;
+  box-shadow: 0 8px 22px rgba(38, 48, 43, 0.06);
+}
+
+.douyin-status-notice.error {
+  border-color: rgba(181, 75, 68, 0.46);
+  background: #fff1ee;
+  color: #842d28;
+}
+
+.douyin-status-notice > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.douyin-status-notice strong,
+.douyin-status-notice small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.douyin-status-notice strong {
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.douyin-status-notice small {
+  font-size: 12px;
+  color: currentColor;
+  opacity: 0.82;
+}
+
+.douyin-remote-login {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid rgba(132, 45, 40, 0.28);
+  border-radius: 7px;
+  padding: 0 8px;
+  background: rgba(255, 255, 255, 0.72);
+  color: inherit;
+  font-size: 12px;
+  font-weight: 760;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.douyin-remote-login:hover,
+.douyin-remote-login:focus-visible {
+  background: white;
+  box-shadow: 0 0 0 3px rgba(181, 75, 68, 0.12);
+}
+
 .icon-button {
   width: 42px;
   height: 42px;
@@ -3015,6 +3082,11 @@ button.metric:focus-visible {
   .top-actions,
   .lab-actions {
     width: 100%;
+  }
+
+  .douyin-status-notice {
+    width: 100%;
+    max-width: none;
   }
 
   .feed-toolbar {

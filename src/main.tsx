@@ -28,6 +28,7 @@ import type {
   BettaFishOperation,
   BettaFishPanelCapability,
   BettaFishProbeStatus,
+  DouyinCrawlStatus,
   GameConfig,
   GameId,
   AlertItem,
@@ -48,6 +49,7 @@ const api = {
   config: "/api/config",
   monitor: "/api/monitor",
   search: "/api/search",
+  douyinStatus: "/api/douyin/status",
   bettafishLab: "/api/bettafish/lab",
   bettafishLabAction: "/api/bettafish/lab/action"
 };
@@ -426,6 +428,7 @@ function App() {
   const [data, setData] = React.useState<MonitorResponse>();
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
+  const [douyinStatus, setDouyinStatus] = React.useState<DouyinCrawlStatus>();
   const [visibleItemLimit, setVisibleItemLimit] = React.useState(feedInitialLimit);
   const [trendOpen, setTrendOpen] = React.useState(initialUiState.trendOpen);
   const [trendSeries, setTrendSeries] = React.useState<TrendSeriesVisibility>(initialUiState.trendSeries);
@@ -451,6 +454,38 @@ function App() {
       .catch((reason) => setError(reason instanceof Error ? reason.message : String(reason)));
   }, []);
 
+  const loadDouyinStatus = React.useCallback(async (force = false) => {
+    try {
+      const response = await fetch(`${api.douyinStatus}${force ? "?force=1" : ""}`);
+      if (!response.ok) throw new Error(`API ${response.status}`);
+      setDouyinStatus((await response.json()) as DouyinCrawlStatus);
+    } catch (reason) {
+      setDouyinStatus({
+        generatedAt: new Date().toISOString(),
+        status: "warning",
+        ok: false,
+        loginOk: true,
+        crawlOk: false,
+        message: "抖音采集状态暂时不可读",
+        issues: [{
+          type: "crawl",
+          severity: "warning",
+          message: "抖音采集状态暂时不可读",
+          detail: reason instanceof Error ? reason.message : String(reason)
+        }],
+        service: { available: false },
+        scheduler: { exists: false },
+        loginProfile: {
+          checked: false,
+          profileDir: "",
+          exists: false,
+          cookieDbCount: 0,
+          hasSessionCookie: false
+        }
+      });
+    }
+  }, []);
+
   const load = React.useCallback(
     async (force = false) => {
       const requestId = latestRequestRef.current + 1;
@@ -474,6 +509,7 @@ function App() {
         if (latestRequestRef.current !== requestId) return;
         setData(payload);
         writeCachedMonitor(cacheKey, payload);
+        void loadDouyinStatus(force);
       } catch (reason) {
         if (latestRequestRef.current !== requestId) return;
         if (!cachedPayload) setError(reason instanceof Error ? reason.message : String(reason));
@@ -481,8 +517,16 @@ function App() {
         if (latestRequestRef.current === requestId) setLoading(false);
       }
     },
-    [selectedGames, windowHours]
+    [loadDouyinStatus, selectedGames, windowHours]
   );
+
+  React.useEffect(() => {
+    void loadDouyinStatus();
+    const timer = window.setInterval(() => {
+      void loadDouyinStatus();
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, [loadDouyinStatus]);
 
   React.useEffect(() => {
     load(false);
@@ -728,6 +772,7 @@ function App() {
             {data ? formatDateTime(data.generatedAt) : "等待采集"}
           </span>
           {visiblePolicy ? <UpdatePolicyBadge policy={visiblePolicy} /> : null}
+          <DouyinStatusNotice status={douyinStatus} />
           <button className="icon-button primary" type="button" onClick={() => load(true)} disabled={loading} title="强制刷新" aria-label="强制刷新舆情看板">
             <RefreshCw size={18} className={loading ? "spin" : ""} aria-hidden="true" />
           </button>
@@ -1971,6 +2016,30 @@ function UpdatePolicyBadge({ policy }: { policy: MonitorResponse["updatePolicy"]
   );
 }
 
+function DouyinStatusNotice({ status }: { status?: DouyinCrawlStatus }) {
+  if (!status || status.ok) return null;
+  const loginIssue = status.issues.find((issue) => issue.type === "login");
+  const primaryIssue = loginIssue || status.issues[0];
+  if (!primaryIssue) return null;
+  const remoteLoginUrl = loginIssue ? status.remoteLoginUrl || defaultDouyinRemoteLoginUrl() : "";
+
+  return (
+    <div className={`douyin-status-notice ${primaryIssue.severity}`} role="status" title={primaryIssue.detail || primaryIssue.message}>
+      <AlertTriangle size={16} aria-hidden="true" />
+      <div>
+        <strong>{loginIssue ? "抖音登录需处理" : "抖音采集异常"}</strong>
+        <small>{primaryIssue.message}</small>
+      </div>
+      {loginIssue ? (
+        <a href={remoteLoginUrl} target="_blank" rel="noreferrer" className="douyin-remote-login">
+          <ExternalLink size={14} aria-hidden="true" />
+          远程登录
+        </a>
+      ) : null}
+    </div>
+  );
+}
+
 function TrendLegendButton({
   series,
   label,
@@ -2580,6 +2649,11 @@ function makeTopicOptions(items: MonitorItem[]) {
 
 function formatHour(hour: number) {
   return `${String(hour).padStart(2, "0")}:00`;
+}
+
+function defaultDouyinRemoteLoginUrl() {
+  if (typeof window === "undefined") return "";
+  return `http://${window.location.hostname}:6080/vnc.html?autoconnect=1&resize=scale`;
 }
 
 function formatAgo(value: string) {

@@ -311,3 +311,62 @@ export interface BettaFishActionResponse {
   result?: unknown;
   output?: string[];
 }
+
+export type DouyinCrawlIssueType = "login" | "crawl" | "config";
+export type DouyinCrawlIssueSeverity = "warning" | "error";
+
+export interface DouyinCrawlStatusIssue {
+  type: DouyinCrawlIssueType;
+  severity: DouyinCrawlIssueSeverity;
+  message: string;
+  detail?: string;
+}
+
+export interface DouyinCrawlServiceStatus {
+  available: boolean;
+  activeState?: string;
+  subState?: string;
+  result?: string;
+  execMainStatus?: number;
+  execMainStartTimestamp?: string;
+  execMainExitTimestamp?: string;
+  message?: string;
+}
+
+export interface DouyinCrawlSchedulerState {
+  exists: boolean;
+  lastCompletedAt?: string;
+  mode?: "day" | "night";
+  intervalMinutes?: number;
+  loginType?: string;
+  saveDataOption?: string;
+  headless?: boolean;
+  nextEligibleAt?: string;
+  ageSeconds?: number;
+}
+
+export interface DouyinLoginProfileStatus {
+  checked: boolean;
+  profileDir: string;
+  exists: boolean;
+  cookieDbCount: number;
+  hasSessionCookie: boolean;
+  cookieConfigured?: boolean;
+  configReadable?: boolean;
+  latestCookieModifiedAt?: string;
+  error?: string;
+}
+
+export interface DouyinCrawlStatus {
+  generatedAt: string;
+  status: BettaFishProbeStatus;
+  ok: boolean;
+  loginOk: boolean;
+  crawlOk: boolean;
+  message: string;
+  issues: DouyinCrawlStatusIssue[];
+  remoteLoginUrl?: string;
+  service: DouyinCrawlServiceStatus;
+  scheduler: DouyinCrawlSchedulerState;
+  loginProfile: DouyinLoginProfileStatus;
+}
