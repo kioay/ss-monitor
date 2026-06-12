@@ -2391,16 +2391,27 @@ button.metric:focus-visible {
 .feed-toolbar p {
   color: var(--muted);
   margin-top: 4px;
+  font-size: 14px;
+  line-height: 1.45;
 }
 
 .feed-toolbar {
   position: sticky;
-  top: 76px;
+  top: 82px;
   z-index: 24;
-  margin-top: -1px;
-  background: rgba(246, 244, 238, 0.94);
-  box-shadow: 0 14px 26px rgba(38, 48, 43, 0.08);
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 253, 248, 0.94);
+  box-shadow: var(--shadow-lift);
   backdrop-filter: blur(14px);
+}
+
+.feed-toolbar > div:first-child {
+  min-width: 260px;
+  display: grid;
+  gap: 2px;
 }
 
 #latest-feed {
@@ -2408,15 +2419,25 @@ button.metric:focus-visible {
 }
 
 .filters {
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(112px, 1fr));
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(246, 244, 238, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.66);
 }
 
 .filters select {
-  min-height: 38px;
-  padding: 0 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--paper);
+  border-radius: 6px;
+  background: rgba(255, 253, 248, 0.96);
+  box-shadow: 0 6px 14px rgba(38, 48, 43, 0.05);
 }
 
 .feed-list {
@@ -2845,11 +2866,12 @@ button.metric:focus-visible {
   }
 
   .feed-toolbar {
-    top: 142px;
+    top: 154px;
   }
 
   .filters {
     width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .display-collapse-summary,
@@ -2873,5 +2895,11 @@ button.metric:focus-visible {
   .monitor-card img,
   .fallback-thumb {
     max-height: 220px;
+  }
+}
+
+@media (max-width: 460px) {
+  .filters {
+    grid-template-columns: 1fr;
   }
 }
