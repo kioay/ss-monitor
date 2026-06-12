@@ -1,12 +1,12 @@
 # SS Monitor 舆情监测平台
 
-SS Monitor 是面向《生死狙击1》和《生死狙击2》的内网舆情监测工作台。它把 B 站、贴吧、授权抖音数据、BettaFish / MindSpider 输出和可选的 Confluence 当前版本重点融合到一个 Web 页面里，供运营和项目成员在内网查看趋势、风险、话题和每日简报。
+SS Monitor 是可部署在内网机上的项目舆情监测工作台。默认内置《生死狙击1》和《生死狙击2》模板，也可以通过服务器本地配置改成任意项目，例如《失控进化》。它把 B 站、贴吧、授权抖音数据、BettaFish / MindSpider 输出和可选的 Confluence 当前版本重点融合到一个 Web 页面里，供运营和项目成员在内网查看趋势、风险、话题和每日简报。
 
 当前生产形态是内网机部署：Node 服务同时提供 API 和已经构建好的前端静态资源，公网入口不再承载完整平台。真实内网地址、机器人 webhook、站点 cookie、数据库密码、Confluence token、LLM key 等只保存在服务器本地环境文件或受控密钥系统中，不写入 Git、README、Issue、Release note 或部署归档。
 
 ## 功能概览
 
-- 监控 SS1 / SS2 的 B 站视频、贴吧主题、授权抖音数据和 BettaFish / MindSpider 导入数据。
+- 监控一个或多个自定义项目的 B 站视频、贴吧主题、授权抖音数据和 BettaFish / MindSpider 导入数据。
 - 默认展示最近 72 小时，可切换 24 小时、7 天和 14 天窗口。
 - 后端保留轻量历史池，7 天和 14 天统计不再只依赖当前抓取页。
 - 日间默认每 60 分钟刷新，夜间默认每 240 分钟刷新；手动刷新会强制重新采集。
@@ -57,6 +57,40 @@ sudo cp /opt/ss-monitor/.env /opt/ss-monitor/current/.env
 
 如果直接给内网用户访问，可把 `HOST` 设为 `0.0.0.0`；如果前面有 nginx 或其他反向代理，建议让应用监听 `127.0.0.1`，由代理暴露站点。生产默认端口是 `8787`。
 
+### 自定义监控项目
+
+不配置时，系统使用内置 SS1 / SS2 默认项目。其他人部署自己的站点时，不需要改源码，可以在 `/opt/ss-monitor/.env` 中写入 `MONITOR_GAMES_JSON`，或把同样的 JSON 保存为服务器本地文件并设置 `MONITOR_GAMES_PATH`。
+
+最小可运行配置示例：
+
+```env
+PORT=8787
+HOST=0.0.0.0
+BETTAFISH_SEMANTIC_ENABLED=false
+MINDSPIDER_DOUYIN_ENABLED=false
+MONITOR_GAMES_JSON=[{"id":"out-of-control","name":"失控进化","shortName":"失控进化","bilibiliKeywords":["失控进化"],"douyinKeywords":["失控进化"],"tiebaBars":["失控进化"]}]
+```
+
+也可以使用文件形式：
+
+```bash
+sudo cp /opt/ss-monitor/current/examples/monitor-games.example.json /opt/ss-monitor/data/monitor-games.json
+sudo sed -i 's#^MONITOR_GAMES_PATH=.*#MONITOR_GAMES_PATH=/opt/ss-monitor/data/monitor-games.json#' /opt/ss-monitor/.env
+sudo cp /opt/ss-monitor/.env /opt/ss-monitor/current/.env
+sudo systemctl restart ss-monitor
+```
+
+项目配置字段：
+
+- `id`：API 使用的稳定项目 id，只使用英文字母、数字、`-` 或 `_`，例如 `out-of-control`。
+- `name`：页面展示名，例如 `失控进化`。
+- `shortName`：筛选按钮和日报里使用的短名。
+- `bilibiliKeywords`：B 站搜索关键词。
+- `douyinKeywords`：抖音授权数据、MindSpider 数据和公开搜索的匹配关键词。
+- `tiebaBars`：贴吧吧名，不带“吧”字。
+
+改完 `/opt/ss-monitor/.env` 后，记得同步到 `/opt/ss-monitor/current/.env` 并重启服务。
+
 一个最小 systemd 服务示例：
 
 ```ini
@@ -87,6 +121,7 @@ npm run lint
 npm run test:search
 npm run test:topic-bars
 npm run test:monitor-history
+npm run test:custom-games-config
 npm run test:douyin-game-routing
 npm run test:risk-alerts
 npm run test:dingtalk-daily-markdown
@@ -101,6 +136,7 @@ npm run test:semantic-guard
 常用配置在 `.env.example` 中维护。部署时通常只需要关注这些类别：
 
 - 服务监听：端口、监听地址、日夜刷新频率、默认时间窗口。
+- 监控项目：`MONITOR_GAMES_JSON` 或 `MONITOR_GAMES_PATH`，用于替换默认 SS1 / SS2 项目。
 - 基础采集：B 站和贴吧 cookie，可留空；被风控时再在服务器本地配置。
 - 当前版本重点：Confluence 页面和访问凭证，只放在服务器本地。
 - 抖音数据：优先使用授权导出、授权 API、MindSpider / MediaCrawler 输出或数据库读取。
@@ -135,7 +171,7 @@ BettaFish 是独立的上游系统，部署时应按上游 README、依赖、Doc
 
 - `GET /api/config`
 - `GET /api/health`
-- `GET /api/monitor?games=ss1,ss2&windowHours=72&limit=1000&force=1`
+- `GET /api/monitor?games=out-of-control&windowHours=72&limit=1000&force=1`
 - `GET /api/search`
 - `GET /api/bettafish/lab?windowHours=72`
 - `POST /api/bettafish/lab/action`
@@ -144,9 +180,13 @@ BettaFish 是独立的上游系统，部署时应按上游 README、依赖、Doc
 
 ## 适配到类似网站
 
-要把 release 用作类似舆情站点的起点，通常需要调整：
+要把 release 用作类似舆情站点的起点，优先通过配置调整：
 
-- `server/config.ts` 中的游戏列表、搜索关键词和贴吧吧名。
+- `/opt/ss-monitor/.env` 中的 `MONITOR_GAMES_JSON` 或 `MONITOR_GAMES_PATH`。
+- `examples/monitor-games.example.json` 可作为“失控进化”单项目模板。
+
+如果需要深度定制领域判断，再改源码：
+
 - `server/analyze.ts`、`server/domainSafeTerms.ts` 和 `src/topicBars.ts` 中的领域词、保护语境和话题分类。
 - `.env.example` 中的授权来源、刷新频率、状态文件路径和机器人配置模板。
 - 页面文案和视觉样式：`src/main.tsx`、`src/styles.css`。

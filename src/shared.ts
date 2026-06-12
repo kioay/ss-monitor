@@ -1,4 +1,4 @@
-export type GameId = "ss1" | "ss2";
+export type GameId = string;
 export type SourceType = "bilibili" | "tieba" | "douyin" | "bettafish";
 export type Sentiment = "positive" | "neutral" | "negative" | "mixed";
 export type RiskLevel = "low" | "medium" | "high";

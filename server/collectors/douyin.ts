@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
 import { analyzeItem } from "../analyze";
-import { runtimeConfig } from "../config";
+import { runtimeConfig, textMatchesGame } from "../config";
 import { fetchText, SourceError } from "../http";
 import { hoursBetween, md5, normalizeUrl, nowIso, stripHtml, uniq } from "../utils";
 import { collectAuthorizedDouyinSourceItems } from "./douyinAuthorizedSources";
@@ -61,7 +61,7 @@ export async function collectDouyin(game: GameConfig, cutoff: Date) {
       try {
         const candidates = await searchSogouDouyin(keyword);
         for (const candidate of candidates) {
-          if (!isRelevantDouyinResult(game.id, candidate)) continue;
+          if (!isRelevantDouyinResult(game, candidate)) continue;
           if (!candidate.publishedAt || candidate.publishedAt < cutoff) {
             staleDropped += 1;
             continue;
@@ -273,10 +273,11 @@ function findDateText(text: string) {
   return text.match(/20\d{2}[-/.年]\d{1,2}[-/.月]\d{1,2}/)?.[0] || "";
 }
 
-function isRelevantDouyinResult(gameId: GameConfig["id"], candidate: DouyinCandidate) {
+function isRelevantDouyinResult(game: GameConfig, candidate: DouyinCandidate) {
   const text = `${candidate.title} ${candidate.description}`;
-  if (gameId === "ss2") return /生死狙击2/.test(text);
-  return /生死狙击|4399生死狙击|生死狙击1/.test(text) && !/生死狙击2|热油/.test(text);
+  if (game.id === "ss2") return /生死狙击2/.test(text);
+  if (game.id === "ss1") return /生死狙击|4399生死狙击|生死狙击1/.test(text) && !/生死狙击2|热油/.test(text);
+  return textMatchesGame(text, game);
 }
 
 function looksSearchBlocked(html: string) {

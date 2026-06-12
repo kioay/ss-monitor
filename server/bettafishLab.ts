@@ -231,7 +231,7 @@ export async function runBettaFishLabAction(rawBody: unknown): Promise<BettaFish
       if (reportGuard) return reportGuard;
       return proxyBettaFish(action, "/api/report/generate", {
         method: "POST",
-        body: { query: body.query?.trim() || "生死狙击舆情测试报告", custom_template: body.customTemplate || "" },
+        body: { query: body.query?.trim() || `${games[0]?.name || "当前项目"}舆情测试报告`, custom_template: body.customTemplate || "" },
         timeoutMs: 20_000,
         pickTaskId: true
       });
@@ -556,6 +556,7 @@ function makeCapabilities(
   const agentProbe = bestProbe(endpointProbes, ["insight-output", "media-output", "query-output"]);
   const engineStatus = probeStatusFrom(nativeStatus.configured ? nativeStatus.ok : undefined);
   const llmAgentUsable = runtime.baseUrlConfigured && bestStatus(statusProbe, systemProbe, agentProbe) === "ok";
+  const projectLabel = gameMonitors.map((monitor) => monitor.gameName).filter(Boolean).join(" / ") || "监控项目";
   const monitorStats = gameMonitors
     .map((monitor) => `${monitor.gameName}: ${monitor.response?.stats.total ?? 0} 条 / ${monitor.response?.stats.highRisk ?? 0} 高风险`)
     .join("；");
@@ -563,10 +564,10 @@ function makeCapabilities(
   return [
     {
       id: "game-monitoring",
-      name: "生死1 / 生死2 舆情监测",
+      name: `${projectLabel} 舆情监测`,
       goal: "在测试台独立复用采集、语义判定、风险分析和来源健康检查",
-      currentProjectUse: "测试台已接入两个游戏的监控快照；不会发送钉钉通知，也不改变主看板筛选状态",
-      testCoverage: "可查看 SS1/SS2 的总声量、高风险、负面占比、来源健康、主题、预警和最新条目",
+      currentProjectUse: "测试台已接入当前配置项目的监控快照；不会发送钉钉通知，也不改变主看板筛选状态",
+      testCoverage: "可查看当前配置项目的总声量、高风险、负面占比、来源健康、主题、预警和最新条目",
       status: aggregateMonitorStatus(gameMonitors),
       evidence: uniqueStrings([monitorStats, ...gameMonitors.map((monitor) => monitor.message)].filter(Boolean)),
       nextStep: "用测试台监控结果校验 BettaFish 导入、现有来源和语义判定是否覆盖同一批重点舆情。"
@@ -615,7 +616,7 @@ function makeCapabilities(
       status: mindSpider.repoAvailable ? (mindSpider.dbDirectConfigured || totalItems > 0 ? "ok" : "warning") : totalItems > 0 ? "warning" : "skipped",
       evidence: [
         `导入目录：${runtimeConfig.bettaFishImportDir}`,
-        `读取 ${totalRows} 行，命中 ${totalItems} 条 SS1/SS2 舆情`,
+        `读取 ${totalRows} 行，命中 ${totalItems} 条当前项目舆情`,
         `Repo: ${mindSpider.repoAvailable ? "可用" : "未配置"}`,
         `Python: ${runtime.pythonAvailable ? runtime.pythonVersion || "可用" : `${runtime.python} 不可用`}`,
         `DB: ${mindSpider.dbDirectConfigured ? `已配置 ${mindSpider.dbDialect || "连接参数"}` : "未配置连接参数"}`
@@ -1190,7 +1191,7 @@ function makeRecommendations(
   const recommendations: string[] = [];
   const totalItems = importPreviews.reduce((sum, preview) => sum + preview.matchedItems, 0);
   const monitorTotal = gameMonitors.reduce((sum, monitor) => sum + (monitor.response?.stats.total ?? 0), 0);
-  if (monitorTotal === 0) recommendations.push("测试台 SS1/SS2 监控暂未拿到新鲜条目；先检查来源健康、采集缓存和关键词覆盖。");
+  if (monitorTotal === 0) recommendations.push("测试台当前配置项目暂未拿到新鲜条目；先检查来源健康、采集缓存和关键词覆盖。");
   if (gameMonitors.some((monitor) => monitor.status === "error")) recommendations.push("有游戏监控快照生成失败，优先查看对应来源健康错误和服务日志。");
   if (!runtime.baseUrlConfigured) recommendations.push("配置 BETTAFISH_BASE_URL 后，测试台可代理 Query/Media/Insight、ForumEngine、ReportEngine 和系统控制接口。");
   if (!runtime.actionsEnabled) recommendations.push("研究操作被配置关闭；需要执行启动/搜索/爬取/报告/部署时设置 BETTAFISH_LAB_ACTIONS_ENABLED=true。");

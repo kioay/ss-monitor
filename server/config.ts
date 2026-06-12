@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { GameConfig, GameId } from "../src/shared";
 
-export const games: GameConfig[] = [
+const defaultGames: GameConfig[] = [
   {
     id: "ss1",
     name: "生死狙击1",
@@ -23,6 +23,7 @@ export const games: GameConfig[] = [
   }
 ];
 
+export const games: GameConfig[] = loadConfiguredGames();
 export const gameById = new Map<GameId, GameConfig>(games.map((game) => [game.id, game]));
 
 const detectedBettaFishRepoDir = resolveBettaFishRepoDir(process.env.BETTAFISH_REPO_DIR || "");
@@ -99,6 +100,7 @@ export const runtimeConfig = {
   dingTalkSs2ExtraWebhooks: process.env.DINGTALK_SS2_EXTRA_WEBHOOKS || "",
   dingTalkSs2ExtraSecrets: process.env.DINGTALK_SS2_EXTRA_SECRETS || "",
   dingTalkSs2StatePath: process.env.DINGTALK_SS2_STATE_PATH || "data/dingtalk-ss2-state.json",
+  dingTalkRobotsJson: process.env.DINGTALK_ROBOTS_JSON || "",
   dingTalkTestCooldownSeconds: Math.max(0, Number(process.env.DINGTALK_TEST_COOLDOWN_MINUTES || 240) * 60),
   dingTalkMonitorUrl: process.env.DINGTALK_MONITOR_URL || "http://ss-monitor.qinoay.top/",
   maxBilibiliSearchPages: Math.max(1, Number(process.env.MAX_BILIBILI_SEARCH_PAGES || 5)),
@@ -157,6 +159,101 @@ function normalizeOptionalBaseUrl(value: string) {
 
 function parseBoolean(value: string) {
   return /^(1|true|yes|on)$/i.test(value.trim());
+}
+
+function loadConfiguredGames() {
+  try {
+    const fromJson = parseGamesJson(process.env.MONITOR_GAMES_JSON || "");
+    if (fromJson.length) return fromJson;
+
+    const gamesPath = (process.env.MONITOR_GAMES_PATH || "").trim();
+    if (gamesPath) {
+      const raw = fs.readFileSync(path.resolve(gamesPath), "utf-8");
+      const fromFile = parseGamesJson(raw);
+      if (fromFile.length) return fromFile;
+      console.warn(`MONITOR_GAMES_PATH did not contain any valid monitor games: ${gamesPath}`);
+    }
+  } catch (error) {
+    console.warn("Custom monitor games config is invalid; falling back to SS1/SS2 defaults", error instanceof Error ? error.message : error);
+  }
+  return defaultGames;
+}
+
+function parseGamesJson(raw: string): GameConfig[] {
+  const text = raw.trim();
+  if (!text) return [];
+  const parsed = JSON.parse(text) as unknown;
+  const rows = Array.isArray(parsed)
+    ? parsed
+    : isRecord(parsed) && Array.isArray(parsed.games)
+      ? parsed.games
+      : [];
+  return rows.map(normalizeGameConfig).filter((game): game is GameConfig => Boolean(game));
+}
+
+function normalizeGameConfig(value: unknown): GameConfig | undefined {
+  if (!isRecord(value)) return undefined;
+  const id = String(value.id || "").trim();
+  const name = String(value.name || "").trim();
+  if (!isValidGameId(id) || !name) return undefined;
+
+  const shortName = String(value.shortName || value.short_name || name).trim();
+  const bilibiliKeywords = stringList(value.bilibiliKeywords || value.bilibili_keywords, [name, shortName]);
+  const douyinKeywords = stringList(value.douyinKeywords || value.douyin_keywords, bilibiliKeywords);
+  const tiebaBars = stringList(value.tiebaBars || value.tieba_bars, [name]);
+
+  return {
+    id,
+    name,
+    shortName,
+    bilibiliKeywords,
+    douyinKeywords,
+    tiebaBars
+  };
+}
+
+function isValidGameId(value: string) {
+  return /^[A-Za-z0-9_-]{1,50}$/.test(value);
+}
+
+function stringList(value: unknown, fallback: string[]) {
+  const items = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(/[\n,，;；|]+/)
+      : [];
+  const normalized = items.map((item) => String(item).trim()).filter(Boolean);
+  const merged = normalized.length ? normalized : fallback;
+  return uniqStrings(merged).slice(0, 20);
+}
+
+export function gameTermsForMatching(game: GameConfig) {
+  return uniqStrings([
+    game.id,
+    game.name,
+    game.shortName,
+    ...game.bilibiliKeywords,
+    ...game.douyinKeywords,
+    ...game.tiebaBars
+  ]).filter((term) => term.length >= 2);
+}
+
+export function textMatchesGame(text: string, game: GameConfig) {
+  const normalized = normalizeMatchText(text);
+  if (!normalized) return false;
+  return gameTermsForMatching(game).some((term) => normalized.includes(normalizeMatchText(term)));
+}
+
+function normalizeMatchText(value: string) {
+  return value.toLowerCase().replace(/[#_\-]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function uniqStrings(items: string[]) {
+  return Array.from(new Set(items.map((item) => item.trim()).filter(Boolean)));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function resolveBettaFishRepoDir(explicitPath: string) {

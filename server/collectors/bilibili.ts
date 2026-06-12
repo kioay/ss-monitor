@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
 import { analyzeItem } from "../analyze";
-import { runtimeConfig } from "../config";
+import { runtimeConfig, textMatchesGame } from "../config";
 import { fetchJson, fetchText, SourceError, sourceCookie } from "../http";
 import { hoursBetween, md5, normalizeUrl, nowIso, stripHtml, uniq } from "../utils";
 import type { ContentPart, GameConfig, MonitorItem, SourceHealth } from "../../src/shared";
@@ -104,7 +104,7 @@ export async function collectBilibili(game: GameConfig, cutoff: Date) {
         for (const item of result) {
           const publishedAt = new Date(item.pubdate * 1000);
           if (!Number.isNaN(publishedAt.getTime()) && publishedAt >= cutoff) pageHasWindowItems = true;
-          if (!item.bvid || !isRelevantVideo(game.id, item)) continue;
+          if (!item.bvid || !isRelevantVideo(game, item)) continue;
           if (Number.isNaN(publishedAt.getTime()) || publishedAt < cutoff) {
             staleDropped += 1;
             continue;
@@ -391,26 +391,30 @@ function needsAudienceContext(item: BiliSearchItem) {
   return /(难受|骂|外挂|外卦|开挂|封号|作弊|科技|辅助|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|穿墙|无后座|无后坐|DMA|驱动|过检测|免封|QQ群|群号|加群|进群|售卖|卡密|代理|破游戏|BUG|bug|卡顿|崩溃|氪|削弱|匹配|单排|四排|五排|巅王|战队车|技术|操作|身法|教学|教程|击杀|高光|视角)/.test(text);
 }
 
-function isRelevantVideo(gameId: GameConfig["id"], item: BiliSearchItem) {
+function isRelevantVideo(game: GameConfig, item: BiliSearchItem) {
   const title = stripHtml(item.title);
   const description = stripHtml(item.description || item.desc || "");
   const tags = item.tag || "";
   const author = item.author || "";
   const primaryText = `${title} ${description} ${author}`;
   const text = `${primaryText} ${tags}`;
-  if (isCompetingShooter(primaryText) && !mentionsTargetGame(primaryText, gameId)) return false;
-  if (gameId === "ss2") {
+  if (isCompetingShooter(primaryText) && !mentionsTargetGame(primaryText, game)) return false;
+  if (game.id === "ss2") {
     if (/生死狙击2/.test(primaryText)) return true;
     return /生死狙击2/.test(tags) && hasGameContext(primaryText);
   }
-  if (/生死狙击2|热油/.test(text)) return false;
-  if (/生死狙击|4399生死狙击|生死狙击1|生死狙击页游/.test(primaryText)) return true;
-  return /生死狙击|4399生死狙击|生死狙击1|生死狙击页游/.test(tags) && hasGameContext(primaryText);
+  if (game.id === "ss1") {
+    if (/生死狙击2|热油/.test(text)) return false;
+    if (/生死狙击|4399生死狙击|生死狙击1|生死狙击页游/.test(primaryText)) return true;
+    return /生死狙击|4399生死狙击|生死狙击1|生死狙击页游/.test(tags) && hasGameContext(primaryText);
+  }
+  return textMatchesGame(primaryText, game) || textMatchesGame(tags, game);
 }
 
-function mentionsTargetGame(text: string, gameId: GameConfig["id"]) {
-  if (gameId === "ss2") return /生死狙击2/.test(text);
-  return /生死狙击|4399生死狙击|生死狙击1|生死狙击页游/.test(text) && !/生死狙击2|热油/.test(text);
+function mentionsTargetGame(text: string, game: GameConfig) {
+  if (game.id === "ss2") return /生死狙击2/.test(text);
+  if (game.id === "ss1") return /生死狙击|4399生死狙击|生死狙击1|生死狙击页游/.test(text) && !/生死狙击2|热油/.test(text);
+  return textMatchesGame(text, game);
 }
 
 function isCompetingShooter(text: string) {

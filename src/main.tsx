@@ -89,9 +89,9 @@ const bettaFishGlossaryGroups: Array<{ title: string; terms: LabTerm[] }> = [
     title: "看板指标",
     terms: [
       {
-        term: "SS1 / SS2",
-        meaning: "分别指生死狙击 1 和生死狙击 2。",
-        role: "测试台按项目拆开看数据，避免两个游戏的舆情和关键词互相污染。"
+        term: "监控项目",
+        meaning: "由服务器配置的一个或多个游戏、产品或社区对象。",
+        role: "测试台按项目拆开看数据，避免不同项目的舆情和关键词互相污染。"
       },
       {
         term: "测试窗口",
@@ -105,7 +105,7 @@ const bettaFishGlossaryGroups: Array<{ title: string; terms: LabTerm[] }> = [
       },
       {
         term: "导入命中",
-        meaning: "BettaFish导入或 MindSpider 导出里匹配到 SS1/SS2 关键词的条目数。",
+        meaning: "BettaFish导入或 MindSpider 导出里匹配到当前监控项目关键词的条目数。",
         role: "验证外部导出是否真的能进入本平台监控链路。"
       },
       {
@@ -332,7 +332,7 @@ function App() {
     updatePolicy: MonitorResponse["updatePolicy"];
   }>();
   const [activePage, setActivePage] = React.useState<AppPage>("monitor");
-  const [selectedGames, setSelectedGames] = React.useState<GameId[]>(["ss1", "ss2"]);
+  const [selectedGames, setSelectedGames] = React.useState<GameId[]>([]);
   const [windowHours, setWindowHours] = React.useState(72);
   const [source, setSource] = React.useState<"all" | SourceType>("all");
   const [risk, setRisk] = React.useState<"all" | RiskLevel>("all");
@@ -360,6 +360,11 @@ function App() {
       .then((payload) => {
         setConfig(payload);
         setWindowHours(payload.defaultWindowHours || 72);
+        const configuredIds = (payload.games || []).map((game: GameConfig) => game.id);
+        setSelectedGames((current) => {
+          const retained = current.filter((id) => configuredIds.includes(id));
+          return retained.length ? retained : configuredIds;
+        });
       })
       .catch((reason) => setError(reason instanceof Error ? reason.message : String(reason)));
   }, []);
@@ -510,8 +515,9 @@ function App() {
   const visiblePolicy = data?.updatePolicy || config?.updatePolicy;
   const configuredGameIds = React.useMemo(() => {
     const configuredGames = config?.games || [];
-    return configuredGames.length ? configuredGames.map((game) => game.id) : (["ss1", "ss2"] as GameId[]);
+    return configuredGames.map((game) => game.id);
   }, [config?.games]);
+  const monitorTitle = React.useMemo(() => makeMonitorTitle(config?.games || []), [config?.games]);
   const gameOptions = React.useMemo(() => {
     const configuredGames = config?.games || [];
     return [
@@ -575,7 +581,7 @@ function App() {
       <section className="topbar">
         <div>
           <p className="eyebrow">Live Monitor</p>
-          <h1>生死狙击舆情监测</h1>
+          <h1>{monitorTitle}</h1>
         </div>
         <div className="top-actions">
           <nav className="page-tabs" aria-label="页面切换">
@@ -1266,12 +1272,12 @@ function LabActionPanel({
   actionResult?: BettaFishActionResponse;
   onAction: (payload: Record<string, unknown>) => void;
 }) {
-  const [agentQuery, setAgentQuery] = React.useState("生死狙击最近玩家最主要的不满点是什么？");
-  const [reportQuery, setReportQuery] = React.useState("生死狙击近 72 小时舆情复盘");
+  const [agentQuery, setAgentQuery] = React.useState("当前项目最近玩家最主要的不满点是什么？");
+  const [reportQuery, setReportQuery] = React.useState("当前项目近 72 小时舆情复盘");
   const [reportTaskId, setReportTaskId] = React.useState("");
   const [sentimentText, setSentimentText] = React.useState("这次更新匹配体验变差了，外挂也有点多，希望官方尽快处理。");
   const [platformsText, setPlatformsText] = React.useState("dy");
-  const [crawlerKeywordsText, setCrawlerKeywordsText] = React.useState("生死狙击");
+  const [crawlerKeywordsText, setCrawlerKeywordsText] = React.useState("");
   const [maxKeywords, setMaxKeywords] = React.useState(3);
   const [maxNotes, setMaxNotes] = React.useState(5);
   const [runtimeConfirmation, setRuntimeConfirmation] = React.useState<PendingRuntimeConfirmation>();
@@ -1293,6 +1299,15 @@ function LabActionPanel({
   React.useEffect(() => {
     if (actionResult?.taskId) setReportTaskId(actionResult.taskId);
   }, [actionResult?.taskId]);
+
+  React.useEffect(() => {
+    const names = data.gameMonitors.map((monitor) => monitor.gameName).filter(Boolean);
+    const primaryName = names[0] || "当前项目";
+    const keywords = names.join(", ");
+    setAgentQuery((current) => current === "当前项目最近玩家最主要的不满点是什么？" ? `${primaryName}最近玩家最主要的不满点是什么？` : current);
+    setReportQuery((current) => current === "当前项目近 72 小时舆情复盘" ? `${primaryName}近 72 小时舆情复盘` : current);
+    setCrawlerKeywordsText((current) => current || keywords);
+  }, [data.gameMonitors]);
 
   const run = (payload: Record<string, unknown>) => onAction(payload);
   const requestRuntimeConfirmation = (action: string) => {
@@ -1447,7 +1462,7 @@ function LabActionPanel({
           <label className="lab-input">
             <span>爬虫关键词</span>
             <small>留空则使用当天话题数据；填写后本次调度优先使用这些关键词。</small>
-            <textarea value={crawlerKeywordsText} onChange={(event) => setCrawlerKeywordsText(event.target.value)} rows={2} placeholder="生死狙击, 生死狙击2" />
+            <textarea value={crawlerKeywordsText} onChange={(event) => setCrawlerKeywordsText(event.target.value)} rows={2} placeholder="失控进化, 项目关键词" />
           </label>
           <ActionButton
             operation={op("mindspider.crawlTest")}
@@ -2174,6 +2189,15 @@ function formatDateTime(value: string) {
 
 function sameGameSelection(left: GameId[], right: GameId[]) {
   return left.length === right.length && left.every((id) => right.includes(id));
+}
+
+function makeMonitorTitle(games: GameConfig[]) {
+  if (!games.length) return "舆情监测";
+  const ids = games.map((game) => game.id).sort().join(",");
+  if (ids === "ss1,ss2") return "生死狙击舆情监测";
+  if (games.length === 1) return `${games[0].name}舆情监测`;
+  const names = games.slice(0, 2).map((game) => game.shortName || game.name).join(" / ");
+  return `${names}${games.length > 2 ? "等" : ""}舆情监测`;
 }
 
 function makeVisibleHealth(health: SourceHealth[], aggregateBySource: boolean) {

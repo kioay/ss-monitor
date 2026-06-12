@@ -34,6 +34,7 @@ jobs:
           npm run test:search
           npm run test:topic-bars
           npm run test:monitor-history
+          npm run test:custom-games-config
           npm run test:douyin-game-routing
           npm run test:risk-alerts
           npm run test:dingtalk-daily-markdown

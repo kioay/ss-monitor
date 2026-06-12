@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { runtimeConfig } from "./config";
+import { gameById, games, runtimeConfig } from "./config";
 import type { GameId, MonitorItem, MonitorResponse, RiskLevel, Sentiment, SourceType } from "../src/shared";
 
 interface DingTalkState {
@@ -14,7 +14,7 @@ interface DingTalkState {
 
 interface DingTalkRobotConfig {
   gameId: GameId;
-  shortName: "SS1" | "SS2";
+  shortName: string;
   label: string;
   webhook: string;
   secret?: string;
@@ -47,7 +47,7 @@ export async function sendDingTalkNotification(_response: MonitorResponse, _game
 
 export async function sendDingTalkTest(
   response: MonitorResponse,
-  gameId: GameId = "ss1",
+  gameId: GameId = games[0]?.id || "ss1",
   options: { force?: boolean } = {}
 ): Promise<DingTalkSendResult> {
   const robots = getRobotConfigs(gameId);
@@ -98,7 +98,7 @@ export async function sendDingTalkDailyReport(
 }
 
 function getRobotConfigs(gameId: GameId): DingTalkRobotConfig[] {
-  const robots: DingTalkRobotConfig[] = [];
+  const robots: DingTalkRobotConfig[] = [...getGenericRobotConfigs(gameId)];
   if (gameId === "ss1" && runtimeConfig.dingTalkWebhook) {
     robots.push({
       gameId,
@@ -144,6 +144,75 @@ function getRobotConfigs(gameId: GameId): DingTalkRobotConfig[] {
     }
   }
   return robots;
+}
+
+function getGenericRobotConfigs(gameId: GameId): DingTalkRobotConfig[] {
+  const configured = parseDingTalkRobotsJson(runtimeConfig.dingTalkRobotsJson);
+  return configured
+    .filter((robot) => robot.gameId === gameId)
+    .flatMap((robot, index) => {
+      const webhook = valueFromEnvOrLiteral(robot.webhookEnv, robot.webhook);
+      if (!webhook) return [];
+      const game = gameById.get(gameId);
+      const shortName = robot.shortName || game?.shortName || gameId;
+      return [{
+        gameId,
+        shortName,
+        label: robot.label || `${shortName}-robot-${index + 1}`,
+        webhook,
+        secret: valueFromEnvOrLiteral(robot.secretEnv, robot.secret) || undefined,
+        statePath: robot.statePath || `data/dingtalk-${gameId}-state.json`
+      }];
+    });
+}
+
+function parseDingTalkRobotsJson(raw: string): Array<{
+  gameId: string;
+  shortName?: string;
+  label?: string;
+  webhook?: string;
+  webhookEnv?: string;
+  secret?: string;
+  secretEnv?: string;
+  statePath?: string;
+}> {
+  const text = raw.trim();
+  if (!text) return [];
+  try {
+    const parsed = JSON.parse(text) as unknown;
+    const rows = Array.isArray(parsed) ? parsed : [];
+    return rows.filter(isRecord).flatMap((row) => {
+      const gameId = stringField(row, "gameId") || stringField(row, "game_id");
+      if (!gameId) return [];
+      return [{
+        gameId,
+        shortName: stringField(row, "shortName") || stringField(row, "short_name"),
+        label: stringField(row, "label"),
+        webhook: stringField(row, "webhook"),
+        webhookEnv: stringField(row, "webhookEnv") || stringField(row, "webhook_env"),
+        secret: stringField(row, "secret"),
+        secretEnv: stringField(row, "secretEnv") || stringField(row, "secret_env"),
+        statePath: stringField(row, "statePath") || stringField(row, "state_path")
+      }];
+    });
+  } catch (error) {
+    console.warn("DINGTALK_ROBOTS_JSON is invalid", error instanceof Error ? error.message : error);
+    return [];
+  }
+}
+
+function valueFromEnvOrLiteral(envName: string | undefined, literal: string | undefined) {
+  if (envName) return process.env[envName] || "";
+  return literal || "";
+}
+
+function stringField(row: Record<string, unknown>, key: string) {
+  const value = row[key];
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function parseConfigList(value: string) {

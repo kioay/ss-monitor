@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { analyzeItem } from "../analyze";
-import { runtimeConfig } from "../config";
+import { gameTermsForMatching, runtimeConfig } from "../config";
 import { hoursBetween, md5, normalizeUrl, nowIso, stripHtml, uniq } from "../utils";
 import type { ContentPart, GameConfig, GameId, MonitorItem, SourceHealth } from "../../src/shared";
 
@@ -444,11 +444,13 @@ function belongsToGame(row: ImportedRow, game: GameConfig) {
 }
 
 function gameTerms(game: GameConfig) {
-  const commonTerms =
+  const ssTerms =
     game.id === "ss2"
       ? ["\u751f\u6b7b\u72d9\u51fb2", "SS2", "ss2"]
-      : ["\u751f\u6b7b\u72d9\u51fb", "\u751f\u6b7b\u72d9\u51fb1", "4399\u751f\u6b7b\u72d9\u51fb", "SS1", "ss1"];
-  return uniq([game.id, game.name, game.shortName, ...game.bilibiliKeywords, ...game.douyinKeywords, ...game.tiebaBars, ...commonTerms]);
+      : game.id === "ss1"
+        ? ["\u751f\u6b7b\u72d9\u51fb", "\u751f\u6b7b\u72d9\u51fb1", "4399\u751f\u6b7b\u72d9\u51fb", "SS1", "ss1"]
+        : [];
+  return uniq([...gameTermsForMatching(game), ...ssTerms]);
 }
 
 function customContentParts(row: ImportedRow): ContentPart[] {

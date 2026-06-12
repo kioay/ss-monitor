@@ -134,7 +134,12 @@ app.post("/api/notify/dingtalk/test", async (request, response) => {
     return;
   }
   try {
-    const gameId = request.query.game === "ss2" ? "ss2" : "ss1";
+    const requestedGameId = typeof request.query.game === "string" ? request.query.game : "";
+    const gameId = games.some((game) => game.id === requestedGameId) ? requestedGameId : games[0]?.id;
+    if (!gameId) {
+      response.status(400).json({ message: "No monitor games configured" });
+      return;
+    }
     const force = request.query.force === "1" || request.query.force === "true";
     const data = await getMonitorResponse({ games: gameId, windowHours: "72", limit: "200", force: "1", notify: "0" });
     const result = await sendDingTalkTest(data, gameId, { force });
@@ -160,10 +165,7 @@ app.listen(runtimeConfig.port, runtimeConfig.host, () => {
 function startBackgroundMonitor() {
   const run = async () => {
     try {
-      await Promise.all([
-        refreshRobotGame("ss1"),
-        refreshRobotGame("ss2")
-      ]);
+      await Promise.all(games.map((game) => refreshRobotGame(game.id)));
     } catch (error) {
       console.error("Background monitor refresh failed", error);
     } finally {
@@ -181,11 +183,9 @@ function refreshRobotGame(gameId: GameId) {
 function startDailyReportScheduler() {
   const run = async () => {
     try {
-      const data = await getMonitorResponse({ games: "ss1,ss2", windowHours: "72", limit: "300", force: "1", notify: "0" });
-      await Promise.all([
-        sendDingTalkDailyReport(data, "ss1"),
-        sendDingTalkDailyReport(data, "ss2")
-      ]);
+      const gameIds = games.map((game) => game.id);
+      const data = await getMonitorResponse({ games: gameIds.join(","), windowHours: "72", limit: "300", force: "1", notify: "0" });
+      await Promise.all(gameIds.map((gameId) => sendDingTalkDailyReport(data, gameId)));
     } catch (error) {
       console.error("Daily DingTalk report failed", error);
     } finally {

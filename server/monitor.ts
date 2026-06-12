@@ -32,7 +32,7 @@ const querySchema = z.object({
             .split(",")
             .map((id) => id.trim())
             .filter(Boolean)
-        : ["ss1", "ss2"]
+        : games.map((game) => game.id)
     ),
   windowHours: z.coerce.number().int().min(1).max(24 * 30).default(runtimeConfig.defaultWindowHours),
   limit: z.coerce.number().int().min(1).max(1000).default(300),

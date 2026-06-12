@@ -1,6 +1,6 @@
 {
   "name": "ss-sentiment-monitor",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,6 +13,7 @@
     "test:search": "tsx scripts/test-search.ts",
     "test:topic-bars": "tsx scripts/test-topic-bars.ts",
     "test:monitor-history": "tsx scripts/test-monitor-history.ts",
+    "test:custom-games-config": "tsx scripts/test-custom-games-config.ts",
     "test:douyin-game-routing": "tsx scripts/test-douyin-game-routing.ts",
     "test:risk-alerts": "tsx scripts/test-risk-alerts.ts",
     "test:dingtalk-daily-markdown": "tsx scripts/test-dingtalk-daily-markdown.ts",

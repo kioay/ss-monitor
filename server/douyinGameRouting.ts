@@ -1,4 +1,5 @@
 import type { GameConfig, GameId, MonitorItem } from "../src/shared";
+import { textMatchesGame } from "./config";
 
 const ss2Markers = [
   /生死狙击\s*2/i,
@@ -20,8 +21,7 @@ const sharedMarkers = [
 export function douyinTextMatchesGame(text: string, game: GameConfig) {
   const routedGameId = inferDouyinGameId(text);
   if (routedGameId) return routedGameId === game.id;
-  const normalized = normalizeText(text);
-  return [game.name, game.shortName, ...game.douyinKeywords].some((term) => term && normalized.includes(normalizeText(term)));
+  return textMatchesGame(text, game);
 }
 
 export function isDouyinMonitorItemGameConsistent(item: MonitorItem) {
@@ -50,5 +50,5 @@ function hasMarker(text: string, markers: RegExp[]) {
 }
 
 function normalizeText(text: string) {
-  return text.replace(/#/g, " ").replace(/\s+/g, " ").trim();
+  return text.toLowerCase().replace(/#/g, " ").replace(/\s+/g, " ").trim();
 }
