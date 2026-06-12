@@ -154,6 +154,31 @@ const denseNegativeFeedbackWords = [
   "难用"
 ];
 const weakDenseNegativeFeedbackWords = ["没人", "排不到", "一般般", "没用", "不好", "不正常", "有问题", "对不上"];
+const negatableIllegalTerms = new Set([
+  "外挂",
+  "外卦",
+  "开挂",
+  "挂狗",
+  "作弊",
+  "科技",
+  "辅助",
+  "内存宏",
+  "鼠标宏",
+  "压枪宏",
+  "脚本",
+  "自瞄",
+  "锁头",
+  "透视",
+  "穿墙",
+  "无后座",
+  "无后坐",
+  "DMA",
+  "驱动挂",
+  "驱动级",
+  "过检测",
+  "免封",
+  "驱动"
+]);
 
 export function analyzeItem(input: AnalyzeInput) {
   const content = input.contentParts
@@ -272,7 +297,7 @@ function normalizedScore(positive: number, negative: number) {
 
 function labelSentiment(profile: SentimentProfile, content: string, context: ContextProfile): Sentiment {
   const hasPositive = positiveWords.some((word) => content.includes(word));
-  const hasNegative = negativeWords.some((word) => content.includes(word));
+  const hasNegative = negativeWords.some((word) => countNegativeSignalOccurrences(content, word) > 0);
   const denseNegative = hasDenseNegativeDiscussion(content, profile);
   if (denseNegative && profile.score < 0.35) {
     return profile.score < -0.12 || profile.audienceScore < -0.18 ? "negative" : "mixed";
@@ -333,6 +358,43 @@ function isNeutralNegativeContext(line: string, word: string) {
   if (word === "有问题" && /(有问题吗|有没有问题|啥问题|什么问题|哪里有问题|问个问题)/.test(line)) return true;
   if (word === "不值" && /(值不值|值不值得|不值吗|值得吗)/.test(line)) return true;
   if (word === "排不到" && /(怎么排|排不到吗|会不会排不到)/.test(line)) return true;
+  return false;
+}
+
+function isNegatedIllegalTermContext(line: string, term: string, indexInLine: number) {
+  if (!negatableIllegalTerms.has(term)) return false;
+  const prefix = line.slice(Math.max(0, indexInLine - 12), indexInLine);
+  return /(?:不是|并非|没有|没用|没开|不会|不用|不带|不开|不打|不玩|不靠|不碰|不搞|不接|不卖|不使用|拒绝|杜绝|禁止|纯手动|绿色|正规|正常|干净|清白|绝不|从不|不|没|无|非)$/.test(prefix);
+}
+
+function hasNonNegatedPatternMatch(content: string, pattern: RegExp) {
+  const flags = pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`;
+  const matcher = new RegExp(pattern.source, flags);
+  let match: RegExpExecArray | null;
+  while ((match = matcher.exec(content))) {
+    const term = match[0];
+    const lineStart = content.lastIndexOf("\n", Math.max(0, match.index - 1)) + 1;
+    const nextLineBreak = content.indexOf("\n", match.index + term.length);
+    const lineEnd = nextLineBreak >= 0 ? nextLineBreak : content.length;
+    const line = content.slice(lineStart, lineEnd);
+    if (!isNegatedIllegalTermContext(line, term, match.index - lineStart)) return true;
+    if (matcher.lastIndex === match.index) matcher.lastIndex += 1;
+  }
+  return false;
+}
+
+function hasNonNegatedLiteralTerm(content: string, term: string) {
+  let cursor = 0;
+  while (cursor < content.length) {
+    const index = content.indexOf(term, cursor);
+    if (index < 0) return false;
+    const lineStart = content.lastIndexOf("\n", Math.max(0, index - 1)) + 1;
+    const nextLineBreak = content.indexOf("\n", index + term.length);
+    const lineEnd = nextLineBreak >= 0 ? nextLineBreak : content.length;
+    const line = content.slice(lineStart, lineEnd);
+    if (!isNegatedIllegalTermContext(line, term, index - lineStart)) return true;
+    cursor = index + term.length;
+  }
   return false;
 }
 
@@ -505,7 +567,8 @@ function countNegativeSignalOccurrences(content: string, word: string) {
     const nextLineBreak = content.indexOf("\n", index + word.length);
     const lineEnd = nextLineBreak >= 0 ? nextLineBreak : content.length;
     const line = content.slice(lineStart, lineEnd);
-    if (!isNeutralNegativeContext(line, word)) count += 1;
+    const indexInLine = index - lineStart;
+    if (!isNeutralNegativeContext(line, word) && !isNegatedIllegalTermContext(line, word, indexInLine)) count += 1;
     cursor = index + word.length;
   }
   return count;
@@ -633,8 +696,8 @@ function isPersonalSkillShare(content: string) {
     /(个人|玩家|UP主|主播|全局|整局|全程|第一视角|视角|集锦|高光|精彩|操作|技术|身法|击杀|连杀|对局|实战|教学|教程|讲解|思路|打法|复盘|单排|四排|五排|排位)/;
   const shareAction = /(分享|合集|集锦|高光|精彩操作|第一视角|全局游戏|全程无剪辑|思路讲解|教学|教程|讲解|打法|复盘|实战|单排|四排|五排|带飞)/;
   const officialComplaint = /(官方|策划|运营|客服|公告|更新|版本|活动|充值|氪金|骗氪|退款|投诉|服务器|炸服|闪退|BUG|bug|卡顿|倒闭|没救|破游戏|垃圾游戏)/;
-  const illegalSignal = /(外挂|外卦|开挂|挂狗|科技|辅助|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|穿墙|DMA|过检测|免封|QQ群|群号|加群|售卖|卡密)/;
-  return skillContext.test(content) && shareAction.test(content) && !officialComplaint.test(content) && !illegalSignal.test(content);
+  const illegalSignal = hasAnyIllegalTerm(content);
+  return skillContext.test(content) && shareAction.test(content) && !officialComplaint.test(content) && !illegalSignal;
 }
 
 function isPlayerHelpRequest(content: string) {
@@ -644,8 +707,8 @@ function isPlayerHelpRequest(content: string) {
     /(倍率|伤害|穿透|能穿|怎么穿|多少钱|多少能|多少级|多少战力|价格|抽|保底|概率|玩法|模式|决斗场|武器|皮肤|角色|配件|技能|配置|设置|灵敏度|键位|任务|活动|兑换|获取|入坑|回坑|回游|怎么玩|怎么打|怎么提高|怎么提升)/;
   const questionMark = /[?？]/;
   const officialComplaint = /(官方|策划|运营|客服|公告|骗氪|退款|投诉|倒闭|没救|破游戏|垃圾游戏|炸服|闪退|BUG|bug|卡顿)/;
-  const illegalSignal = /(外挂|外卦|开挂|挂狗|科技|辅助|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|穿墙|DMA|过检测|免封|QQ群|群号|加群|售卖|卡密)/;
-  return helpIntent.test(content) && (helpTopic.test(content) || questionMark.test(content)) && !officialComplaint.test(content) && !illegalSignal.test(content);
+  const illegalSignal = hasAnyIllegalTerm(content);
+  return helpIntent.test(content) && (helpTopic.test(content) || questionMark.test(content)) && !officialComplaint.test(content) && !illegalSignal;
 }
 
 function isAccountServerInquiry(content: string) {
@@ -654,13 +717,13 @@ function isAccountServerInquiry(content: string) {
   const targetAfterIntent = /(有没有|有无|谁有|求|收|想买|买|便宜|找|哪里有).{0,12}(账号|帐号|小号|大号|游戏号|成品号|养老号|空号|战火服.{0,4}号|区服|服务器|战火服|渠道服|官服|页游服|怀旧服|体验服|新区|老区)/;
   const intentAfterTarget = /(账号|帐号|小号|大号|游戏号|成品号|养老号|空号|战火服.{0,4}号|区服|服务器|战火服|渠道服|官服|页游服|怀旧服|体验服|新区|老区).{0,12}(有没有|有无|谁有|求|收|想买|买|便宜|能玩|还能玩|就行)/;
   const complaint = /(骗子|被骗|诈骗|找回|盗号|黑号|封号|封禁|纠纷|投诉|恶心|垃圾|骂)/;
-  const illegalSignal = /(外挂|外卦|开挂|挂狗|科技|辅助|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|穿墙|DMA|过检测|免封|QQ群|群号|加群|售卖|卡密)/;
+  const illegalSignal = hasAnyIllegalTerm(content);
   return (
     accountOrServerTarget.test(content) &&
     inquiryIntent.test(content) &&
     (targetAfterIntent.test(content) || intentAfterTarget.test(content)) &&
     !complaint.test(content) &&
-    !illegalSignal.test(content)
+    !illegalSignal
   );
 }
 
@@ -674,16 +737,16 @@ function isEventQuestion(content: string) {
 function isEventUnlockDiscussion(content: string) {
   const itemContext = /(礼盒|礼包|活动|绝版|开放|交易|武器|道具|龙魂箭|bug箭|BUG箭)/;
   const unlockContext = /(强开|强行|翘开|封号|封七天|封了|不开|不开放|什么时候|什么原因|上次开放)/;
-  const illegalSignal = /(外挂|外卦|开挂|挂狗|作弊|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|穿墙|DMA|过检测|免封|QQ群|群号|加群|售卖|卡密)/;
-  return itemContext.test(content) && unlockContext.test(content) && !illegalSignal.test(content);
+  const illegalSignal = hasAnyIllegalTerm(content);
+  return itemContext.test(content) && unlockContext.test(content) && !illegalSignal;
 }
 
 function isRoutinePlayerShare(content: string) {
   const shareAction = /(获得|获取|买到|购买|入手|抽到|抽取|出了|开出|晒|分享|记录)/;
   const shareObject = /(武器|皮肤|道具|角色|配件|金蛇|桃光|裁决之音|号|账号|礼包|奖励|战绩|段位|排位|击杀|截图)/;
   const officialComplaint = /(官方|策划|运营|客服|公告|更新|版本|活动|充值|氪金|骗氪|退款|投诉|概率|保底|太贵|降价|倒闭|没救|破游戏|垃圾游戏|炸服|闪退|BUG|bug|卡顿)/;
-  const illegalSignal = /(外挂|外卦|开挂|挂狗|科技|辅助|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|穿墙|DMA|过检测|免封|QQ群|群号|加群|售卖|卡密)/;
-  return shareAction.test(content) && shareObject.test(content) && !officialComplaint.test(content) && !illegalSignal.test(content);
+  const illegalSignal = hasAnyIllegalTerm(content);
+  return shareAction.test(content) && shareObject.test(content) && !officialComplaint.test(content) && !illegalSignal;
 }
 
 function isCurrentVersionComplaint(content: string) {
@@ -734,6 +797,8 @@ function illegalContextWindows(content: string) {
     const lineStart = content.lastIndexOf("\n", Math.max(0, match.index - 1)) + 1;
     const nextLineBreak = content.indexOf("\n", match.index + term.length);
     const lineEnd = nextLineBreak >= 0 ? nextLineBreak : content.length;
+    const line = content.slice(lineStart, lineEnd);
+    if (isNegatedIllegalTermContext(line, term, match.index - lineStart)) continue;
     const start = Math.max(lineStart, match.index - 32);
     const end = Math.min(lineEnd, match.index + term.length + 32);
     windows.push({ term, text: content.slice(start, end) });
@@ -783,15 +848,15 @@ function hasCheatQuestionContext(windows: Array<{ text: string }>) {
 }
 
 function hasStrongIllegalAnchor(text: string) {
-  return illegalCoreTermPattern.test(text) || illegalToolTermPattern.test(text);
+  return hasNonNegatedPatternMatch(text, illegalCoreTermPattern) || hasNonNegatedPatternMatch(text, illegalToolTermPattern);
 }
 
 function hasAnyIllegalTerm(text: string) {
-  return illegalAnyTermPattern.test(text);
+  return hasNonNegatedPatternMatch(text, illegalAnyTermPattern);
 }
 
 function hasMultipleHighRiskToolTerms(text: string) {
-  const matched = illegalHighRiskToolWords.filter((word) => text.includes(word));
+  const matched = illegalHighRiskToolWords.filter((word) => hasNonNegatedLiteralTerm(text, word));
   return uniq(matched).length >= 2;
 }
 
