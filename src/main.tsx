@@ -652,7 +652,6 @@ function App() {
         void load(true);
         return;
       }
-      setData(undefined);
       setSelectedGames(gameIds);
     },
     [load, resetFeedFilters, selectedGames, windowHours]
