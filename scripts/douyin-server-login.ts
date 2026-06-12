@@ -1,10 +1,14 @@
-import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { config as loadEnv } from "dotenv";
 import { Client } from "ssh2";
+
+const command = process.argv[2] || "status";
+if (command === "sync-cookie" || command === "copy-cookie") {
+  throw new Error("Local Douyin cookie sync is disabled. Use server-side MediaCrawler login or authorized imports; do not copy workstation cookies into a release deployment.");
+}
 
 loadEnv({ path: path.resolve(".env.local") });
 loadEnv({ path: path.resolve(".env") });
@@ -16,16 +20,6 @@ type ExecResult = {
   stderr: string;
 };
 
-type LocalCookie = {
-  cookieStringB64: string;
-  cookieCount: number;
-  hasLoginStatus: boolean;
-  hasSessionCookie: boolean;
-  source: string;
-  profileDir: string;
-};
-
-const command = process.argv[2] || "status";
 const innerCredential = readInnerCredential();
 const remoteHost = process.env.DOUYIN_SERVER_HOST || innerCredential.host || "192.168.8.242";
 const remotePort = Number(process.env.DOUYIN_SERVER_PORT || "22");
@@ -44,8 +38,6 @@ const submitLogPath = `${runtimeDir}/server-douyin-submit-sms.log`;
 const sessionLogPath = `${runtimeDir}/server-douyin-session.log`;
 const screenshotRemotePath = `${runtimeDir}/server-douyin-login-latest.png`;
 const profileDir = `${mediaCrawlerDir}/browser_data/cdp_dy_user_data_dir`;
-const cookiePayloadPath = `${runtimeDir}/server-douyin-cookie-payload.json`;
-const remoteEnvFiles = [`${remoteRoot}/.env`, `${remoteRoot}/current/.env`];
 const localQrPath = process.env.DOUYIN_SERVER_QR_LOCAL_PATH
   || path.join(process.env.LOCALAPPDATA || os.tmpdir(), "Temp", "server-douyin-login-qr.png");
 const localScreenshotPath = process.env.DOUYIN_SERVER_SCREENSHOT_LOCAL_PATH
@@ -114,21 +106,6 @@ try {
       await printStatus(client);
       break;
     }
-    case "sync-cookie":
-    case "copy-cookie": {
-      const cookie = await extractLocalDouyinCookie();
-      await syncCookieToServer(client, cookie);
-      console.log(JSON.stringify({
-        synced: true,
-        cookieCount: cookie.cookieCount,
-        hasLoginStatus: cookie.hasLoginStatus,
-        hasSessionCookie: cookie.hasSessionCookie,
-        source: cookie.source,
-        profileDir: cookie.profileDir,
-        envFiles: remoteEnvFiles
-      }, null, 2));
-      break;
-    }
     case "start-cookie": {
       await uploadHelpers(client);
       await startLogin(client, { loginType: "cookie" });
@@ -168,7 +145,7 @@ try {
       await printStatus(client);
       break;
     default:
-      throw new Error("Usage: npm run douyin:server-login -- <sync-cookie|start-cookie|start-phone|submit-code|screenshot|status> (legacy QR: start-qr)");
+      throw new Error("Usage: npm run douyin:server-login -- <start-cookie|start-phone|session-phone|submit-code|screenshot|status> (legacy QR: start-qr)");
   }
 } finally {
   client.end();
@@ -203,76 +180,6 @@ async function uploadHelpers(ssh: Client) {
 
 async function ensureRuntimeDir(ssh: Client) {
   await exec(ssh, `bash -lc ${shellQuote(`mkdir -p ${shellQuote(runtimeDir)} && chown -R ${shellQuote(runUser)}:${shellQuote(runUser)} ${shellQuote(runtimeDir)}`)}`);
-}
-
-async function extractLocalDouyinCookie(): Promise<LocalCookie> {
-  const explicitCookie = [
-    process.env.DOUYIN_COOKIES,
-    process.env.DOUYIN_COOKIE,
-    process.env.DOUYIN_SERVER_COOKIE
-  ].map((value) => (value || "").trim()).find(Boolean);
-
-  if (explicitCookie) {
-    return summarizeCookie(explicitCookie, "env", "");
-  }
-
-  const localBettaFish = await resolveLocalBettaFishRepo();
-  const mediaCrawler = path.join(localBettaFish, "MindSpider", "DeepSentimentCrawling", "MediaCrawler");
-  const localProfileDir = process.env.LOCAL_DOUYIN_PROFILE_DIR
-    || path.join(mediaCrawler, "browser_data", "cdp_dy_user_data_dir");
-  const python = await resolveLocalPython(localBettaFish);
-  const result = await runLocal(python, ["-c", localCookieExtractorPython()], {
-    cwd: mediaCrawler,
-    env: {
-      ...process.env,
-      LOCAL_DOUYIN_PROFILE_DIR: localProfileDir,
-      LOCAL_DOUYIN_CDP_URL: process.env.LOCAL_DOUYIN_CDP_URL || "http://127.0.0.1:9222"
-    },
-    timeoutMs: 90_000
-  });
-
-  if (result.code !== 0) {
-    throw new Error(`Local Douyin cookie extraction failed with code ${result.code}: ${result.stderr.slice(0, 1000) || "no stderr"}`);
-  }
-
-  let parsed: Partial<LocalCookie>;
-  try {
-    parsed = JSON.parse(result.stdout) as Partial<LocalCookie>;
-  } catch {
-    throw new Error("Local Douyin cookie extraction returned non-JSON output.");
-  }
-  if (!parsed.cookieStringB64 || !parsed.cookieCount) {
-    throw new Error("Local Douyin cookie extraction did not find any douyin.com cookies.");
-  }
-  return {
-    cookieStringB64: parsed.cookieStringB64,
-    cookieCount: parsed.cookieCount,
-    hasLoginStatus: Boolean(parsed.hasLoginStatus),
-    hasSessionCookie: Boolean(parsed.hasSessionCookie),
-    source: parsed.source || "local-profile",
-    profileDir: parsed.profileDir || localProfileDir
-  };
-}
-
-async function syncCookieToServer(ssh: Client, cookie: LocalCookie) {
-  await ensureRuntimeDir(ssh);
-  const payload = {
-    envFiles: remoteEnvFiles,
-    runUser,
-    cookieStringB64: cookie.cookieStringB64
-  };
-  await uploadText(ssh, cookiePayloadPath, `${JSON.stringify(payload)}\n`, 0o600);
-  const command = [
-    `${shellQuote(pythonPath)} - ${shellQuote(cookiePayloadPath)} <<'PY'`,
-    remoteCookieApplyPython(),
-    "PY"
-  ].join("\n");
-  const result = await exec(ssh, `bash -lc ${shellQuote(command)}`, { timeoutMs: 90_000 });
-  if (result.code !== 0) {
-    throw new Error(`Remote Douyin cookie sync failed with code ${result.code}: ${result.stderr || result.stdout}`);
-  }
-  process.stdout.write(result.stdout);
-  process.stderr.write(result.stderr);
 }
 
 async function startStandaloneBrowser(ssh: Client) {
@@ -516,92 +423,6 @@ function openSftp(ssh: Client) {
   });
 }
 
-function runLocal(commandLine: string, args: string[], options: { cwd?: string; env?: NodeJS.ProcessEnv; timeoutMs?: number } = {}) {
-  return new Promise<ExecResult>((resolve, reject) => {
-    const child = spawn(commandLine, args, {
-      cwd: options.cwd,
-      env: options.env,
-      windowsHide: true,
-      stdio: ["ignore", "pipe", "pipe"]
-    });
-    let stdout = "";
-    let stderr = "";
-    const timer = options.timeoutMs
-      ? setTimeout(() => {
-        child.kill();
-        reject(new Error(`Local command timed out after ${options.timeoutMs}ms: ${commandLine}`));
-      }, options.timeoutMs)
-      : null;
-    child.stdout.on("data", (data: Buffer) => {
-      stdout += data.toString("utf8");
-    });
-    child.stderr.on("data", (data: Buffer) => {
-      stderr += data.toString("utf8");
-    });
-    child.on("error", (error) => {
-      if (timer) clearTimeout(timer);
-      reject(error);
-    });
-    child.on("close", (code, signal) => {
-      if (timer) clearTimeout(timer);
-      resolve({ code, signal, stdout, stderr });
-    });
-  });
-}
-
-async function resolveLocalBettaFishRepo() {
-  const candidates = [
-    process.env.BETTAFISH_REPO_DIR || "",
-    process.env.SYNC_BETTAFISH_FULL_LOCAL_REPO || "",
-    path.resolve(process.cwd(), "..", "BettaFish"),
-    path.resolve(process.cwd(), "..", "..", "BettaFish"),
-    path.resolve(process.env.USERPROFILE || "", "Documents", "BettaFish"),
-    path.resolve(process.env.HOME || "", "BettaFish")
-  ].filter(Boolean);
-  for (const candidate of candidates) {
-    if (await pathExists(path.join(candidate, "MindSpider", "DeepSentimentCrawling", "MediaCrawler", "main.py"))) {
-      return path.resolve(candidate);
-    }
-  }
-  throw new Error("Local BettaFish MediaCrawler repo was not found. Set BETTAFISH_REPO_DIR.");
-}
-
-async function resolveLocalPython(localBettaFish: string) {
-  const candidates = [
-    process.env.BETTAFISH_PYTHON || "",
-    process.env.LOCAL_DOUYIN_PYTHON || "",
-    path.join(localBettaFish, ".venv-mediacrawler", "Scripts", "python.exe"),
-    path.join(localBettaFish, ".venv", "Scripts", "python.exe"),
-    "python"
-  ].filter(Boolean);
-  for (const candidate of candidates) {
-    const result = await runLocal(candidate, ["--version"], { timeoutMs: 10_000 }).catch(() => undefined);
-    if (result && result.code === 0) return candidate;
-  }
-  throw new Error("Python for local MediaCrawler was not found. Set LOCAL_DOUYIN_PYTHON or BETTAFISH_PYTHON.");
-}
-
-async function pathExists(filePath: string) {
-  try {
-    await fs.access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function summarizeCookie(cookieString: string, source: string, profileDirValue: string): LocalCookie {
-  const pairs = cookieString.split(";").map((entry) => entry.trim()).filter(Boolean);
-  return {
-    cookieStringB64: Buffer.from(cookieString, "utf8").toString("base64"),
-    cookieCount: pairs.length,
-    hasLoginStatus: pairs.some((entry) => /^LOGIN_STATUS=1\b/.test(entry)),
-    hasSessionCookie: pairs.some((entry) => /^(sessionid|sid_guard|passport_csrf_token)=/i.test(entry)),
-    source,
-    profileDir: profileDirValue
-  };
-}
-
 function shellQuote(value: string) {
   return `'${value.replace(/'/g, `'\\''`)}'`;
 }
@@ -613,187 +434,6 @@ function normalizeRemoteRoot(value: string) {
 function defaultKeywords() {
   const ss = "\u751f\u6b7b\u72d9\u51fb";
   return [ss, `${ss}1`, `4399${ss}`, `${ss}2`];
-}
-
-function localCookieExtractorPython() {
-  return String.raw`import asyncio
-import base64
-import json
-import os
-from pathlib import Path
-
-from playwright.async_api import async_playwright
-
-DOUYIN_URLS = ["https://www.douyin.com", "https://douyin.com"]
-PROFILE_DIR = Path(os.environ.get("LOCAL_DOUYIN_PROFILE_DIR", "browser_data/cdp_dy_user_data_dir")).resolve()
-CDP_URL = os.environ.get("LOCAL_DOUYIN_CDP_URL", "http://127.0.0.1:9222").strip()
-
-def resolve_browser_path():
-    explicit = os.environ.get("LOCAL_DOUYIN_BROWSER", "").strip()
-    candidates = [
-        explicit,
-        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
-        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
-        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
-        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-    ]
-    for candidate in candidates:
-        if candidate and Path(candidate).exists():
-            return candidate
-    return ""
-
-def cookie_summary(cookie_string, cookies, source):
-    names = {item.get("name", ""): item.get("value", "") for item in cookies}
-    print(json.dumps({
-        "cookieStringB64": base64.b64encode(cookie_string.encode("utf-8")).decode("ascii"),
-        "cookieCount": len([item for item in cookie_string.split(";") if item.strip()]),
-        "hasLoginStatus": names.get("LOGIN_STATUS") == "1",
-        "hasSessionCookie": any(name.lower() in {"sessionid", "sid_guard", "passport_csrf_token"} for name in names),
-        "source": source,
-        "profileDir": str(PROFILE_DIR),
-    }, ensure_ascii=False), flush=True)
-
-def convert_cookies(cookies):
-    filtered = []
-    seen = set()
-    for cookie in cookies or []:
-        domain = str(cookie.get("domain") or "")
-        name = str(cookie.get("name") or "")
-        value = str(cookie.get("value") or "")
-        if "douyin.com" not in domain or not name or not value:
-            continue
-        key = (name, domain, str(cookie.get("path") or ""))
-        if key in seen:
-            continue
-        seen.add(key)
-        filtered.append(cookie)
-    filtered.sort(key=lambda item: (0 if item.get("name") == "LOGIN_STATUS" else 1, item.get("name") or ""))
-    return ";".join([f"{item.get('name')}={item.get('value')}" for item in filtered]), filtered
-
-async def try_cdp(playwright):
-    if not CDP_URL:
-        return None
-    try:
-        browser = await playwright.chromium.connect_over_cdp(CDP_URL, timeout=3000)
-    except Exception:
-        return None
-    try:
-        cookies = []
-        for context in browser.contexts:
-            cookies.extend(await context.cookies(DOUYIN_URLS))
-        cookie_string, filtered = convert_cookies(cookies)
-        if cookie_string:
-            return cookie_string, filtered, "local-cdp"
-        return None
-    finally:
-        await browser.close()
-
-async def try_profile(playwright):
-    if not PROFILE_DIR.exists():
-        raise SystemExit(f"Local Douyin profile not found: {PROFILE_DIR}")
-    launch_options = {
-        "user_data_dir": str(PROFILE_DIR),
-        "headless": True,
-        "args": [
-            "--disable-blink-features=AutomationControlled",
-            "--disable-dev-shm-usage",
-            "--no-first-run",
-            "--no-default-browser-check",
-        ],
-    }
-    browser_path = resolve_browser_path()
-    if browser_path:
-        launch_options["executable_path"] = browser_path
-    context = await playwright.chromium.launch_persistent_context(**launch_options)
-    try:
-        page = context.pages[0] if context.pages else await context.new_page()
-        try:
-            await page.goto("https://www.douyin.com/", wait_until="domcontentloaded", timeout=20000)
-            await page.wait_for_timeout(1500)
-        except Exception:
-            pass
-        cookies = await context.cookies(DOUYIN_URLS)
-        cookie_string, filtered = convert_cookies(cookies)
-        if not cookie_string:
-            raise SystemExit("No douyin.com cookies found in local MediaCrawler profile.")
-        return cookie_string, filtered, "local-profile"
-    finally:
-        await context.close()
-
-async def main():
-    async with async_playwright() as playwright:
-        result = await try_cdp(playwright)
-        if result is None:
-            result = await try_profile(playwright)
-        cookie_summary(*result)
-
-asyncio.run(main())
-`;
-}
-
-function remoteCookieApplyPython() {
-  return String.raw`import json
-import os
-import pwd
-import shutil
-import subprocess
-import sys
-from pathlib import Path
-
-payload_path = Path(sys.argv[1])
-payload = json.loads(payload_path.read_text(encoding="utf-8"))
-env_files = [Path(item) for item in payload["envFiles"]]
-cookie_b64 = str(payload["cookieStringB64"]).strip()
-run_user = str(payload.get("runUser") or "yq")
-
-def set_env_file(path, key, value):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    lines = []
-    replaced = False
-    if path.exists():
-        lines = path.read_text(encoding="utf-8").splitlines()
-    next_lines = []
-    for line in lines:
-        if line.startswith(f"{key}="):
-            next_lines.append(f"{key}={value}")
-            replaced = True
-        else:
-            next_lines.append(line)
-    if not replaced:
-        next_lines.append(f"{key}={value}")
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text("\n".join(next_lines) + "\n", encoding="utf-8")
-    shutil.move(str(tmp), str(path))
-    try:
-        user = pwd.getpwnam(run_user)
-        os.chown(path, 0, user.pw_gid)
-    except Exception:
-        pass
-    os.chmod(path, 0o640)
-
-if not cookie_b64:
-    raise SystemExit("empty cookie payload")
-
-for env_file in env_files:
-    set_env_file(env_file, "DOUYIN_COOKIES_B64", cookie_b64)
-
-try:
-    payload_path.unlink()
-except FileNotFoundError:
-    pass
-
-restart = subprocess.run(["systemctl", "restart", "bettafish-full"], text=True, capture_output=True, timeout=60)
-if restart.returncode != 0:
-    raise SystemExit(restart.stderr or restart.stdout or "systemctl restart failed")
-
-active = subprocess.run(["systemctl", "is-active", "bettafish-full"], text=True, capture_output=True, timeout=20)
-print(json.dumps({
-    "remoteCookieStored": True,
-    "envFiles": [str(path) for path in env_files],
-    "cookieB64Length": len(cookie_b64),
-    "service": active.stdout.strip(),
-}, ensure_ascii=False), flush=True)
-`;
 }
 
 function loginHelperPython() {
