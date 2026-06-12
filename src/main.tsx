@@ -29,6 +29,7 @@ import type {
   BettaFishProbeStatus,
   GameConfig,
   GameId,
+  AlertItem,
   MonitorItem,
   MonitorResponse,
   RiskLevel,
@@ -432,6 +433,7 @@ function App() {
   const [visibleItemLimit, setVisibleItemLimit] = React.useState(feedInitialLimit);
   const [trendOpen, setTrendOpen] = React.useState(initialUiState.trendOpen);
   const [trendSeries, setTrendSeries] = React.useState<TrendSeriesVisibility>(initialUiState.trendSeries);
+  const [selectedAlertId, setSelectedAlertId] = React.useState("");
   const [isControlFloating, setControlFloating] = React.useState(false);
   const controlSentinelRef = React.useRef<HTMLDivElement>(null);
   const latestRequestRef = React.useRef(0);
@@ -616,10 +618,24 @@ function App() {
   const visibleFeedCount = Math.min(visibleItemLimit, feedItemsTotal);
   const visibleSearchResults = searchActive ? searchResults.slice(0, visibleItemLimit) : [];
   const visibleFilteredItems = searchActive ? [] : filteredItems.slice(0, visibleItemLimit);
+  const selectedAlert = React.useMemo(
+    () => (data?.alerts || []).find((alert) => alert.id === selectedAlertId),
+    [data?.alerts, selectedAlertId]
+  );
+  const selectedAlertItem = React.useMemo(
+    () => (selectedAlert ? (data?.items || []).find((item) => item.id === selectedAlert.id) : undefined),
+    [data?.items, selectedAlert]
+  );
 
   React.useEffect(() => {
     setVisibleItemLimit(feedInitialLimit);
   }, [data?.generatedAt, query, risk, searchActive, searchData?.generatedAt, sentiment, source, topic]);
+
+  React.useEffect(() => {
+    if (selectedAlertId && data?.alerts && !data.alerts.some((alert) => alert.id === selectedAlertId)) {
+      setSelectedAlertId("");
+    }
+  }, [data?.alerts, selectedAlertId]);
 
   const visiblePolicy = data?.updatePolicy || config?.updatePolicy;
   const configuredGameIds = React.useMemo(() => {
@@ -863,17 +879,20 @@ function App() {
         <div className="alert-list">
           {(data?.alerts || []).length ? (
             data?.alerts.map((alert) => (
-              <a className={`alert-item ${alert.riskLevel}`} href={alert.url} target="_blank" rel="noreferrer" key={alert.id}>
-                <span>{riskText(alert.riskLevel)}</span>
-                <strong>{alert.title}</strong>
-                <small>{alert.gameName} · {formatAgo(alert.publishedAt)}</small>
-                {alert.reasons.length ? <small className="alert-reasons">{alert.reasons.slice(0, 2).join(" / ")}</small> : null}
-              </a>
+              <RiskAlertCard
+                alert={alert}
+                active={selectedAlertId === alert.id}
+                onShowDetails={() => setSelectedAlertId((current) => (current === alert.id ? "" : alert.id))}
+                key={alert.id}
+              />
             ))
           ) : (
             <p className="empty">暂无中高风险条目</p>
           )}
         </div>
+        {selectedAlert ? (
+          <RiskAlertDetail alert={selectedAlert} item={selectedAlertItem} onClose={() => setSelectedAlertId("")} />
+        ) : null}
       </section>
 
       <section className="feed-toolbar" id="latest-feed">
@@ -2097,6 +2116,93 @@ function clampLineY(value: number) {
   return Math.min(trendLineMaxY, Math.max(trendLineMinY, value));
 }
 
+function RiskAlertCard({
+  alert,
+  active,
+  onShowDetails
+}: {
+  alert: AlertItem;
+  active: boolean;
+  onShowDetails: () => void;
+}) {
+  const detailId = alertDetailId(alert.id);
+
+  return (
+    <article className={`alert-item ${alert.riskLevel} ${active ? "active" : ""}`}>
+      <span className="alert-level">{riskText(alert.riskLevel)}</span>
+      <strong>{alert.title}</strong>
+      <small>{alert.gameName} · {formatAgo(alert.publishedAt)}</small>
+      {alert.reasons.length ? <small className="alert-reasons">{alert.reasons.slice(0, 2).join(" / ")}</small> : null}
+      <div className="alert-actions">
+        <button type="button" className="alert-detail-button" aria-expanded={active} aria-controls={detailId} onClick={onShowDetails}>
+          {active ? "收起详情" : "查看详情"}
+        </button>
+        <a href={alert.url} target="_blank" rel="noreferrer" aria-label={`打开原文：${alert.title}`} title="打开原文">
+          <ExternalLink size={14} aria-hidden="true" />
+          原文
+        </a>
+      </div>
+    </article>
+  );
+}
+
+function RiskAlertDetail({
+  alert,
+  item,
+  onClose
+}: {
+  alert: AlertItem;
+  item?: MonitorItem;
+  onClose: () => void;
+}) {
+  return (
+    <div className={`alert-detail ${alert.riskLevel}`} id={alertDetailId(alert.id)} role="region" aria-label={`风险详情：${alert.title}`}>
+      <div className="alert-detail-head">
+        <div>
+          <span className="alert-level">{riskText(alert.riskLevel)}</span>
+          <h3>{alert.title}</h3>
+          <p>{alert.gameName} · {formatAgo(alert.publishedAt)}</p>
+        </div>
+        <div className="alert-detail-actions">
+          <a href={alert.url} target="_blank" rel="noreferrer">
+            <ExternalLink size={14} aria-hidden="true" />
+            打开原文
+          </a>
+          <button type="button" onClick={onClose}>关闭</button>
+        </div>
+      </div>
+      {item ? (
+        <>
+          <MonitorBrief item={item} />
+          <div className="pill-row alert-detail-tags">
+            <span className={`risk-pill ${item.riskLevel}`}>{riskText(item.riskLevel)}</span>
+            <span className={`sentiment-pill ${item.sentiment}`}>{sentimentText(item.sentiment)}</span>
+            {item.topics.slice(0, 4).map((topic) => (
+              <span key={topic}>{topic}</span>
+            ))}
+            {item.riskReasons.slice(0, 4).map((reason) => (
+              <span className="risk-reason" key={reason}>{reason}</span>
+            ))}
+            {item.keywords.slice(0, 5).map((keyword) => (
+              <span key={keyword}>{keyword}</span>
+            ))}
+          </div>
+        </>
+      ) : (
+        <dl className="qa-summary" aria-label="风险原因摘要">
+          <div className="qa-pair">
+            <dt><span>问</span>为什么要关注？</dt>
+            <dd>
+              <span>答</span>
+              <p>{alert.reasons.length ? alert.reasons.join("；") : "该条目被判定为中高风险，需要人工复盘。"}</p>
+            </dd>
+          </div>
+        </dl>
+      )}
+    </div>
+  );
+}
+
 function MonitorCard({ item, searchResult }: { item: MonitorItem; searchResult?: SearchResult }) {
   return (
     <article className={`monitor-card ${item.riskLevel}`}>
@@ -2260,6 +2366,10 @@ function contentPartLabel(type: MonitorItem["contentParts"][number]["type"]) {
   if (type === "post") return "正文";
   if (type === "tag") return "标签";
   return "标题";
+}
+
+function alertDetailId(id: string) {
+  return `alert-detail-${id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 }
 
 function Thumbnail({ item }: { item: MonitorItem }) {
