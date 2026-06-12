@@ -2,6 +2,10 @@
 
 ## 2026-06-12
 
+- Released `v0.1.7` with the runtime risk-backtest gate enabled before monitor judgements are returned.
+- Expanded risk backtests to 12 cases, including playful “不准！我们一起继续刷” reply false-positive guards.
+- Fixed the short “准” praise-token path so `不准` / `瞄准` / `标准` contexts do not become negative sentiment.
+- Added `analysisVersion=3` response/cache gating so stale v2 monitor snapshots, history, and browser cache do not keep old risk judgements alive.
 - Added a production Douyin status API and topbar warning for login-state or crawl failures.
 - Added a server-side noVNC remote-login path so operators can open the production MediaCrawler browser profile when Douyin login needs manual verification.
 - Added deployment documentation for the Douyin remote-login unit, sudoers boundary, noVNC paths, and verification commands.

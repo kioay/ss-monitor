@@ -11,6 +11,8 @@ SS Monitor 是可部署在内网机上的项目舆情监测工作台。默认内
 - 后端保留轻量历史池，7 天和 14 天统计不再只依赖当前抓取页。
 - 日间默认每 60 分钟刷新，夜间默认每 240 分钟刷新；手动刷新会强制重新采集。
 - Confluence 当前版本重点由生产服务器直接刷新，失败时使用本地缓存。
+- 舆情判定返回前会自动执行风险回测；回测未完成时页面显示“回测中”，回测失败时不展示旧判定结果。
+- 风险规则带 `analysisVersion`，升级后会丢弃旧版本快照和历史缓存，避免旧误判继续污染页面。
 - BettaFish 语义结果只作为辅助信号，不替代 SS1 / SS2 领域规则，也不会单独制造高风险结论。
 - DingTalk 只发送计划内每日简报；不会主动发送测试消息或新条目即时推送。
 
@@ -53,10 +55,10 @@ npm -v
 
 ### 第 2 步：下载 Release 包
 
-这里用当前推荐版本 `v0.1.6`。以后升级时只改 `VERSION`。
+这里用当前推荐版本 `v0.1.7`。以后升级时只改 `VERSION`。
 
 ```bash
-VERSION=v0.1.6
+VERSION=v0.1.7
 curl -L -o /tmp/ss-monitor-${VERSION}.tar.gz \
   https://github.com/kioay/ss-monitor/releases/download/${VERSION}/ss-monitor-${VERSION}.tar.gz
 ```
@@ -64,7 +66,7 @@ curl -L -o /tmp/ss-monitor-${VERSION}.tar.gz \
 ### 第 3 步：解压到固定目录
 
 ```bash
-VERSION=v0.1.6
+VERSION=v0.1.7
 sudo mkdir -p /opt/ss-monitor/releases/ss-monitor-${VERSION}
 sudo mkdir -p /opt/ss-monitor/state /opt/ss-monitor/data
 sudo tar -xzf /tmp/ss-monitor-${VERSION}.tar.gz -C /opt/ss-monitor/releases/ss-monitor-${VERSION}
@@ -315,6 +317,12 @@ npm run test:semantic-guard
 ### 风险判定回测
 
 `npm run test:risk-backtest` 使用 `scripts/fixtures/risk-backtest-cases.json` 中的黄金样本回测风险判定。样本同时覆盖误伤保护、真实风险召回和 BettaFish 融合场景；脚本会固定读取 `scripts/fixtures/risk-backtest-current-version-focus.json`，不依赖生产 Confluence 或本地 `data/` 缓存。新增或修正错判后，应把最小复现样本加入回测集，再调整规则。
+
+当前回测集包含 12 条样本，其中 6 条是误伤保护。`v0.1.7` 新增了“终于到达这里了 / 不准！我们一起继续刷”这类玩家玩笑式回复的回测保护，避免把“不准继续刷”误判成负面或中风险。
+
+生产服务的 `/api/monitor` 会先执行同一套风险回测，回测通过后才返回舆情判定。网页等待期间会显示“回测中”；如果回测失败，接口会返回错误，前端会清空旧判定，避免继续展示可能错误的缓存结果。
+
+风险分析规则使用 `currentAnalysisVersion` 标记。改动规则并提升版本后，后端只复用同版本的 `monitor-snapshot.json`、`monitor-history.json` 和前端本地缓存；部署时如需立刻清掉旧误判，可以备份并移走 `/opt/ss-monitor/data/monitor-snapshot.json` 与 `/opt/ss-monitor/data/monitor-history.json`，服务会按新规则重新生成。
 
 ## 关键配置
 
