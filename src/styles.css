@@ -2393,8 +2393,18 @@ button.metric:focus-visible {
   margin-top: 4px;
 }
 
+.feed-toolbar {
+  position: sticky;
+  top: 76px;
+  z-index: 24;
+  margin-top: -1px;
+  background: rgba(246, 244, 238, 0.94);
+  box-shadow: 0 14px 26px rgba(38, 48, 43, 0.08);
+  backdrop-filter: blur(14px);
+}
+
 #latest-feed {
-  scroll-margin-top: 86px;
+  scroll-margin-top: 150px;
 }
 
 .filters {
@@ -2823,6 +2833,14 @@ button.metric:focus-visible {
   .top-actions,
   .page-tabs,
   .lab-actions {
+    width: 100%;
+  }
+
+  .feed-toolbar {
+    top: 142px;
+  }
+
+  .filters {
     width: 100%;
   }
 
