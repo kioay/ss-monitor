@@ -89,7 +89,8 @@ fi
 cleanup() {
   jobs -pr | xargs -r kill 2>/dev/null || true
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'cleanup; exit 0' INT TERM
 
 rm -f "/tmp/.X${DISPLAY_NUM}-lock"
 Xvnc ":$DISPLAY_NUM" \
