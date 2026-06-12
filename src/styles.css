@@ -2646,6 +2646,14 @@ button.metric:focus-visible {
   overflow-wrap: anywhere;
 }
 
+.search-highlight {
+  border-radius: 4px;
+  padding: 0 2px;
+  background: rgba(255, 214, 96, 0.5);
+  color: #5f3f00;
+  font-weight: 850;
+}
+
 .pill-row {
   gap: 6px;
   flex-wrap: wrap;

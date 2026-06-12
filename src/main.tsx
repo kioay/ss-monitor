@@ -945,7 +945,7 @@ function App() {
         {searchActive && searchLoading ? <p className="empty">检索中…</p> : null}
         {searchActive
           ? visibleSearchResults.map((result, index) => (
-              <MonitorCard item={result.item} searchResult={result} key={`${result.origin}-${result.item.id}-${index}`} />
+              <MonitorCard item={result.item} searchResult={result} highlightQuery={query} key={`${result.origin}-${result.item.id}-${index}`} />
             ))
           : visibleFilteredItems.map((item) => (
               <MonitorCard item={item} key={item.id} />
@@ -2203,7 +2203,15 @@ function RiskAlertDetail({
   );
 }
 
-function MonitorCard({ item, searchResult }: { item: MonitorItem; searchResult?: SearchResult }) {
+function MonitorCard({
+  item,
+  searchResult,
+  highlightQuery = ""
+}: {
+  item: MonitorItem;
+  searchResult?: SearchResult;
+  highlightQuery?: string;
+}) {
   return (
     <article className={`monitor-card ${item.riskLevel}`}>
       <Thumbnail item={item} />
@@ -2214,12 +2222,12 @@ function MonitorCard({ item, searchResult }: { item: MonitorItem; searchResult?:
           <span>{formatAgo(item.publishedAt)}</span>
           <span>{item.parsedContentCount} 段解析</span>
         </div>
-        <h3>{item.title}</h3>
-        <MonitorBrief item={item} />
+        <h3><HighlightText text={item.title} query={highlightQuery} /></h3>
+        <MonitorBrief item={item} highlightQuery={highlightQuery} />
         {searchResult ? (
           <div className="search-hit-meta">
             <span>{searchOriginText(searchResult.origin)}</span>
-            <span>匹配 {searchResult.matchedFields.slice(0, 5).join(" / ")}</span>
+            <span>匹配 <HighlightText text={searchResult.matchedFields.slice(0, 5).join(" / ")} query={highlightQuery} /></span>
             <span>{searchResult.score} 分</span>
           </div>
         ) : null}
@@ -2228,7 +2236,7 @@ function MonitorCard({ item, searchResult }: { item: MonitorItem; searchResult?:
             {searchResult.snippets.map((snippet, index) => (
               <div className="search-snippet" key={`${snippet.field}-${index}`}>
                 <strong>{snippet.label}</strong>
-                <span>{snippet.text}</span>
+                <span><HighlightText text={snippet.text} query={highlightQuery} /></span>
               </div>
             ))}
           </div>
@@ -2237,13 +2245,13 @@ function MonitorCard({ item, searchResult }: { item: MonitorItem; searchResult?:
           <span className={`risk-pill ${item.riskLevel}`}>{riskText(item.riskLevel)}</span>
           <span className={`sentiment-pill ${item.sentiment}`}>{sentimentText(item.sentiment)}</span>
           {item.topics.slice(0, 4).map((topic) => (
-            <span key={topic}>{topic}</span>
+            <span key={topic}><HighlightText text={topic} query={highlightQuery} /></span>
           ))}
           {item.riskReasons.slice(0, 3).map((reason) => (
-            <span className="risk-reason" key={reason}>{reason}</span>
+            <span className="risk-reason" key={reason}><HighlightText text={reason} query={highlightQuery} /></span>
           ))}
           {item.keywords.slice(0, 4).map((keyword) => (
-            <span key={keyword}>{keyword}</span>
+            <span key={keyword}><HighlightText text={keyword} query={highlightQuery} /></span>
           ))}
         </div>
       </div>
@@ -2258,18 +2266,18 @@ function MonitorCard({ item, searchResult }: { item: MonitorItem; searchResult?:
   );
 }
 
-function MonitorBrief({ item }: { item: MonitorItem }) {
+function MonitorBrief({ item, highlightQuery = "" }: { item: MonitorItem; highlightQuery?: string }) {
   const brief = makeMonitorBrief(item);
 
   return (
     <dl className="qa-summary" aria-label="内容问答摘要">
       <div className="qa-pair">
         <dt><span>问</span>这条在说什么？</dt>
-        <dd><span>答</span><p>{brief.overview}</p></dd>
+        <dd><span>答</span><p><HighlightText text={brief.overview} query={highlightQuery} /></p></dd>
       </div>
       <div className="qa-pair">
         <dt><span>问</span>为什么要关注？</dt>
-        <dd><span>答</span><p>{brief.attention}</p></dd>
+        <dd><span>答</span><p><HighlightText text={brief.attention} query={highlightQuery} /></p></dd>
       </div>
       {brief.evidence.length ? (
         <div className="qa-pair">
@@ -2278,7 +2286,7 @@ function MonitorBrief({ item }: { item: MonitorItem }) {
             <span>答</span>
             <ul>
               {brief.evidence.map((snippet) => (
-                <li key={snippet}>{snippet}</li>
+                <li key={snippet}><HighlightText text={snippet} query={highlightQuery} /></li>
               ))}
             </ul>
           </dd>
@@ -2286,6 +2294,54 @@ function MonitorBrief({ item }: { item: MonitorItem }) {
       ) : null}
     </dl>
   );
+}
+
+function HighlightText({ text, query }: { text: string; query: string }) {
+  const terms = React.useMemo(() => makeHighlightTerms(query), [query]);
+  if (!terms.length || !text) return <>{text}</>;
+
+  const lowerText = text.toLowerCase();
+  const nodes: React.ReactNode[] = [];
+  let cursor = 0;
+
+  while (cursor < text.length) {
+    const match = findNextHighlight(lowerText, terms, cursor);
+    if (!match) {
+      nodes.push(text.slice(cursor));
+      break;
+    }
+    if (match.index > cursor) nodes.push(text.slice(cursor, match.index));
+    const end = match.index + match.term.length;
+    nodes.push(
+      <mark className="search-highlight" key={`${match.index}-${match.term}`}>
+        {text.slice(match.index, end)}
+      </mark>
+    );
+    cursor = end;
+  }
+
+  return <>{nodes}</>;
+}
+
+function makeHighlightTerms(query: string) {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+  const terms = [trimmed, ...trimmed.split(/[\s,，、;；/]+/)]
+    .map((term) => term.trim().toLowerCase())
+    .filter(Boolean);
+  return Array.from(new Set(terms)).sort((left, right) => right.length - left.length);
+}
+
+function findNextHighlight(lowerText: string, terms: string[], start: number) {
+  let bestMatch: { index: number; term: string } | undefined;
+  for (const term of terms) {
+    const index = lowerText.indexOf(term, start);
+    if (index === -1) continue;
+    if (!bestMatch || index < bestMatch.index || (index === bestMatch.index && term.length > bestMatch.term.length)) {
+      bestMatch = { index, term };
+    }
+  }
+  return bestMatch;
 }
 
 function makeMonitorBrief(item: MonitorItem) {
