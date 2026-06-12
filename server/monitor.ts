@@ -11,6 +11,7 @@ import { refreshCurrentVersionFocus } from "./currentVersion";
 import { mergeMonitorHistory } from "./monitorHistory";
 import type {
   AlertItem,
+  BettaFishPanelCapability,
   GameConfig,
   GameId,
   MonitorItem,
@@ -104,6 +105,9 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
     .map(normalizeMonitorItemLabel)
     .sort((a, b) => +new Date(b.publishedAt) - +new Date(a.publishedAt));
   const freshItems = windowItems.slice(0, query.limit);
+  const responseHealth = collection.health
+    .filter((entry) => !entry.gameId || gameIds.includes(entry.gameId))
+    .map(normalizeHealthLabel);
 
   const response: MonitorResponse = {
     generatedAt: generatedAt.toISOString(),
@@ -119,9 +123,8 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
     trends: makeTrends(windowItems, query.windowHours, cutoff, generatedAt),
     topicStats: makeTopicStats(windowItems),
     alerts: makeAlerts(windowItems, cutoff),
-    health: collection.health
-      .filter((entry) => !entry.gameId || gameIds.includes(entry.gameId))
-      .map(normalizeHealthLabel),
+    health: responseHealth,
+    bettafishCapabilities: makeBettaFishPanelCapabilities(windowItems, responseHealth),
     items: freshItems
   };
 
@@ -347,6 +350,85 @@ function makeStats(items: MonitorItem[]): MonitorStats {
     bettafish: items.filter((item) => item.source === "bettafish").length,
     freshestAt: items[0]?.publishedAt
   };
+}
+
+function makeBettaFishPanelCapabilities(items: MonitorItem[], health: SourceHealth[]): BettaFishPanelCapability[] {
+  const capabilities: BettaFishPanelCapability[] = [];
+  const bettaFishItems = items.filter((item) => item.source === "bettafish");
+  const bettaFishHealth = health.filter((entry) => entry.source === "bettafish");
+
+  if (bettaFishItems.length > 0) {
+    const gamesCovered = new Set(bettaFishItems.map((item) => item.gameName || item.gameId)).size;
+    const latest = bettaFishItems[0]?.publishedAt ? formatDateTimeShort(bettaFishItems[0].publishedAt) : "";
+    capabilities.push({
+      id: "import",
+      label: "授权导入",
+      value: `${bettaFishItems.length} 条`,
+      description: `BettaFish 导入条目已进入总声量、趋势、主题、预警和列表。`,
+      evidence: [
+        `覆盖 ${gamesCovered} 个项目${latest ? `，最新 ${latest}` : ""}`,
+        ...bettaFishHealth
+          .filter((entry) => entry.itemCount > 0)
+          .slice(0, 2)
+          .map((entry) => `${entry.gameId?.toUpperCase() || "ALL"} ${entry.itemCount} 条`)
+      ]
+    });
+  }
+
+  const semanticItems = items.filter(hasBettaFishSemanticEffect);
+  if (semanticItems.length > 0) {
+    const confirmCount = semanticItems.filter((item) => item.riskReasons.some((reason) => reason.includes("辅助确认负面"))).length;
+    const denoiseCount = semanticItems.filter((item) => item.riskReasons.some((reason) => reason.includes("辅助降噪"))).length;
+    const affectedRisk = semanticItems.filter((item) => item.riskReasons.some((reason) => reason.includes("BettaFish"))).length;
+    capabilities.push({
+      id: "semantic",
+      label: "语义辅助判定",
+      value: `${semanticItems.length} 条`,
+      description: "BettaFish 模型结果已写入主面板条目的摘要、情绪或风险原因。",
+      evidence: [
+        affectedRisk ? `影响风险原因 ${affectedRisk} 条` : "仅影响摘要/情绪判断",
+        confirmCount ? `确认负面 ${confirmCount} 条` : "",
+        denoiseCount ? `辅助降噪 ${denoiseCount} 条` : "",
+        ...semanticItems.slice(0, 2).map((item) => compactCapabilityTitle(item.title))
+      ].filter(Boolean)
+    });
+  }
+
+  const reachableStatus = bettaFishHealth.filter((entry) =>
+    entry.ok && /reachable|status endpoint/i.test(entry.message)
+  );
+  if (reachableStatus.length > 0) {
+    capabilities.push({
+      id: "status",
+      label: "运行状态探针",
+      value: `${reachableStatus.length} 项`,
+      description: "主面板健康区已接入 BettaFish 状态接口，用于确认外部系统可达。",
+      evidence: reachableStatus
+        .slice(0, 3)
+        .map((entry) => `${entry.gameId?.toUpperCase() || "ALL"} 可达`)
+    });
+  }
+
+  return capabilities;
+}
+
+function hasBettaFishSemanticEffect(item: MonitorItem) {
+  return item.summary.includes("BettaFish模型") || item.riskReasons.some((reason) => reason.includes("BettaFish"));
+}
+
+function compactCapabilityTitle(title: string) {
+  const compact = title.replace(/\s+/g, " ").trim();
+  return compact.length > 28 ? `${compact.slice(0, 27)}…` : compact;
+}
+
+function formatDateTimeShort(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  const hour = `${date.getHours()}`.padStart(2, "0");
+  const minute = `${date.getMinutes()}`.padStart(2, "0");
+  return `${month}/${day} ${hour}:${minute}`;
 }
 
 function makeTrends(items: MonitorItem[], windowHours: number, cutoff: Date, generatedAt: Date): TrendPoint[] {

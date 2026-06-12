@@ -1853,6 +1853,115 @@ button.metric:focus-visible {
   font-size: 10px;
 }
 
+.bettafish-effect-strip {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.32fr) minmax(0, 1fr);
+  gap: 12px;
+  margin: 0 0 10px;
+  padding: 12px;
+  border: 1px solid rgba(63, 120, 168, 0.22);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 253, 248, 0.94), rgba(238, 246, 243, 0.86)),
+    var(--paper);
+  box-shadow: var(--shadow-soft);
+}
+
+.bettafish-effect-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.bettafish-effect-head svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--blue);
+}
+
+.bettafish-effect-head h2 {
+  font-size: 16px;
+}
+
+.bettafish-effect-head p {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.bettafish-effect-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 8px;
+}
+
+.bettafish-effect-card {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 253, 248, 0.78);
+}
+
+.bettafish-effect-card.import {
+  border-top: 3px solid var(--green);
+}
+
+.bettafish-effect-card.semantic {
+  border-top: 3px solid var(--gold);
+}
+
+.bettafish-effect-card.status {
+  border-top: 3px solid var(--blue);
+}
+
+.bettafish-effect-card > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.bettafish-effect-card strong {
+  min-width: 0;
+  color: var(--ink-strong);
+}
+
+.bettafish-effect-card span {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: rgba(237, 242, 237, 0.88);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 780;
+  font-variant-numeric: tabular-nums;
+}
+
+.bettafish-effect-card p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.bettafish-effect-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.bettafish-effect-evidence small {
+  border-radius: 999px;
+  padding: 3px 7px;
+  background: rgba(229, 240, 247, 0.62);
+  color: #3f5362;
+  font-size: 11px;
+}
+
 .workspace-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -2798,6 +2907,10 @@ button.metric:focus-visible {
   .action-grid,
   .lab-status-strip {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .bettafish-effect-strip {
+    grid-template-columns: 1fr;
   }
 
   .health-row {

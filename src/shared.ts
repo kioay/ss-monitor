@@ -109,6 +109,14 @@ export interface AlertItem {
   riskSignalSource?: RiskSignalSource;
 }
 
+export interface BettaFishPanelCapability {
+  id: "import" | "semantic" | "status";
+  label: string;
+  value: string;
+  description: string;
+  evidence: string[];
+}
+
 export interface MonitorResponse {
   generatedAt: string;
   windowHours: number;
@@ -131,6 +139,7 @@ export interface MonitorResponse {
   topicStats: TopicStat[];
   alerts: AlertItem[];
   health: SourceHealth[];
+  bettafishCapabilities?: BettaFishPanelCapability[];
   items: MonitorItem[];
 }
 

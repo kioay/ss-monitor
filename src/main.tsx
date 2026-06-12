@@ -26,6 +26,7 @@ import type {
   BettaFishGameMonitor,
   BettaFishLabResponse,
   BettaFishOperation,
+  BettaFishPanelCapability,
   BettaFishProbeStatus,
   GameConfig,
   GameId,
@@ -805,6 +806,7 @@ function App() {
           </div>
         ))}
       </section>
+      <BettaFishEffectStrip capabilities={data?.bettafishCapabilities || []} />
 
       <section className={`workspace-grid ${trendOpen ? "trend-open" : "trend-collapsed"}`}>
         <details className="chart-area trend-details" open={trendOpen} onToggle={(event) => setTrendOpen(event.currentTarget.open)}>
@@ -1914,6 +1916,38 @@ function Metric({
     <button className={`metric ${tone}`} type="button" onClick={onClick}>
       {content}
     </button>
+  );
+}
+
+function BettaFishEffectStrip({ capabilities }: { capabilities: BettaFishPanelCapability[] }) {
+  if (!capabilities.length) return null;
+
+  return (
+    <section className="bettafish-effect-strip" aria-label="BettaFish 实际生效能力">
+      <div className="bettafish-effect-head">
+        <Plug size={16} aria-hidden="true" />
+        <div>
+          <h2>BettaFish 实际生效</h2>
+          <p>仅显示本次监控响应中已有证据的能力</p>
+        </div>
+      </div>
+      <div className="bettafish-effect-list">
+        {capabilities.map((capability) => (
+          <article className={`bettafish-effect-card ${capability.id}`} key={capability.id}>
+            <div>
+              <strong>{capability.label}</strong>
+              <span>{capability.value}</span>
+            </div>
+            <p>{capability.description}</p>
+            <div className="bettafish-effect-evidence">
+              {capability.evidence.slice(0, 4).map((entry) => (
+                <small key={entry}>{entry}</small>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 
