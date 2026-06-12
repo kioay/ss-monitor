@@ -55,7 +55,6 @@ const searchWindowHours = 24 * 30;
 const feedInitialLimit = 60;
 const feedBatchSize = 60;
 
-type AppPage = "monitor" | "bettafish-lab";
 type TrendSeries = "negative" | "neutral" | "positive" | "total";
 type TrendSeriesVisibility = Record<TrendSeries, boolean>;
 type TrendLineSample = { point: TrendPoint; x: number; value: number };
@@ -88,7 +87,6 @@ type SourceFilter = "all" | SourceType;
 type RiskFilter = "all" | RiskLevel;
 type SentimentFilter = "all" | Sentiment;
 type InitialUiState = {
-  page: AppPage;
   games: GameId[];
   windowHours: number;
   hasWindowHours: boolean;
@@ -113,7 +111,6 @@ function readInitialUiState(): InitialUiState {
     .filter(Boolean);
 
   return {
-    page: params.get("page") === "bettafish-lab" ? "bettafish-lab" : "monitor",
     games,
     windowHours: hasWindowHours ? rawWindowHours : defaultWindowHours,
     hasWindowHours,
@@ -129,7 +126,6 @@ function readInitialUiState(): InitialUiState {
 
 function makeDefaultUiState(): InitialUiState {
   return {
-    page: "monitor",
     games: [],
     windowHours: defaultWindowHours,
     hasWindowHours: false,
@@ -416,7 +412,6 @@ function App() {
     defaultWindowHours: number;
     updatePolicy: MonitorResponse["updatePolicy"];
   }>();
-  const [activePage, setActivePage] = React.useState<AppPage>(initialUiState.page);
   const [selectedGames, setSelectedGames] = React.useState<GameId[]>(initialUiState.games);
   const [windowHours, setWindowHours] = React.useState(initialUiState.windowHours);
   const [source, setSource] = React.useState<SourceFilter>(initialUiState.source);
@@ -549,7 +544,6 @@ function App() {
 
   React.useEffect(() => {
     const params = new URLSearchParams();
-    if (activePage !== "monitor") params.set("page", activePage);
     if (selectedGames.length) params.set("games", selectedGames.join(","));
     params.set("window", String(windowHours));
     if (source !== "all") params.set("source", source);
@@ -570,7 +564,7 @@ function App() {
     if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
       window.history.replaceState(null, "", nextUrl);
     }
-  }, [activePage, query, risk, selectedGames, sentiment, source, topic, trendOpen, trendSeries, windowHours]);
+  }, [query, risk, selectedGames, sentiment, source, topic, trendOpen, trendSeries, windowHours]);
 
   React.useEffect(() => {
     const target = controlSentinelRef.current;
@@ -710,28 +704,6 @@ function App() {
           <h1>{monitorTitle}</h1>
         </div>
         <div className="top-actions">
-          <nav className="page-tabs" aria-label="页面切换">
-            <button
-              className={activePage === "monitor" ? "active" : ""}
-              type="button"
-              aria-pressed={activePage === "monitor"}
-              onClick={() => setActivePage("monitor")}
-              title="监测看板"
-            >
-              <Waves size={16} aria-hidden="true" />
-              监测看板
-            </button>
-            <button
-              className={activePage === "bettafish-lab" ? "active" : ""}
-              type="button"
-              aria-pressed={activePage === "bettafish-lab"}
-              onClick={() => setActivePage("bettafish-lab")}
-              title="BettaFish 测试台"
-            >
-              <TestTube2 size={16} aria-hidden="true" />
-              BettaFish 测试台
-            </button>
-          </nav>
           <span className="timestamp">
             <Clock3 size={16} aria-hidden="true" />
             {data ? formatDateTime(data.generatedAt) : "等待采集"}
@@ -743,8 +715,6 @@ function App() {
         </div>
       </section>
 
-      {activePage === "monitor" ? (
-        <>
       <div className="control-sentinel" ref={controlSentinelRef} aria-hidden="true" />
       <section className={`control-band ${isControlFloating ? "is-floating" : ""}`}>
         <div className="segmented">
@@ -958,10 +928,6 @@ function App() {
         {!searchActive && !loading && data && filteredItems.length === 0 ? <p className="empty">当前筛选下没有新鲜条目</p> : null}
         {searchActive && !searchLoading && searchData && searchResults.length === 0 ? <p className="empty">未找到匹配条目</p> : null}
       </section>
-        </>
-      ) : (
-        <BettaFishLabPage windowHours={windowHours} />
-      )}
     </main>
     </>
   );

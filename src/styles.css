@@ -190,33 +190,6 @@ h2 {
   justify-content: flex-end;
 }
 
-.page-tabs {
-  min-height: 42px;
-  display: inline-grid;
-  grid-template-columns: repeat(2, minmax(112px, 1fr));
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  overflow: hidden;
-  background: rgba(255, 253, 248, 0.92);
-}
-
-.page-tabs button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  border: 0;
-  padding: 0 12px;
-  background: transparent;
-  color: var(--muted);
-  white-space: nowrap;
-}
-
-.page-tabs button.active {
-  background: var(--ink-strong);
-  color: white;
-}
-
 .timestamp {
   gap: 8px;
   color: var(--muted);
@@ -2860,7 +2833,6 @@ button.metric:focus-visible {
   }
 
   .top-actions,
-  .page-tabs,
   .lab-actions {
     width: 100%;
   }
@@ -2882,10 +2854,6 @@ button.metric:focus-visible {
 
   .display-collapse-control {
     align-self: flex-start;
-  }
-
-  .page-tabs {
-    grid-template-columns: 1fr 1fr;
   }
 
   .monitor-card {
