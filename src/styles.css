@@ -294,6 +294,10 @@ h2 {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.68);
 }
 
+.segmented.single {
+  grid-template-columns: minmax(112px, max-content);
+}
+
 .segmented button {
   border: 0;
   background: transparent;

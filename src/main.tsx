@@ -736,7 +736,7 @@ function App() {
 
       <div className="control-sentinel" ref={controlSentinelRef} aria-hidden="true" />
       <section className={`control-band ${isControlFloating ? "is-floating" : ""}`}>
-        <div className="segmented">
+        <div className={`segmented ${gameOptions.length === 1 ? "single" : ""}`}>
           {gameOptions.map((option) => (
             <button
               key={option.key}
