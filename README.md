@@ -200,6 +200,63 @@ http://服务器IP:8787/
 
 页面标题应显示“失控进化舆情监测”，项目筛选按钮也应显示“失控进化”。
 
+### 可选：抖音远程登录入口
+
+只有部署了完整 BettaFish / MediaCrawler 抖音采集的生产机才需要这一步。主站会自动检查 `ss-monitor-douyin-crawl.service`、采集调度状态文件、MediaCrawler 登录 profile 和 cookie 配置；当抖音登录态异常时，页面顶部会出现“远程登录”按钮。按钮会请求主站后端启动一个临时 noVNC 桌面会话，然后跳转到 noVNC 页面。
+
+先安装 VNC / noVNC 依赖。Ubuntu / Debian 常见安装方式：
+
+```bash
+sudo apt-get install -y tigervnc-standalone-server tigervnc-tools novnc websockify
+```
+
+如果 noVNC 不是安装在 `/opt/novnc`，在 `.env` 里写入实际目录，例如 Debian/Ubuntu 包常见路径：
+
+```bash
+sudo sed -i 's#^BETTAFISH_DOUYIN_REMOTE_NOVNC_DIR=.*#BETTAFISH_DOUYIN_REMOTE_NOVNC_DIR=/usr/share/novnc#' /opt/ss-monitor/.env
+```
+
+如果你的发行版把 `novnc_proxy` 和 Web 文件拆在不同目录，可分别设置 `BETTAFISH_DOUYIN_REMOTE_NOVNC_PROXY` 和 `BETTAFISH_DOUYIN_REMOTE_NOVNC_WEB`。
+
+写入远程登录配置。`BETTAFISH_DOUYIN_REMOTE_PASSWORD` 是 VNC 访问密码，只能保存在服务器本地 `.env`，不要写进 Git、聊天记录或 Release note。
+
+```bash
+sudo tee -a /opt/ss-monitor/.env >/dev/null <<'ENV'
+DOUYIN_REMOTE_LOGIN_URL=http://服务器IP:6088/vnc.html?autoconnect=true&resize=scale
+DOUYIN_REMOTE_LOGIN_SERVICE=ss-monitor-douyin-remote-login.service
+BETTAFISH_DOUYIN_REMOTE_NOVNC_PORT=6088
+BETTAFISH_DOUYIN_REMOTE_VNC_PORT=5988
+BETTAFISH_DOUYIN_REMOTE_PASSWORD=换成服务器本地密码
+ENV
+```
+
+安装远程登录 unit，并只授权主站运行用户启动或停止这个 unit：
+
+```bash
+sudo cp /opt/ss-monitor/current/scripts/ss-monitor-douyin-remote-login.service /etc/systemd/system/
+sudo tee /etc/sudoers.d/ss-monitor-douyin-remote-login >/dev/null <<'SUDOERS'
+yq ALL=(root) NOPASSWD: /usr/bin/systemctl start ss-monitor-douyin-remote-login.service, /usr/bin/systemctl stop ss-monitor-douyin-remote-login.service, /usr/bin/systemctl is-active ss-monitor-douyin-remote-login.service, /usr/bin/systemctl status ss-monitor-douyin-remote-login.service
+SUDOERS
+sudo chmod 440 /etc/sudoers.d/ss-monitor-douyin-remote-login
+sudo visudo -cf /etc/sudoers.d/ss-monitor-douyin-remote-login
+sudo systemctl daemon-reload
+sudo cp /opt/ss-monitor/.env /opt/ss-monitor/current/.env
+sudo systemctl restart ss-monitor
+```
+
+上面的 unit 和 sudoers 示例假设生产运行用户是 `yq`。如果你的 `ss-monitor.service` 使用其他 `User=`，需要把两处 `yq` 改成实际运行用户；如果主站不以普通用户运行，请先评估权限边界再启用远程登录入口。
+
+验证入口：
+
+```bash
+curl -I http://127.0.0.1:8787/api/douyin/remote-login
+curl -I http://服务器IP:6088/vnc.html
+sudo systemctl stop ss-monitor-douyin-remote-login
+sudo systemctl show ss-monitor-douyin-remote-login.service -p ActiveState -p Result --no-pager
+```
+
+正常情况下，第一次请求会让 `/api/douyin/remote-login` 返回 302 到 noVNC 页面；手动停止后 unit 应为 `inactive` / `success`。远程登录会复用服务器上的 MediaCrawler profile，不要复制本地工作站 cookie 到生产机。
+
 ### 第 9 步：换成自己的项目
 
 编辑这个文件：
@@ -252,7 +309,7 @@ npm run test:semantic-guard
 .\scripts\create-deploy-archive.ps1 -OutputPath "$env:TEMP\ss-monitor-<version>.tar.gz"
 ```
 
-`create-deploy-archive.ps1` 会先执行 `npm run build`，再把 Git 归档和新生成的 `dist/` 打进压缩包。归档文件本身、`.env*`、`data/`、`node_modules/`、浏览器 profile、cookie、缓存、媒体下载和报告输出都不应进入 Git。
+`create-deploy-archive.ps1` 要求工作区干净，避免源码来自 `HEAD`、前端 `dist/` 却来自未提交工作区的混合产物。脚本会先执行 `npm run build`，再把 Git 归档和新生成的 `dist/` 打进压缩包。归档文件本身、`.env*`、`data/`、`node_modules/`、浏览器 profile、cookie、缓存、媒体下载和报告输出都不应进入 Git。
 
 ## 关键配置
 
@@ -263,6 +320,7 @@ npm run test:semantic-guard
 - 基础采集：B 站和贴吧 cookie，可留空；被风控时再在服务器本地配置。
 - 当前版本重点：Confluence 页面和访问凭证，只放在服务器本地。
 - 抖音数据：优先使用授权导出、授权 API、MindSpider / MediaCrawler 输出或数据库读取。
+- 抖音状态：生产机可通过 `/api/douyin/status` 暴露登录态和采集状态；登录态异常时可配置 noVNC 远程登录入口。
 - BettaFish：完整运行时独立维护在本项目之外，本项目只读取它的状态、导出数据或本地语义模型结果。
 - DingTalk：只配置每日简报机器人；测试接口仅允许本机访问。
 - 状态文件：建议放在 `/opt/ss-monitor/state` 或 `/opt/ss-monitor/data`，并保持目录不入 Git。

@@ -6,6 +6,10 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $commit = (git -C $repoRoot rev-parse --short HEAD).Trim()
+$dirty = (git -C $repoRoot status --porcelain)
+if ($dirty) {
+  throw "Working tree must be clean before creating a deploy archive. Commit or stash changes first.`n$dirty"
+}
 if (-not $OutputPath) {
   $OutputPath = Join-Path $env:LOCALAPPDATA "Temp\ss-monitor-$commit.tar.gz"
 }

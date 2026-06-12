@@ -51,11 +51,22 @@ BROWSER="${DOUYIN_SERVER_BROWSER:-$BETTAFISH_ROOT/playwright-browsers/chromium-1
 if [ ! -x "$BROWSER" ] && command -v google-chrome >/dev/null 2>&1; then
   BROWSER="$(command -v google-chrome)"
 fi
+XVNC="${BETTAFISH_DOUYIN_REMOTE_XVNC:-$(command -v Xvnc 2>/dev/null || true)}"
 
 RUNTIME_DIR="${BETTAFISH_DOUYIN_REMOTE_RUNTIME_DIR:-$BETTAFISH_ROOT/runtime/douyin-remote-login}"
 DISPLAY_NUM="${BETTAFISH_DOUYIN_REMOTE_DISPLAY:-88}"
 VNC_PORT="${BETTAFISH_DOUYIN_REMOTE_VNC_PORT:-5988}"
 NOVNC_PORT="${BETTAFISH_DOUYIN_REMOTE_NOVNC_PORT:-6088}"
+NOVNC_DIR="${BETTAFISH_DOUYIN_REMOTE_NOVNC_DIR:-}"
+if [ -z "$NOVNC_DIR" ]; then
+  if [ -x /opt/novnc/utils/novnc_proxy ]; then
+    NOVNC_DIR="/opt/novnc"
+  elif [ -x /usr/share/novnc/utils/novnc_proxy ]; then
+    NOVNC_DIR="/usr/share/novnc"
+  fi
+fi
+NOVNC_PROXY="${BETTAFISH_DOUYIN_REMOTE_NOVNC_PROXY:-$NOVNC_DIR/utils/novnc_proxy}"
+NOVNC_WEB="${BETTAFISH_DOUYIN_REMOTE_NOVNC_WEB:-$NOVNC_DIR}"
 GEOMETRY="${BETTAFISH_DOUYIN_REMOTE_GEOMETRY:-1920x1080}"
 VNC_PASSWORD="${BETTAFISH_DOUYIN_REMOTE_PASSWORD:-${DOUYIN_REMOTE_LOGIN_PASSWORD:-}}"
 VNC_PASSWD_FILE="$RUNTIME_DIR/vnc.passwd"
@@ -77,12 +88,16 @@ if [ ! -x "$BROWSER" ]; then
   echo "Browser executable not found: $BROWSER" >&2
   exit 1
 fi
-if [ ! -x /usr/bin/Xvnc ]; then
+if [ ! -x "$XVNC" ]; then
   echo "Xvnc is required for Douyin remote login." >&2
   exit 1
 fi
-if [ ! -x /opt/novnc/utils/novnc_proxy ]; then
-  echo "noVNC is required at /opt/novnc." >&2
+if [ ! -x "$NOVNC_PROXY" ]; then
+  echo "noVNC proxy is required. Set BETTAFISH_DOUYIN_REMOTE_NOVNC_DIR or BETTAFISH_DOUYIN_REMOTE_NOVNC_PROXY." >&2
+  exit 1
+fi
+if [ ! -d "$NOVNC_WEB" ]; then
+  echo "noVNC web root is required. Set BETTAFISH_DOUYIN_REMOTE_NOVNC_DIR or BETTAFISH_DOUYIN_REMOTE_NOVNC_WEB." >&2
   exit 1
 fi
 
@@ -93,7 +108,7 @@ trap cleanup EXIT
 trap 'cleanup; exit 0' INT TERM
 
 rm -f "/tmp/.X${DISPLAY_NUM}-lock"
-Xvnc ":$DISPLAY_NUM" \
+"$XVNC" ":$DISPLAY_NUM" \
   -geometry "$GEOMETRY" \
   -depth 24 \
   -rfbport "$VNC_PORT" \
@@ -110,10 +125,10 @@ for _ in $(seq 1 30); do
   sleep 0.5
 done
 
-/opt/novnc/utils/novnc_proxy \
+"$NOVNC_PROXY" \
   --listen "0.0.0.0:$NOVNC_PORT" \
   --vnc "127.0.0.1:$VNC_PORT" \
-  --web /opt/novnc \
+  --web "$NOVNC_WEB" \
   > "$RUNTIME_DIR/novnc.log" 2>&1 &
 
 export DISPLAY=":$DISPLAY_NUM"
