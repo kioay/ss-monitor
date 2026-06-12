@@ -57,7 +57,11 @@ export async function startDouyinRemoteLogin(hostHeader = "") {
     return { ok: false, url, message: "远程登录入口仅在生产 Linux 服务上启动" };
   }
 
-  const result = await runCommand("systemctl", ["start", runtimeConfig.douyinRemoteLoginServiceName], 15_000);
+  const serviceName = runtimeConfig.douyinRemoteLoginServiceName;
+  const useSudo = typeof process.getuid === "function" && process.getuid() !== 0;
+  const result = useSudo
+    ? await runCommand("sudo", ["-n", "systemctl", "start", serviceName], 15_000)
+    : await runCommand("systemctl", ["start", serviceName], 15_000);
   if (!result.ok) {
     return {
       ok: false,
