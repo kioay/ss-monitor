@@ -7,6 +7,7 @@
 - Added deployment documentation for the Douyin remote-login unit, sudoers boundary, noVNC paths, and verification commands.
 - Hardened release archive generation so deploy archives require a clean Git working tree and always bundle a freshly generated `dist/`.
 - Expanded generated GitHub Release notes with copy-paste deployment, upgrade, verification, and troubleshooting steps.
+- Added Douyin login-state and noVNC remote-login setup instructions to generated GitHub Release notes.
 
 ## 2026-06-08
 
