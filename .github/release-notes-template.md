@@ -1,0 +1,193 @@
+# SS Monitor {{TAG}} 部署包
+
+这个包适合部署到内网 Linux 服务器。包里已经包含源码快照和本次新生成的 `dist/` 前端目录，所以服务器上只需要安装生产依赖并启动服务，不需要再执行前端构建。
+
+## 先看懂这 4 件事
+
+1. 服务器建议用 Ubuntu / Debian，Node.js 需要 20 或更高版本。
+2. release 附件里下载 `ss-monitor-{{TAG}}.tar.gz`，不要下载 GitHub 自动生成的 Source code zip / tar.gz 来部署。
+3. 真实配置只放服务器本地 `/opt/ss-monitor/.env`，不要写进 Git、聊天记录、Issue 或 Release note。
+4. 升级时保留 `/opt/ss-monitor/.env`、`/opt/ss-monitor/data` 和 `/opt/ss-monitor/state`，只替换 `/opt/ss-monitor/current` 指向的新版本。
+
+## 第一次部署：照抄命令版
+
+### 1. 安装系统工具和 Node.js
+
+```bash
+sudo apt-get update
+sudo apt-get install -y curl ca-certificates tar
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs
+node -v
+npm -v
+```
+
+看到 `node -v` 是 `v20`、`v22` 或更高，就可以继续。
+
+### 2. 下载本次部署包
+
+```bash
+VERSION={{TAG}}
+curl -L -o /tmp/ss-monitor-${VERSION}.tar.gz \
+  https://github.com/kioay/ss-monitor/releases/download/${VERSION}/ss-monitor-${VERSION}.tar.gz
+```
+
+### 3. 解压到固定目录
+
+```bash
+VERSION={{TAG}}
+sudo mkdir -p /opt/ss-monitor/releases/ss-monitor-${VERSION}
+sudo mkdir -p /opt/ss-monitor/state /opt/ss-monitor/data
+sudo tar -xzf /tmp/ss-monitor-${VERSION}.tar.gz -C /opt/ss-monitor/releases/ss-monitor-${VERSION}
+sudo ln -sfn /opt/ss-monitor/releases/ss-monitor-${VERSION} /opt/ss-monitor/current
+```
+
+目录含义：
+
+- `/opt/ss-monitor/current`：当前运行版本。
+- `/opt/ss-monitor/.env`：服务器真实配置，升级时继续沿用。
+- `/opt/ss-monitor/data`：导入数据、自定义项目配置，不能进 Git。
+- `/opt/ss-monitor/state`：运行状态文件，不能进 Git。
+
+### 4. 安装生产依赖
+
+```bash
+cd /opt/ss-monitor/current
+npm ci --omit=dev
+```
+
+### 5. 创建最小配置
+
+```bash
+sudo cp /opt/ss-monitor/current/.env.example /opt/ss-monitor/.env
+sudo sed -i 's#^HOST=.*#HOST=0.0.0.0#' /opt/ss-monitor/.env
+sudo sed -i 's#^MONITOR_GAMES_PATH=.*#MONITOR_GAMES_PATH=/opt/ss-monitor/data/monitor-games.json#' /opt/ss-monitor/.env
+sudo sed -i 's#^BETTAFISH_SEMANTIC_ENABLED=.*#BETTAFISH_SEMANTIC_ENABLED=false#' /opt/ss-monitor/.env
+sudo sed -i 's#^MINDSPIDER_DOUYIN_ENABLED=.*#MINDSPIDER_DOUYIN_ENABLED=false#' /opt/ss-monitor/.env
+```
+
+如果只是先确认页面能跑，可以写一个单项目配置：
+
+```bash
+sudo tee /opt/ss-monitor/data/monitor-games.json >/dev/null <<'JSON'
+{
+  "games": [
+    {
+      "id": "out-of-control",
+      "name": "失控进化",
+      "shortName": "失控进化",
+      "bilibiliKeywords": ["失控进化"],
+      "douyinKeywords": ["失控进化"],
+      "tiebaBars": ["失控进化"]
+    }
+  ]
+}
+JSON
+```
+
+同步配置到当前 release 目录：
+
+```bash
+sudo cp /opt/ss-monitor/.env /opt/ss-monitor/current/.env
+```
+
+### 6. 先手动启动一次
+
+```bash
+cd /opt/ss-monitor/current
+npm run start
+```
+
+看到类似下面的输出就说明服务启动了：
+
+```text
+Sentiment monitor listening on http://0.0.0.0:8787
+```
+
+浏览器访问：
+
+```text
+http://服务器IP:8787/
+```
+
+页面能打开后，回到终端按 `Ctrl+C` 停掉手动进程，再继续设置后台服务。
+
+### 7. 设置 systemd 后台服务
+
+```bash
+sudo tee /etc/systemd/system/ss-monitor.service >/dev/null <<'SERVICE'
+[Unit]
+Description=SS Monitor
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/ss-monitor/current
+EnvironmentFile=/opt/ss-monitor/.env
+ExecStart=/usr/bin/npm run start
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+SERVICE
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now ss-monitor
+sudo systemctl status ss-monitor --no-pager
+```
+
+### 8. 验证部署成功
+
+```bash
+curl http://127.0.0.1:8787/api/health
+curl http://127.0.0.1:8787/api/config
+```
+
+然后用浏览器打开：
+
+```text
+http://服务器IP:8787/
+```
+
+能看到页面，并且项目筛选里出现你配置的项目名，就算主流程部署完成。
+
+## 以后升级怎么做
+
+只需要重复下载、解压、安装依赖、同步配置、重启服务：
+
+```bash
+VERSION={{TAG}}
+curl -L -o /tmp/ss-monitor-${VERSION}.tar.gz \
+  https://github.com/kioay/ss-monitor/releases/download/${VERSION}/ss-monitor-${VERSION}.tar.gz
+sudo mkdir -p /opt/ss-monitor/releases/ss-monitor-${VERSION}
+sudo tar -xzf /tmp/ss-monitor-${VERSION}.tar.gz -C /opt/ss-monitor/releases/ss-monitor-${VERSION}
+sudo ln -sfn /opt/ss-monitor/releases/ss-monitor-${VERSION} /opt/ss-monitor/current
+cd /opt/ss-monitor/current
+npm ci --omit=dev
+sudo cp /opt/ss-monitor/.env /opt/ss-monitor/current/.env
+sudo systemctl restart ss-monitor
+sudo systemctl status ss-monitor --no-pager
+```
+
+## 常见问题
+
+- 页面打不开：先看 `sudo systemctl status ss-monitor --no-pager`，确认服务是不是 running。
+- 本机能访问，其他电脑不能访问：确认 `/opt/ss-monitor/.env` 里是 `HOST=0.0.0.0`，并检查服务器防火墙是否放行 `8787`。
+- 页面打开但没有数据：先看页面里的来源健康状态；B 站或贴吧被风控时，再在服务器本地 `.env` 配置对应 cookie。
+- 改了 `.env` 但没有生效：执行 `sudo cp /opt/ss-monitor/.env /opt/ss-monitor/current/.env && sudo systemctl restart ss-monitor`。
+- 需要接入 DingTalk、Confluence、BettaFish、MindSpider 或抖音远程登录：先完成上面的最小部署，再按 README 里的对应章节补配置。
+
+## 这个包包含什么、不包含什么
+
+包含：
+
+- Git 源码快照。
+- 本次 release 新生成的 `dist/` 前端静态文件。
+
+不包含：
+
+- `.env`、真实凭据、cookies、浏览器 profile。
+- 运行时数据、缓存、下载媒体、生成报告。
+- `node_modules` 和部署归档本身。
+
+维护者发布新包时应使用 `scripts/create-deploy-archive.ps1` 或等价流程，确保归档包含 fresh `dist/`，并继续把密钥和运行时状态留在服务器本地。

@@ -6,6 +6,7 @@
 - Added a server-side noVNC remote-login path so operators can open the production MediaCrawler browser profile when Douyin login needs manual verification.
 - Added deployment documentation for the Douyin remote-login unit, sudoers boundary, noVNC paths, and verification commands.
 - Hardened release archive generation so deploy archives require a clean Git working tree and always bundle a freshly generated `dist/`.
+- Expanded generated GitHub Release notes with copy-paste deployment, upgrade, verification, and troubleshooting steps.
 
 ## 2026-06-08
 

@@ -60,14 +60,7 @@ jobs:
       - name: Write release notes
         shell: bash
         run: |
-          cat > release-notes.md <<'NOTES'
-          SS Monitor release package for internal-machine deployments.
-
-          - Includes the Git source snapshot plus a freshly generated `dist/` directory.
-          - Excludes `.env`, local credentials, cookies, runtime data, caches, `node_modules`, and deploy archives.
-          - Deploy with Node.js 20+ using `npm ci --omit=dev` and `npm run start`.
-          - Copy `.env.example` to the target server's local `.env` and fill real secrets only on that server.
-          NOTES
+          sed "s#{{TAG}}#${GITHUB_REF_NAME}#g" .github/release-notes-template.md > release-notes.md
 
       - name: Publish GitHub Release
         env:
