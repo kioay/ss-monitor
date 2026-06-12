@@ -2,7 +2,7 @@ import { negativeWords, positiveWords, topicLexicon } from "./config";
 import { matchCurrentVersionTerms } from "./currentVersion";
 import { ss1WeaponNames } from "./domainSafeTerms";
 import { clamp, compactText, uniq } from "./utils";
-import type { ContentPart, GameId, MonitorItem, RiskLevel, Sentiment } from "../src/shared";
+import { currentAnalysisVersion, type ContentPart, type GameId, type MonitorItem, type RiskLevel, type Sentiment } from "../src/shared";
 
 interface AnalyzeInput {
   contentParts: ContentPart[];
@@ -31,7 +31,7 @@ interface ContextProfile {
   eventUnlockDiscussion: boolean;
 }
 
-export const analysisRulesVersion = 2;
+export const analysisRulesVersion = currentAnalysisVersion;
 
 const audiencePartTypes = new Set<ContentPart["type"]>(["comment", "danmaku", "post"]);
 const authorPartTypes = new Set<ContentPart["type"]>(["title", "description", "subtitle"]);
@@ -616,6 +616,10 @@ function isNeutralPositiveQuestion(prefix: string, word: string) {
 }
 
 function isFalsePositivePraiseContext(prefix: string, suffix: string, word: string) {
+  if (word === "准") {
+    if (/(不|别|勿|莫)$/.test(prefix)) return true;
+    if (/(标|瞄|校|批|核|水|基|允|获)$/.test(prefix)) return true;
+  }
   if (word === "强") {
     if (/(加|增|变|削)$/.test(prefix)) return true;
     if (/^(行|制|迫|绑|开|化|度|调|求)/.test(suffix)) return true;
@@ -633,7 +637,10 @@ function partWeight(type: ContentPart["type"]) {
 }
 
 function isSkillShowcase(content: string) {
-  return skillShowcaseWords.some((word) => content.includes(word));
+  return skillShowcaseWords.some((word) => {
+    if (word === "准") return countPositiveSignalOccurrences(content, word).positive > 0;
+    return content.includes(word);
+  });
 }
 
 function maskDomainSafeTerms(content: string, gameId: GameId) {

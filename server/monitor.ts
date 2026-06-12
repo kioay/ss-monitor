@@ -117,6 +117,7 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
     generatedAt: generatedAt.toISOString(),
     windowHours: query.windowHours,
     freshnessCutoff: cutoff.toISOString(),
+    analysisVersion: analysisRulesVersion,
     riskBacktest,
     updatePolicy: responseUpdatePolicy,
     cache: {

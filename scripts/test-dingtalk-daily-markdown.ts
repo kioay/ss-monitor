@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { currentAnalysisVersion } from "../src/shared";
 import type { MonitorItem, MonitorResponse } from "../src/shared";
 
 const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "ss-monitor-dingtalk-test-"));
@@ -42,6 +43,7 @@ function makeResponse(items: MonitorItem[]): MonitorResponse {
     generatedAt: "2026-06-11T01:00:00.000Z",
     windowHours: 72,
     freshnessCutoff: "2026-06-08T01:00:00.000Z",
+    analysisVersion: currentAnalysisVersion,
     riskBacktest: {
       status: "passed",
       message: "风险回测通过",

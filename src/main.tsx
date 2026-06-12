@@ -20,6 +20,7 @@ import {
   Video,
   Waves
 } from "lucide-react";
+import { currentAnalysisVersion } from "./shared";
 import type {
   BettaFishActionResponse,
   BettaFishCapability,
@@ -375,6 +376,7 @@ function readCachedMonitor(key: string) {
     const payload = JSON.parse(raw) as { cachedAt: number; data: MonitorResponse };
     if (!payload?.cachedAt || Date.now() - payload.cachedAt > clientCacheMaxAgeMs) return undefined;
     if (payload.data?.riskBacktest?.status !== "passed") return undefined;
+    if (payload.data?.analysisVersion !== currentAnalysisVersion) return undefined;
     return payload.data;
   } catch {
     return undefined;

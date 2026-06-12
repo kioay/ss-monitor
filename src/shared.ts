@@ -4,6 +4,8 @@ export type Sentiment = "positive" | "neutral" | "negative" | "mixed";
 export type RiskLevel = "low" | "medium" | "high";
 export type RiskSignalSource = "thread" | "new_reply" | "stale_thread";
 
+export const currentAnalysisVersion = 3;
+
 export interface GameConfig {
   id: GameId;
   name: string;
@@ -122,6 +124,7 @@ export interface MonitorResponse {
   generatedAt: string;
   windowHours: number;
   freshnessCutoff: string;
+  analysisVersion: number;
   riskBacktest: RiskBacktestStatus;
   updatePolicy: {
     mode: "day" | "night";
