@@ -638,16 +638,26 @@ function App() {
     return configuredGames.map((game) => game.id);
   }, [config?.games]);
   const monitorTitle = React.useMemo(() => makeMonitorTitle(config?.games || []), [config?.games]);
+  React.useEffect(() => {
+    document.title = monitorTitle;
+  }, [monitorTitle]);
   const gameOptions = React.useMemo(() => {
     const configuredGames = config?.games || [];
+    if (configuredGames.length <= 1) {
+      return configuredGames.map((game) => ({ key: game.id, label: game.shortName, ids: [game.id] }));
+    }
     return [
       { key: "all", label: "全部", ids: configuredGameIds },
       ...configuredGames.map((game) => ({ key: game.id, label: game.shortName, ids: [game.id] }))
     ];
   }, [config?.games, configuredGameIds]);
+  const gameLabelById = React.useMemo(
+    () => new Map((config?.games || []).map((game) => [game.id, game.shortName || game.name])),
+    [config?.games]
+  );
   const visibleHealth = React.useMemo(
-    () => makeVisibleHealth(data?.health || [], sameGameSelection(selectedGames, configuredGameIds)),
-    [configuredGameIds, data?.health, selectedGames]
+    () => makeVisibleHealth(data?.health || [], sameGameSelection(selectedGames, configuredGameIds), gameLabelById),
+    [configuredGameIds, data?.health, gameLabelById, selectedGames]
   );
   const topicOptions = React.useMemo(() => makeTopicOptions(data?.items || []), [data?.items]);
   const maxTopicCount = React.useMemo(
@@ -2527,7 +2537,7 @@ function makeMonitorTitle(games: GameConfig[]) {
   return `${names}${games.length > 2 ? "等" : ""}舆情监测`;
 }
 
-function makeVisibleHealth(health: SourceHealth[], aggregateBySource: boolean) {
+function makeVisibleHealth(health: SourceHealth[], aggregateBySource: boolean, gameLabelById: Map<GameId, string>) {
   const visibleHealth = health.filter((entry) => entry.source !== "bettafish");
   if (!aggregateBySource) return visibleHealth;
   const bySource = new Map<SourceType, SourceHealth[]>();
@@ -2538,7 +2548,9 @@ function makeVisibleHealth(health: SourceHealth[], aggregateBySource: boolean) {
   return Array.from(bySource.values())
     .map((entries) => {
       const [first] = entries;
-      const gameLabels = entries.map((entry) => entry.gameId?.toUpperCase()).filter((value): value is string => Boolean(value));
+      const gameLabels = entries
+        .map((entry) => entry.gameId ? gameLabelById.get(entry.gameId) || entry.gameId.toUpperCase() : "")
+        .filter((value): value is string => Boolean(value));
       const issueMessages = Array.from(new Set(entries.filter((entry) => !entry.ok || entry.blocked).map((entry) => entry.message).filter(Boolean)));
       const fetchedAt = entries.reduce((latest, entry) => (new Date(entry.fetchedAt).getTime() > new Date(latest).getTime() ? entry.fetchedAt : latest), first.fetchedAt);
       return {
