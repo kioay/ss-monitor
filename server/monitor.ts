@@ -10,6 +10,7 @@ import { analysisRulesVersion } from "./analyze";
 import { refineItemsWithBettaFishSemantic } from "./bettafishSemantic";
 import { refreshCurrentVersionFocus } from "./currentVersion";
 import { mergeMonitorHistory } from "./monitorHistory";
+import { ensureRiskBacktest } from "./riskBacktest";
 import type {
   AlertItem,
   BettaFishPanelCapability,
@@ -76,12 +77,14 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
   const query = parseMonitorQuery(rawQuery);
   const gameIds = query.selectedGames.map((game) => game.id);
   const cacheKey = `${gameIds.join(",")}:${query.windowHours}:${query.limit}`;
+  const riskBacktest = await ensureRiskBacktest();
   const cached = cache.get(cacheKey);
   const now = Date.now();
   const currentPolicy = getUpdatePolicy(new Date(now), new Date(cached?.createdAt || now));
   if (!query.force && cached && now - cached.createdAt < currentPolicy.intervalSeconds * 1000) {
     return {
       ...cached.response,
+      riskBacktest,
       updatePolicy: currentPolicy,
       cache: {
         hit: true,
@@ -114,6 +117,7 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
     generatedAt: generatedAt.toISOString(),
     windowHours: query.windowHours,
     freshnessCutoff: cutoff.toISOString(),
+    riskBacktest,
     updatePolicy: responseUpdatePolicy,
     cache: {
       hit: collectionIsStale,

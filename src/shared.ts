@@ -122,6 +122,7 @@ export interface MonitorResponse {
   generatedAt: string;
   windowHours: number;
   freshnessCutoff: string;
+  riskBacktest: RiskBacktestStatus;
   updatePolicy: {
     mode: "day" | "night";
     intervalSeconds: number;
@@ -142,6 +143,16 @@ export interface MonitorResponse {
   health: SourceHealth[];
   bettafishCapabilities?: BettaFishPanelCapability[];
   items: MonitorItem[];
+}
+
+export interface RiskBacktestStatus {
+  status: "idle" | "running" | "passed" | "failed";
+  startedAt?: string;
+  finishedAt?: string;
+  durationMs?: number;
+  caseCount?: number;
+  message: string;
+  details?: string;
 }
 
 export type SearchResultOrigin = "monitor-history" | "mindspider-douyin-db";

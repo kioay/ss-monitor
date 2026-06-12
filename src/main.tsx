@@ -374,6 +374,7 @@ function readCachedMonitor(key: string) {
     if (!raw) return undefined;
     const payload = JSON.parse(raw) as { cachedAt: number; data: MonitorResponse };
     if (!payload?.cachedAt || Date.now() - payload.cachedAt > clientCacheMaxAgeMs) return undefined;
+    if (payload.data?.riskBacktest?.status !== "passed") return undefined;
     return payload.data;
   } catch {
     return undefined;
@@ -505,7 +506,10 @@ function App() {
           ...(force ? { force: "1" } : {})
         });
         const response = await fetch(`${api.monitor}?${params.toString()}`);
-        if (!response.ok) throw new Error(`API ${response.status}`);
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({})) as { message?: string };
+          throw new Error(payload.message || `API ${response.status}`);
+        }
         const payload = (await response.json()) as MonitorResponse;
         if (latestRequestRef.current !== requestId) return;
         setData(payload);
@@ -513,7 +517,9 @@ function App() {
         void loadDouyinStatus(force);
       } catch (reason) {
         if (latestRequestRef.current !== requestId) return;
-        if (!cachedPayload) setError(reason instanceof Error ? reason.message : String(reason));
+        const message = reason instanceof Error ? reason.message : String(reason);
+        setError(message);
+        if (message.includes("风险回测失败")) setData(undefined);
       } finally {
         if (latestRequestRef.current === requestId) setLoading(false);
       }
@@ -653,14 +659,18 @@ function App() {
     });
   }, [data?.items, query, risk, sentiment, source, topic]);
   const searchActive = query.trim().length > 0;
+  const monitorJudgementPending = loading && !searchActive;
+  const visibleRiskBacktest: MonitorResponse["riskBacktest"] | undefined = monitorJudgementPending
+    ? { status: "running", message: "回测中" }
+    : data?.riskBacktest;
   const searchResults = searchData?.items || [];
-  const feedItemsTotal = searchActive ? searchResults.length : filteredItems.length;
+  const feedItemsTotal = monitorJudgementPending ? 0 : searchActive ? searchResults.length : filteredItems.length;
   const visibleFeedCount = Math.min(visibleItemLimit, feedItemsTotal);
   const visibleSearchResults = searchActive ? searchResults.slice(0, visibleItemLimit) : [];
-  const visibleFilteredItems = searchActive ? [] : filteredItems.slice(0, visibleItemLimit);
+  const visibleFilteredItems = searchActive || monitorJudgementPending ? [] : filteredItems.slice(0, visibleItemLimit);
   const selectedAlert = React.useMemo(
-    () => (data?.alerts || []).find((alert) => alert.id === selectedAlertId),
-    [data?.alerts, selectedAlertId]
+    () => (monitorJudgementPending ? undefined : (data?.alerts || []).find((alert) => alert.id === selectedAlertId)),
+    [data?.alerts, monitorJudgementPending, selectedAlertId]
   );
   const selectedAlertItem = React.useMemo(
     () => (selectedAlert ? (data?.items || []).find((item) => item.id === selectedAlert.id) : undefined),
@@ -770,8 +780,9 @@ function App() {
         <div className="top-actions">
           <span className="timestamp">
             <Clock3 size={16} aria-hidden="true" />
-            {data ? formatDateTime(data.generatedAt) : "等待采集"}
+            {monitorJudgementPending ? "回测中" : data ? formatDateTime(data.generatedAt) : "等待采集"}
           </span>
+          <RiskBacktestBadge status={visibleRiskBacktest} />
           {visiblePolicy ? <UpdatePolicyBadge policy={visiblePolicy} /> : null}
           <DouyinStatusNotice status={douyinStatus} />
           <button className="icon-button primary" type="button" onClick={() => load(true)} disabled={loading} title="强制刷新" aria-label="强制刷新舆情看板">
@@ -820,21 +831,21 @@ function App() {
       {error || searchError ? <div className="error-strip" role="alert" aria-live="polite">{error || searchError}</div> : null}
 
       <section className="metrics-grid">
-        <Metric label="总声量" value={data?.stats.total ?? 0} tone="green" hint="跳到全部条目" onClick={() => jumpToFeed()} />
-        <Metric label="高风险" value={data?.stats.highRisk ?? 0} tone="red" hint="跳到高风险预警" onClick={jumpToAlerts} />
+        <Metric label="总声量" value={monitorJudgementPending ? "回测中" : data?.stats.total ?? 0} tone="green" hint={monitorJudgementPending ? "回测完成后显示" : "跳到全部条目"} onClick={monitorJudgementPending ? undefined : () => jumpToFeed()} />
+        <Metric label="高风险" value={monitorJudgementPending ? "回测中" : data?.stats.highRisk ?? 0} tone="red" hint={monitorJudgementPending ? "回测完成后显示" : "跳到高风险预警"} onClick={monitorJudgementPending ? undefined : jumpToAlerts} />
         <Metric
           label="负面占比"
-          value={`${Math.round((data?.stats.negativeRate ?? 0) * 100)}%`}
+          value={monitorJudgementPending ? "回测中" : `${Math.round((data?.stats.negativeRate ?? 0) * 100)}%`}
           tone="gold"
-          hint="筛选负面条目"
-          onClick={() => jumpToFeed({ sentiment: "negative" })}
+          hint={monitorJudgementPending ? "回测完成后显示" : "筛选负面条目"}
+          onClick={monitorJudgementPending ? undefined : () => jumpToFeed({ sentiment: "negative" })}
         />
         <Metric
           label="B站 / 贴吧 / 抖音"
           tone="blue"
-          hint="分别跳到来源条目"
+          hint={monitorJudgementPending ? "回测完成后显示" : "分别跳到来源条目"}
           value={
-            <span className="split-metric">
+            monitorJudgementPending ? "回测中" : <span className="split-metric">
               <button type="button" aria-label="筛选 B站条目" onClick={() => jumpToFeed({ source: "bilibili" })}>{data?.stats.bilibili ?? 0}</button>
               <i>/</i>
               <button type="button" aria-label="筛选贴吧条目" onClick={() => jumpToFeed({ source: "tieba" })}>{data?.stats.tieba ?? 0}</button>
@@ -922,7 +933,9 @@ function App() {
           <h2>风险预警</h2>
         </div>
         <div className="alert-list">
-          {(data?.alerts || []).length ? (
+          {monitorJudgementPending ? (
+            <p className="empty">回测中</p>
+          ) : (data?.alerts || []).length ? (
             data?.alerts.map((alert) => (
               <RiskAlertCard
                 alert={alert}
@@ -951,7 +964,9 @@ function App() {
                   ? "检索中…"
                   : "等待检索"
               : data
-                ? `仅显示 ${formatDateTime(data.freshnessCutoff)} 之后的信息 · 当前显示 ${visibleFeedCount}/${feedItemsTotal} 条`
+                ? monitorJudgementPending
+                  ? "回测中"
+                  : `仅显示 ${formatDateTime(data.freshnessCutoff)} 之后的信息 · 当前显示 ${visibleFeedCount}/${feedItemsTotal} 条`
                 : "等待数据"}
           </p>
         </div>
@@ -986,15 +1001,18 @@ function App() {
       </section>
 
       <section className="feed-list">
-        {!searchActive && loading && !data ? <p className="empty">采集中…</p> : null}
+        {monitorJudgementPending ? <p className="empty">回测中</p> : null}
         {searchActive && searchLoading ? <p className="empty">检索中…</p> : null}
-        {searchActive
+        {!monitorJudgementPending && searchActive
           ? visibleSearchResults.map((result, index) => (
               <MonitorCard item={result.item} searchResult={result} highlightQuery={query} key={`${result.origin}-${result.item.id}-${index}`} />
             ))
-          : visibleFilteredItems.map((item) => (
+          : null}
+        {!monitorJudgementPending && !searchActive
+          ? visibleFilteredItems.map((item) => (
               <MonitorCard item={item} key={item.id} />
-            ))}
+            ))
+          : null}
         {feedItemsTotal > visibleFeedCount ? (
           <button className="load-more-button" type="button" onClick={() => setVisibleItemLimit((limit) => limit + feedBatchSize)}>
             加载更多 {Math.min(feedBatchSize, feedItemsTotal - visibleFeedCount)} 条
@@ -2003,6 +2021,24 @@ function BettaFishEffectStrip({ capabilities }: { capabilities: BettaFishPanelCa
         ))}
       </div>
     </section>
+  );
+}
+
+function RiskBacktestBadge({ status }: { status?: MonitorResponse["riskBacktest"] }) {
+  if (!status) return null;
+  const tone = status.status === "passed" ? "passed" : status.status === "failed" ? "failed" : status.status === "running" ? "running" : "idle";
+  const title = [
+    status.message,
+    status.caseCount ? `${status.caseCount} 个样本` : "",
+    status.durationMs ? `${status.durationMs} ms` : "",
+    status.details || ""
+  ].filter(Boolean).join(" · ");
+  return (
+    <span className={`risk-backtest-badge ${tone}`} title={title}>
+      {status.status === "passed" ? <CheckCircle2 size={14} aria-hidden="true" /> : <TestTube2 size={14} aria-hidden="true" />}
+      <b>{status.status === "running" ? "回测中" : status.status === "passed" ? "回测通过" : status.status === "failed" ? "回测失败" : "待回测"}</b>
+      {status.caseCount ? <small>{status.caseCount} 样本</small> : null}
+    </span>
   );
 }
 

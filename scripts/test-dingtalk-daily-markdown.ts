@@ -42,6 +42,11 @@ function makeResponse(items: MonitorItem[]): MonitorResponse {
     generatedAt: "2026-06-11T01:00:00.000Z",
     windowHours: 72,
     freshnessCutoff: "2026-06-08T01:00:00.000Z",
+    riskBacktest: {
+      status: "passed",
+      message: "风险回测通过",
+      caseCount: 10
+    },
     updatePolicy: {
       mode: "day",
       intervalSeconds: 3600,

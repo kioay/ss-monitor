@@ -10,6 +10,7 @@ import { sendDingTalkDailyReport, sendDingTalkTest } from "./dingtalk";
 import { getBettaFishLabResponse, runBettaFishLabAction } from "./bettafishLab";
 import { getDouyinCrawlStatus, startDouyinRemoteLogin } from "./douyinStatus";
 import { getMonitorResponse } from "./monitor";
+import { getRiskBacktestStatus } from "./riskBacktest";
 import { getSearchResponse } from "./search";
 import type { GameId } from "../src/shared";
 
@@ -34,6 +35,7 @@ app.get("/api/health", (_request, response) => {
     ok: true,
     generatedAt: new Date().toISOString(),
     updatePolicy: getUpdatePolicy(),
+    riskBacktest: getRiskBacktestStatus(),
     hasBilibiliCookie: Boolean(runtimeConfig.bilibiliCookie),
     hasBaiduCookie: Boolean(runtimeConfig.baiduCookie),
     hasBettaFishBaseUrl: Boolean(runtimeConfig.bettaFishBaseUrl)

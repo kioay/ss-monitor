@@ -2047,6 +2047,51 @@ button.metric:focus-visible {
   font-size: 10px;
 }
 
+.risk-backtest-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 4px 9px;
+  border: 1px solid rgba(63, 120, 168, 0.18);
+  border-radius: 8px;
+  background: rgba(247, 250, 248, 0.82);
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.risk-backtest-badge svg {
+  color: var(--blue);
+}
+
+.risk-backtest-badge b {
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.risk-backtest-badge small {
+  color: var(--muted);
+}
+
+.risk-backtest-badge.running {
+  border-color: rgba(182, 138, 51, 0.28);
+  background: rgba(255, 249, 229, 0.74);
+}
+
+.risk-backtest-badge.running svg {
+  color: var(--gold);
+}
+
+.risk-backtest-badge.failed {
+  border-color: rgba(199, 91, 72, 0.32);
+  background: rgba(255, 241, 237, 0.82);
+}
+
+.risk-backtest-badge.failed svg {
+  color: var(--red);
+}
+
 .bettafish-effect-strip {
   display: flex;
   align-items: center;
