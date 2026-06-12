@@ -1,5 +1,12 @@
 # 更新日志
 
+## 2026-06-12
+
+- Added a production Douyin status API and topbar warning for login-state or crawl failures.
+- Added a server-side noVNC remote-login path so operators can open the production MediaCrawler browser profile when Douyin login needs manual verification.
+- Added deployment documentation for the Douyin remote-login unit, sudoers boundary, noVNC paths, and verification commands.
+- Hardened release archive generation so deploy archives require a clean Git working tree and always bundle a freshly generated `dist/`.
+
 ## 2026-06-08
 
 - Added a monitor history pool so 7-day and 14-day Bilibili, Tieba, Douyin, and BettaFish windows are calculated from retained seen items instead of only the current fetch page.

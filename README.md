@@ -53,10 +53,10 @@ npm -v
 
 ### 第 2 步：下载 Release 包
 
-这里用当前推荐版本 `v0.1.5`。以后升级时只改 `VERSION`。
+这里用当前推荐版本 `v0.1.6`。以后升级时只改 `VERSION`。
 
 ```bash
-VERSION=v0.1.5
+VERSION=v0.1.6
 curl -L -o /tmp/ss-monitor-${VERSION}.tar.gz \
   https://github.com/kioay/ss-monitor/releases/download/${VERSION}/ss-monitor-${VERSION}.tar.gz
 ```
@@ -64,7 +64,7 @@ curl -L -o /tmp/ss-monitor-${VERSION}.tar.gz \
 ### 第 3 步：解压到固定目录
 
 ```bash
-VERSION=v0.1.5
+VERSION=v0.1.6
 sudo mkdir -p /opt/ss-monitor/releases/ss-monitor-${VERSION}
 sudo mkdir -p /opt/ss-monitor/state /opt/ss-monitor/data
 sudo tar -xzf /tmp/ss-monitor-${VERSION}.tar.gz -C /opt/ss-monitor/releases/ss-monitor-${VERSION}
