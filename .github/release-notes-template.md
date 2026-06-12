@@ -151,6 +151,47 @@ http://服务器IP:8787/
 
 能看到页面，并且项目筛选里出现你配置的项目名，就算主流程部署完成。
 
+## 可选：Confluence 当前版本重点和关键词同步
+
+内网生产机如果能访问 Confluence，可以让主站服务端自己刷新“当前版本重点”。刷新后会写入本地缓存，并把当前版本相关词、武器名和子页面关键词融合进 SS1 分析结果；命中后页面里会出现“当前版本重点”话题，条目的关键词也会带上这些版本词。
+
+配置只写在服务器本地 `/opt/ss-monitor/.env`，不要把真实 token 写进 Git、Issue、Release note 或聊天记录：
+
+```bash
+sudo mkdir -p /opt/ss-monitor/data
+sudo sed -i 's#^CONFLUENCE_PAGE_ID=.*#CONFLUENCE_PAGE_ID=231710712#' /opt/ss-monitor/.env
+sudo sed -i 's#^CURRENT_VERSION_FOCUS_CACHE_PATH=.*#CURRENT_VERSION_FOCUS_CACHE_PATH=/opt/ss-monitor/data/current-version-focus.json#' /opt/ss-monitor/.env
+sudo nano /opt/ss-monitor/.env
+```
+
+在编辑器里填入真实 token：
+
+```env
+CONFLUENCE_TOKEN=换成服务器本地真实Token
+```
+
+保存后同步配置并重启：
+
+```bash
+sudo cp /opt/ss-monitor/.env /opt/ss-monitor/current/.env
+sudo systemctl restart ss-monitor
+```
+
+触发一次监控刷新，让服务端立即去拉 Confluence：
+
+```bash
+curl 'http://127.0.0.1:8787/api/monitor?games=ss1&windowHours=72&force=1' >/tmp/ss-monitor-refresh.json
+```
+
+检查缓存文件是否生成，并查看识别到了多少关键词：
+
+```bash
+sudo test -s /opt/ss-monitor/data/current-version-focus.json
+node -e "const f=require('/opt/ss-monitor/data/current-version-focus.json'); console.log({version:f.version, versionPageId:f.versionPageId, terms:f.terms?.length||0, weaponTerms:f.weaponTerms?.length||0})"
+```
+
+正常情况下，服务端会每 24 小时刷新一次；Confluence 临时失败时会继续使用上一次缓存。现在生产机可以直接访问 Confluence 时，优先使用这种服务端自动刷新方式，不要依赖本地工作站每天同步。`npm run sync:confluence` 只作为“服务器无法直连 Confluence”时的手动 fallback。
+
 ## 可选：抖音登录态和远程登录入口
 
 只有已经部署完整 BettaFish / MediaCrawler 抖音采集的生产机才需要这一段。主站本身不会绕过抖音登录验证；它只负责检查采集服务、调度状态、MediaCrawler profile 和 cookie 配置。当登录态异常时，页面顶部会出现“远程登录”按钮，点击后会启动一个临时 noVNC 桌面，让运维人员在服务器侧按 MediaCrawler 支持的 `qrcode`、`phone` 或 `cookie` 流程完成登录。
@@ -236,6 +277,7 @@ sudo systemctl status ss-monitor --no-pager
 - 本机能访问，其他电脑不能访问：确认 `/opt/ss-monitor/.env` 里是 `HOST=0.0.0.0`，并检查服务器防火墙是否放行 `8787`。
 - 页面打开但没有数据：先看页面里的来源健康状态；B 站或贴吧被风控时，再在服务器本地 `.env` 配置对应 cookie。
 - 改了 `.env` 但没有生效：执行 `sudo cp /opt/ss-monitor/.env /opt/ss-monitor/current/.env && sudo systemctl restart ss-monitor`。
+- 当前版本重点没有出现：确认 `/opt/ss-monitor/.env` 里有 `CONFLUENCE_TOKEN`、`CONFLUENCE_PAGE_ID` 和 `CURRENT_VERSION_FOCUS_CACHE_PATH`，执行一次 `force=1` 刷新，再看 `/opt/ss-monitor/data/current-version-focus.json` 是否生成。
 - 需要接入 DingTalk、Confluence、BettaFish、MindSpider 或抖音远程登录：先完成上面的最小部署，再按 README 里的对应章节补配置。
 
 ## 这个包包含什么、不包含什么
