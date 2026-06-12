@@ -1933,14 +1933,13 @@ function BettaFishEffectStrip({ capabilities }: { capabilities: BettaFishPanelCa
       </div>
       <div className="bettafish-effect-list">
         {capabilities.map((capability) => (
-          <article className={`bettafish-effect-card ${capability.id}`} key={capability.id}>
+          <article className={`bettafish-effect-card ${capability.id}`} key={capability.id} title={capability.description}>
             <div>
               <strong>{capability.label}</strong>
               <span>{capability.value}</span>
             </div>
-            <p>{capability.description}</p>
             <div className="bettafish-effect-evidence">
-              {capability.evidence.slice(0, 4).map((entry) => (
+              {capability.evidence.slice(0, 2).map((entry) => (
                 <small key={entry}>{entry}</small>
               ))}
             </div>
