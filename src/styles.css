@@ -40,6 +40,7 @@ html {
 body {
   margin: 0;
   min-width: 320px;
+  overflow-x: hidden;
   background:
     linear-gradient(180deg, rgba(255, 253, 248, 0.94), rgba(239, 246, 240, 0.9) 48%, rgba(246, 247, 242, 0.98)),
     repeating-linear-gradient(90deg, rgba(47, 143, 112, 0.05), rgba(47, 143, 112, 0.05) 1px, transparent 1px, transparent 92px),
@@ -53,8 +54,28 @@ select {
   font: inherit;
 }
 
+button,
+a,
+summary,
+select,
+input,
+textarea {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(47, 143, 112, 0.18);
+}
+
 button {
   cursor: pointer;
+}
+
+button:focus-visible,
+a:focus-visible,
+summary:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(47, 143, 112, 0.32);
+  outline-offset: 3px;
 }
 
 ::selection {
@@ -65,6 +86,39 @@ button {
   width: min(1440px, calc(100% - 32px));
   margin: 0 auto;
   padding: 24px 0 52px;
+}
+
+.skip-link {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 100;
+  transform: translateY(calc(-100% - 16px));
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 9px 12px;
+  background: var(--paper);
+  color: var(--ink-strong);
+  font-weight: 780;
+  text-decoration: none;
+  box-shadow: var(--shadow-lift);
+  transition: transform 0.16s ease;
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .topbar,
@@ -96,6 +150,12 @@ h2,
 h3,
 p {
   margin: 0;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
 }
 
 h1 {
@@ -299,7 +359,7 @@ h2 {
 }
 
 .field:focus-within,
-.filters select:focus {
+.filters select:focus-visible {
   border-color: rgba(47, 143, 112, 0.42);
   box-shadow:
     0 0 0 3px rgba(47, 143, 112, 0.12),
@@ -721,7 +781,8 @@ h2 {
   min-width: 0;
 }
 
-.game-monitor-head strong {
+.game-monitor-head h3 {
+  margin: 0;
   color: var(--ink-strong);
   font-size: 17px;
 }
@@ -762,6 +823,7 @@ h2 {
   color: var(--ink-strong);
   font-size: 22px;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 .game-monitor-subgrid {
@@ -1239,8 +1301,8 @@ h2 {
   resize: vertical;
 }
 
-.lab-input input:focus,
-.lab-input textarea:focus {
+.lab-input input:focus-visible,
+.lab-input textarea:focus-visible {
   border-color: rgba(47, 143, 112, 0.42);
   box-shadow: 0 0 0 3px rgba(47, 143, 112, 0.12);
 }
@@ -1677,6 +1739,7 @@ h2 {
 .metric strong {
   font-size: clamp(24px, 3vw, 34px);
   color: var(--ink-strong);
+  font-variant-numeric: tabular-nums;
 }
 
 button.metric:hover,
@@ -2543,6 +2606,25 @@ button.metric:focus-visible {
 .empty {
   padding: 24px 0;
   color: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+  }
+
+  .spin {
+    animation: none;
+  }
 }
 
 @media (max-width: 980px) {

@@ -77,6 +77,87 @@ const trendLineHeight = 19;
 const trendLineMinY = 5;
 const trendLineMaxY = 30;
 const trendLineClipHeight = 32;
+const defaultWindowHours = 72;
+const windowHourOptions = [24, 72, 168, 336];
+const sourceFilterValues = ["all", "bilibili", "tieba", "douyin", "bettafish"] as const;
+const riskFilterValues = ["all", "high", "medium", "low"] as const;
+const sentimentFilterValues = ["all", "negative", "mixed", "neutral", "positive"] as const;
+
+type SourceFilter = "all" | SourceType;
+type RiskFilter = "all" | RiskLevel;
+type SentimentFilter = "all" | Sentiment;
+type InitialUiState = {
+  page: AppPage;
+  games: GameId[];
+  windowHours: number;
+  hasWindowHours: boolean;
+  source: SourceFilter;
+  risk: RiskFilter;
+  sentiment: SentimentFilter;
+  topic: string;
+  query: string;
+  trendOpen: boolean;
+  trendSeries: TrendSeriesVisibility;
+};
+
+function readInitialUiState(): InitialUiState {
+  if (typeof window === "undefined") return makeDefaultUiState();
+
+  const params = new URLSearchParams(window.location.search);
+  const rawWindowHours = Number(params.get("window"));
+  const hasWindowHours = windowHourOptions.includes(rawWindowHours);
+  const games = (params.get("games") || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return {
+    page: params.get("page") === "bettafish-lab" ? "bettafish-lab" : "monitor",
+    games,
+    windowHours: hasWindowHours ? rawWindowHours : defaultWindowHours,
+    hasWindowHours,
+    source: readParamUnion(params, "source", sourceFilterValues, "all"),
+    risk: readParamUnion(params, "risk", riskFilterValues, "all"),
+    sentiment: readParamUnion(params, "sentiment", sentimentFilterValues, "all"),
+    topic: params.get("topic") || "all",
+    query: params.get("q") || "",
+    trendOpen: params.get("trend") === "open",
+    trendSeries: readTrendSeriesParam(params.get("series"))
+  };
+}
+
+function makeDefaultUiState(): InitialUiState {
+  return {
+    page: "monitor",
+    games: [],
+    windowHours: defaultWindowHours,
+    hasWindowHours: false,
+    source: "all",
+    risk: "all",
+    sentiment: "all",
+    topic: "all",
+    query: "",
+    trendOpen: false,
+    trendSeries: defaultTrendSeriesVisibility
+  };
+}
+
+function readParamUnion<T extends readonly string[]>(
+  params: URLSearchParams,
+  key: string,
+  allowedValues: T,
+  fallback: T[number]
+): T[number] {
+  const value = params.get(key);
+  return value && allowedValues.includes(value) ? value : fallback;
+}
+
+function readTrendSeriesParam(value: string | null): TrendSeriesVisibility {
+  if (!value) return defaultTrendSeriesVisibility;
+  const activeSeries = new Set(value.split(",").filter((series): series is TrendSeries => trendSeriesOrder.includes(series as TrendSeries)));
+  if (!activeSeries.size) return defaultTrendSeriesVisibility;
+  return Object.fromEntries(trendSeriesOrder.map((series) => [series, activeSeries.has(series)])) as TrendSeriesVisibility;
+}
 
 type LabTerm = {
   term: string;
@@ -326,19 +407,22 @@ function scrollToSearchResults() {
 }
 
 function App() {
+  const initialUiStateRef = React.useRef<InitialUiState | undefined>(undefined);
+  if (!initialUiStateRef.current) initialUiStateRef.current = readInitialUiState();
+  const initialUiState = initialUiStateRef.current;
   const [config, setConfig] = React.useState<{
     games: GameConfig[];
     defaultWindowHours: number;
     updatePolicy: MonitorResponse["updatePolicy"];
   }>();
-  const [activePage, setActivePage] = React.useState<AppPage>("monitor");
-  const [selectedGames, setSelectedGames] = React.useState<GameId[]>([]);
-  const [windowHours, setWindowHours] = React.useState(72);
-  const [source, setSource] = React.useState<"all" | SourceType>("all");
-  const [risk, setRisk] = React.useState<"all" | RiskLevel>("all");
-  const [sentiment, setSentiment] = React.useState<"all" | Sentiment>("all");
-  const [topic, setTopic] = React.useState("all");
-  const [query, setQuery] = React.useState("");
+  const [activePage, setActivePage] = React.useState<AppPage>(initialUiState.page);
+  const [selectedGames, setSelectedGames] = React.useState<GameId[]>(initialUiState.games);
+  const [windowHours, setWindowHours] = React.useState(initialUiState.windowHours);
+  const [source, setSource] = React.useState<SourceFilter>(initialUiState.source);
+  const [risk, setRisk] = React.useState<RiskFilter>(initialUiState.risk);
+  const [sentiment, setSentiment] = React.useState<SentimentFilter>(initialUiState.sentiment);
+  const [topic, setTopic] = React.useState(initialUiState.topic);
+  const [query, setQuery] = React.useState(initialUiState.query);
   const [searchData, setSearchData] = React.useState<SearchResponse>();
   const [searchLoading, setSearchLoading] = React.useState(false);
   const [searchError, setSearchError] = React.useState("");
@@ -346,8 +430,8 @@ function App() {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
   const [visibleItemLimit, setVisibleItemLimit] = React.useState(feedInitialLimit);
-  const [trendOpen, setTrendOpen] = React.useState(false);
-  const [trendSeries, setTrendSeries] = React.useState<TrendSeriesVisibility>(defaultTrendSeriesVisibility);
+  const [trendOpen, setTrendOpen] = React.useState(initialUiState.trendOpen);
+  const [trendSeries, setTrendSeries] = React.useState<TrendSeriesVisibility>(initialUiState.trendSeries);
   const [isControlFloating, setControlFloating] = React.useState(false);
   const controlSentinelRef = React.useRef<HTMLDivElement>(null);
   const latestRequestRef = React.useRef(0);
@@ -359,7 +443,7 @@ function App() {
       .then((response) => response.json())
       .then((payload) => {
         setConfig(payload);
-        setWindowHours(payload.defaultWindowHours || 72);
+        if (!initialUiState.hasWindowHours) setWindowHours(payload.defaultWindowHours || defaultWindowHours);
         const configuredIds = (payload.games || []).map((game: GameConfig) => game.id);
         setSelectedGames((current) => {
           const retained = current.filter((id) => configuredIds.includes(id));
@@ -460,6 +544,31 @@ function App() {
     const timer = window.setTimeout(() => load(false), delayMs);
     return () => window.clearTimeout(timer);
   }, [data?.updatePolicy.nextUpdateAt, load]);
+
+  React.useEffect(() => {
+    const params = new URLSearchParams();
+    if (activePage !== "monitor") params.set("page", activePage);
+    if (selectedGames.length) params.set("games", selectedGames.join(","));
+    params.set("window", String(windowHours));
+    if (source !== "all") params.set("source", source);
+    if (risk !== "all") params.set("risk", risk);
+    if (sentiment !== "all") params.set("sentiment", sentiment);
+    if (topic !== "all") params.set("topic", topic);
+    if (query.trim()) params.set("q", query.trim());
+    if (trendOpen) params.set("trend", "open");
+
+    const activeTrendSeries = trendSeriesOrder.filter((series) => trendSeries[series]);
+    const defaultActiveTrendSeries = trendSeriesOrder.filter((series) => defaultTrendSeriesVisibility[series]);
+    if (activeTrendSeries.join(",") !== defaultActiveTrendSeries.join(",")) {
+      params.set("series", activeTrendSeries.join(","));
+    }
+
+    const queryString = params.toString();
+    const nextUrl = `${window.location.pathname}${queryString ? `?${queryString}` : ""}${window.location.hash}`;
+    if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
+      window.history.replaceState(null, "", nextUrl);
+    }
+  }, [activePage, query, risk, selectedGames, sentiment, source, topic, trendOpen, trendSeries, windowHours]);
 
   React.useEffect(() => {
     const target = controlSentinelRef.current;
@@ -577,7 +686,9 @@ function App() {
   }, []);
 
   return (
-    <main className="app-shell">
+    <>
+    <a className="skip-link" href="#main-content">跳到主体内容</a>
+    <main className="app-shell" id="main-content">
       <section className="topbar">
         <div>
           <p className="eyebrow">Live Monitor</p>
@@ -588,29 +699,31 @@ function App() {
             <button
               className={activePage === "monitor" ? "active" : ""}
               type="button"
+              aria-pressed={activePage === "monitor"}
               onClick={() => setActivePage("monitor")}
               title="监测看板"
             >
-              <Waves size={16} />
+              <Waves size={16} aria-hidden="true" />
               监测看板
             </button>
             <button
               className={activePage === "bettafish-lab" ? "active" : ""}
               type="button"
+              aria-pressed={activePage === "bettafish-lab"}
               onClick={() => setActivePage("bettafish-lab")}
               title="BettaFish 测试台"
             >
-              <TestTube2 size={16} />
+              <TestTube2 size={16} aria-hidden="true" />
               BettaFish 测试台
             </button>
           </nav>
           <span className="timestamp">
-            <Clock3 size={16} />
+            <Clock3 size={16} aria-hidden="true" />
             {data ? formatDateTime(data.generatedAt) : "等待采集"}
           </span>
           {visiblePolicy ? <UpdatePolicyBadge policy={visiblePolicy} /> : null}
-          <button className="icon-button primary" onClick={() => load(true)} disabled={loading} title="强制刷新">
-            <RefreshCw size={18} className={loading ? "spin" : ""} />
+          <button className="icon-button primary" type="button" onClick={() => load(true)} disabled={loading} title="强制刷新" aria-label="强制刷新舆情看板">
+            <RefreshCw size={18} className={loading ? "spin" : ""} aria-hidden="true" />
           </button>
         </div>
       </section>
@@ -623,7 +736,9 @@ function App() {
           {gameOptions.map((option) => (
             <button
               key={option.key}
+              type="button"
               className={sameGameSelection(selectedGames, option.ids) ? "active" : ""}
+              aria-pressed={sameGameSelection(selectedGames, option.ids)}
               onClick={() => selectGames(option.ids)}
             >
               {option.label}
@@ -632,7 +747,7 @@ function App() {
         </div>
         <label className="field">
           <span>窗口</span>
-          <select value={windowHours} onChange={(event) => selectWindowHours(Number(event.target.value))}>
+          <select name="monitor-window" value={windowHours} onChange={(event) => selectWindowHours(Number(event.target.value))}>
             <option value={24}>24 小时</option>
             <option value={72}>72 小时</option>
             <option value={168}>7 天</option>
@@ -640,12 +755,19 @@ function App() {
           </select>
         </label>
         <label className="field search-field">
-          <Search size={16} />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索标题、作者、关键词、评论" />
+          <Search size={16} aria-hidden="true" />
+          <span className="sr-only">搜索舆情条目</span>
+          <input
+            name="monitor-search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="搜索标题、作者、关键词，例如 外挂…"
+            autoComplete="off"
+          />
         </label>
       </section>
 
-      {error || searchError ? <div className="error-strip">{error || searchError}</div> : null}
+      {error || searchError ? <div className="error-strip" role="alert" aria-live="polite">{error || searchError}</div> : null}
 
       <section className="metrics-grid">
         <Metric label="总声量" value={data?.stats.total ?? 0} tone="green" hint="跳到全部条目" onClick={() => jumpToFeed()} />
@@ -663,11 +785,11 @@ function App() {
           hint="分别跳到来源条目"
           value={
             <span className="split-metric">
-              <button onClick={() => jumpToFeed({ source: "bilibili" })}>{data?.stats.bilibili ?? 0}</button>
+              <button type="button" aria-label="筛选 B站条目" onClick={() => jumpToFeed({ source: "bilibili" })}>{data?.stats.bilibili ?? 0}</button>
               <i>/</i>
-              <button onClick={() => jumpToFeed({ source: "tieba" })}>{data?.stats.tieba ?? 0}</button>
+              <button type="button" aria-label="筛选贴吧条目" onClick={() => jumpToFeed({ source: "tieba" })}>{data?.stats.tieba ?? 0}</button>
               <i>/</i>
-              <button onClick={() => jumpToFeed({ source: "douyin" })}>{data?.stats.douyin ?? 0}</button>
+              <button type="button" aria-label="筛选抖音条目" onClick={() => jumpToFeed({ source: "douyin" })}>{data?.stats.douyin ?? 0}</button>
             </span>
           }
         />
@@ -677,7 +799,7 @@ function App() {
         {visibleHealth.map((health, index) => (
           <div className="health-tile" key={`${health.source}-${health.gameId || "all"}-${index}`} title={health.message}>
             <div className="health-main">
-              {health.ok ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+              {health.ok ? <CheckCircle2 size={16} aria-hidden="true" /> : <AlertTriangle size={16} aria-hidden="true" />}
               <strong>{health.sourceLabel}</strong>
               {health.gameId ? <span>{health.gameId.toUpperCase()}</span> : null}
             </div>
@@ -695,11 +817,11 @@ function App() {
         <details className="chart-area trend-details" open={trendOpen} onToggle={(event) => setTrendOpen(event.currentTarget.open)}>
           <summary className="chart-collapse-summary">
             <div className="section-title">
-              <Waves size={18} />
+              <Waves size={18} aria-hidden="true" />
               <h2>声量趋势</h2>
             </div>
             <span>{trendOpen ? "已展开 · 点击收起" : "默认收起 · 点击展开"}</span>
-            <ChevronDown size={16} />
+            <ChevronDown size={16} aria-hidden="true" />
           </summary>
           {trendOpen ? (
             <div className="trend-details-body">
@@ -717,7 +839,7 @@ function App() {
 
         <div className="topic-area">
           <div className="section-title">
-            <Filter size={18} />
+            <Filter size={18} aria-hidden="true" />
             <h2>主题分布</h2>
           </div>
           <div className="topic-list">
@@ -736,7 +858,7 @@ function App() {
 
       <section className="alert-band" id="risk-alerts">
         <div className="section-title">
-          <ShieldAlert size={18} />
+          <ShieldAlert size={18} aria-hidden="true" />
           <h2>风险预警</h2>
         </div>
         <div className="alert-list">
@@ -763,7 +885,7 @@ function App() {
               ? searchData
                 ? `近 30 天命中 ${searchData.totalMatched} 条 · 当前显示 ${visibleFeedCount}/${feedItemsTotal} 条 · ${searchData.sources.map((entry) => entry.message).join(" / ")}`
                 : searchLoading
-                  ? "检索中..."
+                  ? "检索中…"
                   : "等待检索"
               : data
                 ? `仅显示 ${formatDateTime(data.freshnessCutoff)} 之后的信息 · 当前显示 ${visibleFeedCount}/${feedItemsTotal} 条`
@@ -771,26 +893,27 @@ function App() {
           </p>
         </div>
         <div className="filters">
-          <select value={source} onChange={(event) => setSource(event.target.value as "all" | SourceType)}>
+          <select name="source-filter" aria-label="筛选来源" value={source} onChange={(event) => setSource(event.target.value as SourceFilter)}>
             <option value="all">全部来源</option>
             <option value="bilibili">B站</option>
             <option value="tieba">贴吧</option>
             <option value="douyin">抖音</option>
+            <option value="bettafish">BettaFish</option>
           </select>
-          <select value={risk} onChange={(event) => setRisk(event.target.value as "all" | RiskLevel)}>
+          <select name="risk-filter" aria-label="筛选风险" value={risk} onChange={(event) => setRisk(event.target.value as RiskFilter)}>
             <option value="all">全部风险</option>
             <option value="high">高风险</option>
             <option value="medium">中风险</option>
             <option value="low">低风险</option>
           </select>
-          <select value={sentiment} onChange={(event) => setSentiment(event.target.value as "all" | Sentiment)}>
+          <select name="sentiment-filter" aria-label="筛选情绪" value={sentiment} onChange={(event) => setSentiment(event.target.value as SentimentFilter)}>
             <option value="all">全部情绪</option>
             <option value="negative">负面</option>
             <option value="mixed">混合</option>
             <option value="neutral">中性</option>
             <option value="positive">正面</option>
           </select>
-          <select value={topic} onChange={(event) => setTopic(event.target.value)}>
+          <select name="topic-filter" aria-label="筛选主题" value={topic} onChange={(event) => setTopic(event.target.value)}>
             <option value="all">全部主题</option>
             {topicOptions.map((option) => (
               <option value={option.topic} key={option.topic}>{`${option.topic} ${option.count}`}</option>
@@ -800,8 +923,8 @@ function App() {
       </section>
 
       <section className="feed-list">
-        {!searchActive && loading && !data ? <p className="empty">采集中...</p> : null}
-        {searchActive && searchLoading ? <p className="empty">检索中...</p> : null}
+        {!searchActive && loading && !data ? <p className="empty">采集中…</p> : null}
+        {searchActive && searchLoading ? <p className="empty">检索中…</p> : null}
         {searchActive
           ? visibleSearchResults.map((result, index) => (
               <MonitorCard item={result.item} searchResult={result} key={`${result.origin}-${result.item.id}-${index}`} />
@@ -822,6 +945,7 @@ function App() {
         <BettaFishLabPage windowHours={windowHours} />
       )}
     </main>
+    </>
   );
 }
 
@@ -902,19 +1026,26 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
         <div className="lab-actions">
           {data ? <StatusPill status={data.baseUrlConfigured ? "ok" : "skipped"} label={data.baseUrlConfigured ? "外部服务已配置" : "仅导入预览"} /> : null}
           <InteractionBadge mode="interactive" label="可刷新" />
-          <button className="icon-button primary" type="button" onClick={() => loadLab(true)} disabled={loading} title="刷新测试台和舆情监控">
-            <RefreshCw size={18} className={loading ? "spin" : ""} />
+          <button
+            className="icon-button primary"
+            type="button"
+            onClick={() => loadLab(true)}
+            disabled={loading}
+            title="刷新测试台和舆情监控"
+            aria-label="刷新测试台和舆情监控"
+          >
+            <RefreshCw size={18} className={loading ? "spin" : ""} aria-hidden="true" />
           </button>
         </div>
       </section>
 
-      {error ? <div className="error-strip">{error}</div> : null}
+      {error ? <div className="error-strip" role="alert" aria-live="polite">{error}</div> : null}
 
       <BettaFishGlossaryPanel />
 
       <CollapsibleDisplaySection
         title="展示概览"
-        icon={<Info size={18} />}
+        icon={<Info size={18} aria-hidden="true" />}
         note="这些数字只说明当前测试状态，不会触发任何操作。默认收起，展开后查看监控条目、导入命中、端点和测试窗口。"
         className="lab-overview"
         badges={<InteractionBadge mode="display" label="展示概览" />}
@@ -928,7 +1059,7 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
         </div>
       </CollapsibleDisplaySection>
 
-      {!data && loading ? <p className="empty">读取 BettaFish 测试状态...</p> : null}
+      {!data && loading ? <p className="empty">读取 BettaFish 测试状态…</p> : null}
 
       {data ? (
         <>
@@ -938,7 +1069,7 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
 
           <CollapsibleDisplaySection
             title="能力说明与测试覆盖"
-            icon={<Plug size={18} />}
+            icon={<Plug size={18} aria-hidden="true" />}
             note="每张卡片说明一个 BettaFish 能力：它是什么、当前在本平台怎么用、测试台能覆盖哪些检查，以及下一步该验证什么。"
             className="lab-section"
           >
@@ -951,7 +1082,7 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
 
           <CollapsibleDisplaySection
             title="导入解析测试"
-            icon={<Database size={18} />}
+            icon={<Database size={18} aria-hidden="true" />}
             note="这里只读取授权导出和轻量 JSON 文本，验证外部数据能否被解析、匹配项目关键词并进入统一风险分析。"
             className="lab-section"
           >
@@ -986,7 +1117,7 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
 
           <CollapsibleDisplaySection
             title="只读端点探测"
-            icon={<FileText size={18} />}
+            icon={<FileText size={18} aria-hidden="true" />}
             note="只读端点用于检查 BettaFish 是否在线、日志或模板是否可读，不会启动 Agent、爬虫或报告任务；有外链图标的行可以打开端点查看原始响应。"
             className="lab-section"
             badges={
@@ -1009,7 +1140,7 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
                     <span>{probe.latencyMs} ms</span>
                     {probe.target ? (
                       <a href={probe.target} target="_blank" rel="noreferrer" title="打开 BettaFish 端点">
-                        <ExternalLink size={16} />
+                        <ExternalLink size={16} aria-hidden="true" />
                         <span>可打开</span>
                       </a>
                     ) : null}
@@ -1021,7 +1152,7 @@ function BettaFishLabPage({ windowHours }: { windowHours: number }) {
 
           <CollapsibleDisplaySection
             title="接入建议"
-            icon={<ShieldAlert size={18} />}
+            icon={<ShieldAlert size={18} aria-hidden="true" />}
             note="这里汇总测试台根据当前配置、端点和导入状态给出的下一步建议。"
             className="lab-section recommendations"
           >
@@ -1041,7 +1172,7 @@ function BettaFishGlossaryPanel() {
   return (
     <CollapsibleDisplaySection
       title="术语说明"
-      icon={<Info size={18} />}
+      icon={<Info size={18} aria-hidden="true" />}
       note="先看这里再操作：测试台把 BettaFish 当作外部研究系统，每个名词都标清含义和在当前流程里的作用。"
       className="lab-glossary"
     >
@@ -1126,7 +1257,7 @@ function InteractionBadge({ mode, label }: { mode: InteractionMode; label?: stri
   const text = label || (mode === "display" ? "展示信息" : mode === "link" ? "可打开" : "可操作");
   return (
     <span className={`interaction-badge ${mode}`}>
-      <Icon size={13} />
+      <Icon size={13} aria-hidden="true" />
       {text}
     </span>
   );
@@ -1145,13 +1276,13 @@ function LabGameMonitorSection({
     <section className="lab-section game-monitor-section interactive-zone">
       <div className="section-title monitor-section-title">
         <div>
-          <Waves size={18} />
+          <Waves size={18} aria-hidden="true" />
           <h2>生死1 / 生死2 舆情监测</h2>
           <InteractionBadge mode="interactive" label="可刷新" />
         </div>
         <button className="lab-action-button manual compact-button" type="button" onClick={onRefresh} disabled={loading} title="刷新两个游戏的测试台监控快照">
-          <RefreshCw size={13} className={loading ? "spin" : ""} />
-          <span>{loading ? "刷新中..." : "刷新监控"}</span>
+          <RefreshCw size={13} className={loading ? "spin" : ""} aria-hidden="true" />
+          <span>{loading ? "刷新中…" : "刷新监控"}</span>
         </button>
       </div>
       <p className="section-note">“刷新监控”会重新拉取两个游戏的测试快照；下方统计主要用于查看结果，风险预警和最新条目可打开原帖，不发送通知。</p>
@@ -1176,7 +1307,7 @@ function LabGameMonitorCard({ monitor }: { monitor: BettaFishGameMonitor }) {
     <article className={`game-monitor-card ${monitor.status}`}>
       <div className="game-monitor-head">
         <div>
-          <strong>{monitor.gameName}</strong>
+          <h3>{monitor.gameName}</h3>
           <span>{monitor.message}</span>
         </div>
         <StatusPill status={monitor.status} />
@@ -1385,7 +1516,7 @@ function LabActionPanel({
           <label className="lab-input">
             <span>Agent 问题</span>
             <small>发送给 /api/search，用来验证 Agent 对真实舆情问题的回答质量。</small>
-            <textarea value={agentQuery} onChange={(event) => setAgentQuery(event.target.value)} rows={3} />
+            <textarea name="agent-query" value={agentQuery} onChange={(event) => setAgentQuery(event.target.value)} rows={3} autoComplete="off" />
           </label>
           <ActionButton operation={op("agent.search")} busy={loadingAction === "agent.search"} disabled={isBusy} onClick={() => run({ action: "agent.search", query: agentQuery })} />
           {agentActionResult ? <ActionResultView result={agentActionResult} /> : null}
@@ -1412,13 +1543,20 @@ function LabActionPanel({
           <label className="lab-input">
             <span>报告主题</span>
             <small>报告生成时传给 BettaFish 的主题或分析问题。</small>
-            <input value={reportQuery} onChange={(event) => setReportQuery(event.target.value)} />
+            <input name="report-query" value={reportQuery} onChange={(event) => setReportQuery(event.target.value)} autoComplete="off" />
           </label>
           <ActionButton operation={op("report.generate")} busy={loadingAction === "report.generate"} disabled={isBusy} onClick={() => run({ action: "report.generate", query: reportQuery })} />
           <label className="lab-input">
             <span>Task ID</span>
             <small>生成报告后返回的任务编号，用于查询同一份报告。</small>
-            <input value={reportTaskId} onChange={(event) => setReportTaskId(event.target.value)} placeholder="report_..." />
+            <input
+              name="report-task-id"
+              value={reportTaskId}
+              onChange={(event) => setReportTaskId(event.target.value)}
+              placeholder="例如 report_20260612…"
+              autoComplete="off"
+              spellCheck={false}
+            />
           </label>
           <div className="mini-button-grid three">
             <ActionButton operation={op("report.progress")} busy={loadingAction === "report.progress"} disabled={isBusy} onClick={() => run({ action: "report.progress", taskId: reportTaskId })} />
@@ -1446,23 +1584,30 @@ function LabActionPanel({
             <label className="lab-input">
               <span>平台</span>
               <small>传给测试爬虫的平台缩写，例如 dy。</small>
-              <input value={platformsText} onChange={(event) => setPlatformsText(event.target.value)} />
+              <input name="crawler-platforms" value={platformsText} onChange={(event) => setPlatformsText(event.target.value)} autoComplete="off" spellCheck={false} />
             </label>
             <label className="lab-input">
               <span>关键词</span>
               <small>本次最多取多少个关键词。</small>
-              <input type="number" min={1} max={50} value={maxKeywords} onChange={(event) => setMaxKeywords(Number(event.target.value))} />
+              <input name="crawler-max-keywords" type="number" inputMode="numeric" min={1} max={50} value={maxKeywords} onChange={(event) => setMaxKeywords(Number(event.target.value))} autoComplete="off" />
             </label>
             <label className="lab-input">
               <span>条数</span>
               <small>每个测试任务最多抓取多少条。</small>
-              <input type="number" min={1} max={50} value={maxNotes} onChange={(event) => setMaxNotes(Number(event.target.value))} />
+              <input name="crawler-max-notes" type="number" inputMode="numeric" min={1} max={50} value={maxNotes} onChange={(event) => setMaxNotes(Number(event.target.value))} autoComplete="off" />
             </label>
           </div>
           <label className="lab-input">
             <span>爬虫关键词</span>
             <small>留空则使用当天话题数据；填写后本次调度优先使用这些关键词。</small>
-            <textarea value={crawlerKeywordsText} onChange={(event) => setCrawlerKeywordsText(event.target.value)} rows={2} placeholder="失控进化, 项目关键词" />
+            <textarea
+              name="crawler-keywords"
+              value={crawlerKeywordsText}
+              onChange={(event) => setCrawlerKeywordsText(event.target.value)}
+              rows={2}
+              placeholder="例如 失控进化, 项目关键词…"
+              autoComplete="off"
+            />
           </label>
           <ActionButton
             operation={op("mindspider.crawlTest")}
@@ -1483,7 +1628,7 @@ function LabActionPanel({
           <label className="lab-input">
             <span>待分析文本</span>
             <small>用于测试情绪、风险和语义判断的一段样本文本。</small>
-            <textarea value={sentimentText} onChange={(event) => setSentimentText(event.target.value)} rows={4} />
+            <textarea name="sentiment-sample" value={sentimentText} onChange={(event) => setSentimentText(event.target.value)} rows={4} autoComplete="off" />
           </label>
           <ActionButton operation={op("sentiment.analyze")} busy={loadingAction === "sentiment.analyze"} disabled={isBusy} onClick={() => run({ action: "sentiment.analyze", text: sentimentText })} />
         </div>
@@ -1582,7 +1727,7 @@ function RuntimeConfirmationDialog({
         }}
       >
         <div className="runtime-confirmation-head">
-          <ShieldAlert size={18} />
+          <ShieldAlert size={18} aria-hidden="true" />
           <div>
             <h3 id="runtime-confirmation-title">二级密码确认</h3>
             <p>{operation.label}</p>
@@ -1593,14 +1738,15 @@ function RuntimeConfirmationDialog({
           <span>二级密码</span>
           <small>该操作会改变 BettaFish 运行状态或执行部署命令。</small>
           <input
+            name="runtime-confirmation-password"
             type="password"
             value={password}
             onChange={(event) => onPasswordChange(event.target.value)}
-            autoComplete="off"
+            autoComplete="current-password"
             autoFocus
           />
         </label>
-        {error ? <p className="runtime-confirmation-error">{error}</p> : null}
+        {error ? <p className="runtime-confirmation-error" role="alert" aria-live="polite">{error}</p> : null}
         <div className="runtime-confirmation-actions">
           <button className="runtime-confirmation-secondary" type="button" onClick={onCancel}>取消</button>
           <button className="runtime-confirmation-primary" type="submit">确认执行</button>
@@ -1627,9 +1773,9 @@ function ActionButton({
   const Icon = isDisabled ? AlertTriangle : busy ? RefreshCw : MousePointer2;
   return (
     <button className={`lab-action-button ${operation.safety}`} type="button" disabled={isDisabled} onClick={onClick} title={operation.disabledReason || operation.description}>
-      <Icon size={13} className={busy ? "spin" : ""} />
+      <Icon size={13} className={busy ? "spin" : ""} aria-hidden="true" />
       <span className="action-button-copy">
-        <span>{busy ? "执行中..." : operation.label}</span>
+        <span>{busy ? "执行中…" : operation.label}</span>
         {reason ? <small>{reason}</small> : null}
       </span>
     </button>
@@ -1730,7 +1876,7 @@ function LabItemRow({ item }: { item: MonitorItem }) {
         {item.topics.slice(0, 2).map((topic) => (
           <span key={topic}>{topic}</span>
         ))}
-        <span className="link-chip"><ExternalLink size={12} />可打开</span>
+        <span className="link-chip"><ExternalLink size={12} aria-hidden="true" />可打开</span>
       </div>
     </a>
   );
@@ -1800,7 +1946,7 @@ function TrendLegendButton({
       title={`${active ? "隐藏" : "显示"}${label}`}
       onClick={() => onToggle(series)}
     >
-      <i className={series === "total" ? "total-line" : series} />
+      <i className={series === "total" ? "total-line" : series} aria-hidden="true" />
       {label}
     </button>
   );
@@ -1999,8 +2145,8 @@ function MonitorCard({ item, searchResult }: { item: MonitorItem; searchResult?:
       <div className="item-side">
         <span>{item.author}</span>
         <span>{metricLine(item)}</span>
-        <a href={item.url} target="_blank" rel="noreferrer" title="打开原文">
-          <ExternalLink size={18} />
+        <a href={item.url} target="_blank" rel="noreferrer" title="打开原文" aria-label={`打开原文：${item.title}`}>
+          <ExternalLink size={18} aria-hidden="true" />
         </a>
       </div>
     </article>
@@ -2124,12 +2270,12 @@ function Thumbnail({ item }: { item: MonitorItem }) {
   if (!imageUrl || failed) {
     return (
       <div className="fallback-thumb">
-        {item.source === "tieba" ? <Waves /> : <Video />}
+        {item.source === "tieba" ? <Waves aria-hidden="true" /> : <Video aria-hidden="true" />}
       </div>
     );
   }
 
-  return <img src={imageUrl} alt="" loading="lazy" onError={() => setFailed(true)} />;
+  return <img src={imageUrl} alt="" width={320} height={180} loading="lazy" onError={() => setFailed(true)} />;
 }
 
 function searchOriginText(origin: SearchResult["origin"]) {
