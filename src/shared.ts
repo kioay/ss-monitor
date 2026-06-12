@@ -50,6 +50,7 @@ export interface MonitorItem {
   topics: string[];
   sentiment: Sentiment;
   sentimentScore: number;
+  analysisVersion?: number;
   riskLevel: RiskLevel;
   riskReasons: string[];
   riskSignalSource?: RiskSignalSource;

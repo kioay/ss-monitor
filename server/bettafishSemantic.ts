@@ -182,7 +182,9 @@ export function fuseBettaFishSignal(item: MonitorItem, signal: BettaFishSemantic
   let riskLevel = item.riskLevel;
 
   if (signal.label === "negative" && signal.confidence >= runtimeConfig.bettaFishSemanticRiskConfidence) {
-    if ((item.riskLevel !== "low" || item.riskReasons.length >= 1) && !onlyWeakNegativeReasons(item)) {
+    if (hasAccountRentalLeadReason(item)) {
+      reasons.push("BettaFish模型辅助确认负面");
+    } else if ((item.riskLevel !== "low" || item.riskReasons.length >= 1) && !onlyWeakNegativeReasons(item)) {
       reasons.push("BettaFish模型辅助确认负面");
       riskLevel = elevateRiskOneStep(riskLevel);
     } else if (item.sentiment === "negative" && Math.abs(item.sentimentScore) > 0.28) {
@@ -239,6 +241,10 @@ function onlyWeakNegativeReasons(item: MonitorItem) {
       reason === "互动量较高" ||
       reason.includes("BettaFish")
     );
+}
+
+function hasAccountRentalLeadReason(item: MonitorItem) {
+  return item.riskReasons.includes("账号租赁/交易导流");
 }
 
 function appendSemanticSummary(summary: string, signal: BettaFishSemanticSignal, sentiment: Sentiment) {

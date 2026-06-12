@@ -67,6 +67,7 @@ const genericVersionTerms = new Set([
   "皮肤",
   "武器皮肤",
   "配件",
+  "模式",
   "原型枪",
   "主题风格",
   "永久",
@@ -119,7 +120,7 @@ export async function refreshCurrentVersionFocus(now = new Date()) {
 export function matchCurrentVersionTerms(content: string) {
   const focus = getCurrentVersionFocus();
   if (!focus.terms.length) return [];
-  return focus.terms.filter((term) => content.includes(term));
+  return focus.terms.filter((term) => isMatchableCurrentVersionTerm(term) && content.includes(term));
 }
 
 async function fetchCurrentVersionFocus(now: Date): Promise<CurrentVersionFocus> {
@@ -330,6 +331,10 @@ function addTerm(target: Set<string>, value: string) {
 
 function isNoisyVersionTerm(term: string) {
   return noisyVersionTermPatterns.some((pattern) => pattern.test(term));
+}
+
+function isMatchableCurrentVersionTerm(term: string) {
+  return !genericVersionTerms.has(term) && !isNoisyVersionTerm(term);
 }
 
 function cleanPlanText(text: string) {

@@ -31,6 +31,8 @@ interface ContextProfile {
   eventUnlockDiscussion: boolean;
 }
 
+export const analysisRulesVersion = 2;
+
 const audiencePartTypes = new Set<ContentPart["type"]>(["comment", "danmaku", "post"]);
 const authorPartTypes = new Set<ContentPart["type"]>(["title", "description", "subtitle"]);
 
@@ -214,6 +216,7 @@ export function analyzeItem(input: AnalyzeInput) {
     topics: finalTopics.length ? finalTopics : ["综合讨论"],
     sentiment,
     sentimentScore,
+    analysisVersion: analysisRulesVersion,
     keywords,
     riskLevel: risk.level,
     riskReasons: risk.reasons,
@@ -477,11 +480,19 @@ function assessRisk(
     !contextDefused &&
     !isolatedCheatMention;
   const governanceSignal = /(水军|诈骗|未成年|退款|投诉)/.test(content);
-  const versionSignal = currentVersionTerms.length > 0 && (sentimentScore < -0.18 || currentVersionComplaint);
+  const accountRentalLeadSignal = isAccountRentalLead(content);
+  const currentVersionNegativeComplaint =
+    currentVersionComplaint &&
+    !audienceDefused &&
+    (sentimentScore < -0.12 || denseNegativeSignal);
+  const versionSignal = currentVersionTerms.length > 0 && (sentimentScore < -0.18 || currentVersionNegativeComplaint);
   const highEngagementSignal = engagement > 800;
   const elevatedEngagementSignal = engagement > 250;
 
-  if (negativeSignal) {
+  if (accountRentalLeadSignal) {
+    primaryReasons.push("账号租赁/交易导流");
+  }
+  if (negativeSignal && !accountRentalLeadSignal) {
     primaryReasons.push(denseNegativeSignal ? "评论区负反馈集中" : "负面表达集中");
   }
   if (sensitiveSignal) {
@@ -680,7 +691,7 @@ function isStrongComplaint(content: string) {
 function isOfficialImpactComplaint(content: string) {
   const officialTarget = /(官方|策划|运营|客服|公告|更新|版本|活动|充值|氪金|礼包|礼盒|皮肤|匹配|服务器|交易行|优化|BUG|bug|卡顿|炸服|闪退|封号|封禁|退款|投诉)/;
   const complaint = /(垃圾|破游戏|恶心|烂透|没救|倒闭|白氪|骗氪|逼氪|太贵|退钱|退款|投诉|不修|不管|不开|不开放|卡顿|炸服|闪退|崩溃|异常|问题|离谱|削弱|太弱|难用)/;
-  return officialTarget.test(content) && complaint.test(content);
+  return contentLines(content).some((line) => officialTarget.test(line) && complaint.test(line) && !isNeutralComplaintLine(line));
 }
 
 function isPlayerBehaviorComplaint(content: string) {
@@ -750,7 +761,30 @@ function isRoutinePlayerShare(content: string) {
 }
 
 function isCurrentVersionComplaint(content: string) {
-  return /(太弱|弱了|削弱|手感.{0,6}差|很差|没用|不好用|难用|垃圾|恶心|离谱|问题|bug|BUG|卡顿|异常|不生效)/.test(content);
+  const complaint = /(太弱|弱了|削弱|手感.{0,6}差|很差|没用|不好用|难用|垃圾|恶心|离谱|问题|bug|BUG|卡顿|异常|不生效)/;
+  return contentLines(content).some((line) => complaint.test(line) && !isNeutralCurrentVersionComplaintLine(line));
+}
+
+function isNeutralCurrentVersionComplaintLine(line: string) {
+  if (isNeutralComplaintLine(line)) return true;
+  return /(没用过|有没有用|有用没用|能不能用|能用吗|好用吗|好不好|是不是不好|哪里不好|有什么不好|好玩吗)/.test(line);
+}
+
+function isNeutralComplaintLine(line: string) {
+  return /(有什么问题|有问题可以|问题可以|问题.*(交流|问|咨询|回复|解答)|问.*问题|啥问题|什么问题|哪里有问题|没问题|不是问题)/.test(line);
+}
+
+function isAccountRentalLead(content: string) {
+  const rentalContext = /(租号|游戏租号|账号租赁|帐号租赁|租赁服务|选号网|号源充足|小杰选号|zhanghaodaren\.com|xiaojie\.)/i;
+  const commercialContext = /(平台|官网|客服|订单|下单|租赁|租号|号源|网址|\.com|http)/i;
+  return rentalContext.test(content) && commercialContext.test(content);
+}
+
+function contentLines(content: string) {
+  return content
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
 }
 
 function hasContextualSensitiveSignal(content: string, sentimentProfile: SentimentProfile, officialImpactSignal: boolean) {

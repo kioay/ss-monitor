@@ -32,6 +32,29 @@ assert.equal(refined.riskLevel, "low");
 assert.deepEqual(refined.riskReasons, []);
 assert.equal(refined.summary.includes("BettaFish模型"), false);
 
+const rentalTitle = "玩生死狙击眼馋别人的无尽光影、幻刃？租个号进去突突两把，不好用直接换";
+const rentalContentParts: ContentPart[] = [
+  { type: "title", text: rentalTitle, count: 1 },
+  {
+    type: "description",
+    text: "小杰选号网是正规租号平台，提供热门端游、手游、Steam等账号租赁服务。号源充足，客服24小时在线，累计订单量已过千万。平台官网: xiaojie.zhanghaodaren.com",
+    count: 1
+  },
+  { type: "tag", text: "生死狙击租号、游戏租号、4399生死狙击、生死狙击、氪金、FPS、娱乐", count: 1 }
+];
+const rentalAnalysis = analyzeItem({ title: rentalTitle, gameId: "ss1", contentParts: rentalContentParts, metrics: {} });
+const rentalItem = makeItem({ title: rentalTitle, contentParts: rentalContentParts, analysis: rentalAnalysis });
+const refinedRental = fuseBettaFishSignal(rentalItem, {
+  id: "semantic:rental",
+  label: "negative",
+  score: -1,
+  confidence: 1,
+  positiveProbability: 0
+});
+
+assert.equal(refinedRental.riskLevel, "medium");
+assert.ok(refinedRental.riskReasons.includes("账号租赁/交易导流"));
+
 function makeItem(input: {
   title: string;
   contentParts: ContentPart[];

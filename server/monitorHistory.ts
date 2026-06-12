@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { analysisRulesVersion } from "./analyze";
 import { runtimeConfig } from "./config";
 import { isDouyinMonitorItemGameConsistent } from "./douyinGameRouting";
 import type { GameId, MonitorItem } from "../src/shared";
@@ -74,7 +75,7 @@ async function loadMonitorHistory() {
   try {
     const raw = await fs.readFile(historyPath(), "utf-8");
     const parsed = JSON.parse(raw) as MonitorHistoryFile;
-    historyItems = Array.isArray(parsed.items) ? parsed.items.filter(isMonitorItemLike) : [];
+    historyItems = Array.isArray(parsed.items) ? parsed.items.filter(isMonitorItemLike).filter(hasCurrentAnalysisVersion) : [];
   } catch {
     historyItems = [];
   }
@@ -123,4 +124,8 @@ function isMonitorItemLike(value: unknown): value is MonitorItem {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const item = value as MonitorItem;
   return Boolean(item.id && item.gameId && item.source && item.publishedAt);
+}
+
+function hasCurrentAnalysisVersion(item: MonitorItem) {
+  return item.analysisVersion === analysisRulesVersion;
 }

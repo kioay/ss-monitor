@@ -6,6 +6,7 @@ import { collectBettaFish } from "./collectors/bettafish";
 import { collectDouyin } from "./collectors/douyin";
 import { collectTieba } from "./collectors/tieba";
 import { gameById, games, getUpdatePolicy, runtimeConfig } from "./config";
+import { analysisRulesVersion } from "./analyze";
 import { refineItemsWithBettaFishSemantic } from "./bettafishSemantic";
 import { refreshCurrentVersionFocus } from "./currentVersion";
 import { mergeMonitorHistory } from "./monitorHistory";
@@ -48,7 +49,7 @@ const querySchema = z.object({
 });
 
 type MonitorQuery = z.infer<typeof querySchema>;
-type CollectionEntry = { createdAt: number; items: MonitorItem[]; health: SourceHealth[]; gameIds: GameId[] };
+type CollectionEntry = { createdAt: number; items: MonitorItem[]; health: SourceHealth[]; gameIds: GameId[]; analysisVersion?: number };
 interface CollectionSnapshotFile {
   version: 1;
   entries: CollectionEntry[];
@@ -153,7 +154,7 @@ async function getCollection(selectedGames: GameConfig[], force: boolean, genera
 
   const task = collectAll(selectedGames, new Date(now - collectionWindowHours * 3_600_000)).then(async (collection) => {
     const items = await mergeMonitorHistory(collection.items, gameIds, generatedAt);
-    const entry = { createdAt: now, gameIds, items, health: collection.health };
+    const entry = { createdAt: now, gameIds, items, health: collection.health, analysisVersion: analysisRulesVersion };
     collectionCache.set(exactKey, entry);
     void saveCollectionSnapshot();
     return entry;
@@ -198,7 +199,7 @@ async function findReusableSnapshotCollection(gameIds: GameId[], now: Date) {
 
 async function collectionEntryWithHistory(entry: CollectionEntry, gameIds: GameId[], now: Date): Promise<CollectionEntry> {
   const items = await mergeMonitorHistory(entry.items, gameIds, now);
-  return { ...entry, gameIds, items };
+  return { ...entry, gameIds, items, analysisVersion: analysisRulesVersion };
 }
 
 function isFreshCollection(
@@ -206,12 +207,13 @@ function isFreshCollection(
   now: Date
 ) {
   if (!entry) return false;
+  if (entry.analysisVersion !== analysisRulesVersion) return false;
   const policy = getUpdatePolicy(now, new Date(entry.createdAt));
   return now.getTime() - entry.createdAt < policy.intervalSeconds * 1000;
 }
 
 function isUsableSnapshot(entry: CollectionEntry, now: Date) {
-  return now.getTime() - entry.createdAt < snapshotMaxAgeMs;
+  return entry.analysisVersion === analysisRulesVersion && now.getTime() - entry.createdAt < snapshotMaxAgeMs;
 }
 
 function mergeCollectionEntries(gameIds: GameId[], entries: CollectionEntry[]): CollectionEntry {
@@ -230,7 +232,8 @@ function mergeCollectionEntries(gameIds: GameId[], entries: CollectionEntry[]): 
     createdAt: Math.max(...entries.map((entry) => entry.createdAt)),
     gameIds,
     items,
-    health
+    health,
+    analysisVersion: analysisRulesVersion
   };
 }
 
@@ -260,6 +263,7 @@ async function loadCollectionSnapshot() {
     const snapshot = JSON.parse(raw) as CollectionSnapshotFile;
     for (const entry of snapshot.entries || []) {
       if (!entry?.gameIds?.length) continue;
+      if (entry.analysisVersion !== analysisRulesVersion) continue;
       collectionCache.set(collectionKey(entry.gameIds), entry);
     }
   } catch {
