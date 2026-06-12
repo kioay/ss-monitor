@@ -9,6 +9,7 @@
 - Expanded generated GitHub Release notes with copy-paste deployment, upgrade, verification, and troubleshooting steps.
 - Added Douyin login-state and noVNC remote-login setup instructions to generated GitHub Release notes.
 - Added Confluence current-version focus and keyword refresh setup instructions to generated GitHub Release notes.
+- Added DingTalk daily-report robot setup instructions and no-test-message guardrails to generated GitHub Release notes.
 
 ## 2026-06-08
 

@@ -192,6 +192,62 @@ node -e "const f=require('/opt/ss-monitor/data/current-version-focus.json'); con
 
 正常情况下，服务端会每 24 小时刷新一次；Confluence 临时失败时会继续使用上一次缓存。现在生产机可以直接访问 Confluence 时，优先使用这种服务端自动刷新方式，不要依赖本地工作站每天同步。`npm run sync:confluence` 只作为“服务器无法直连 Confluence”时的手动 fallback。
 
+## 可选：钉钉每日简报机器人
+
+钉钉机器人只用于计划内每日简报。服务会在服务器本地时间每个工作日 09:30 发送“昨日舆情日报”；新条目即时推送、baseline 推送、15 分钟批量推送都保持关闭。部署验证时不要主动发送钉钉测试消息，除非当前任务明确要求测试。
+
+先确认状态目录存在：
+
+```bash
+sudo mkdir -p /opt/ss-monitor/state
+```
+
+如果使用默认 SS1 / SS2 项目，在服务器本地 `/opt/ss-monitor/.env` 填这些变量。真实 webhook 和 secret 只能放服务器本地：
+
+```bash
+sudo tee -a /opt/ss-monitor/.env >/dev/null <<'ENV'
+DINGTALK_MONITOR_URL=http://服务器IP:8787/
+
+# SS1 每日简报机器人
+DINGTALK_WEBHOOK=换成SS1钉钉机器人Webhook
+DINGTALK_SECRET=换成SS1钉钉机器人加签Secret
+DINGTALK_STATE_PATH=/opt/ss-monitor/state/dingtalk-ss1-state.json
+
+# SS2 每日简报机器人；不需要 SS2 就留空
+DINGTALK_SS2_WEBHOOK=
+DINGTALK_SS2_SECRET=
+DINGTALK_SS2_STATE_PATH=/opt/ss-monitor/state/dingtalk-ss2-state.json
+ENV
+```
+
+如果部署的是自定义项目，例如 `out-of-control`，优先用通用机器人配置。`webhookEnv` 和 `secretEnv` 写的是变量名，真实值仍然放在同一个 `.env` 文件里：
+
+```bash
+sudo tee -a /opt/ss-monitor/.env >/dev/null <<'ENV'
+DINGTALK_MONITOR_URL=http://服务器IP:8787/
+DINGTALK_OUT_OF_CONTROL_WEBHOOK=换成失控进化钉钉机器人Webhook
+DINGTALK_OUT_OF_CONTROL_SECRET=换成失控进化钉钉机器人加签Secret
+DINGTALK_ROBOTS_JSON=[{"gameId":"out-of-control","shortName":"失控进化","webhookEnv":"DINGTALK_OUT_OF_CONTROL_WEBHOOK","secretEnv":"DINGTALK_OUT_OF_CONTROL_SECRET","statePath":"/opt/ss-monitor/state/dingtalk-out-of-control-state.json"}]
+ENV
+```
+
+同步配置并重启主站：
+
+```bash
+sudo cp /opt/ss-monitor/.env /opt/ss-monitor/current/.env
+sudo systemctl restart ss-monitor
+sudo systemctl status ss-monitor --no-pager
+```
+
+不要用测试接口做常规验收。`POST /api/notify/dingtalk/test` 只允许本机访问，并且只在明确要求“发一条测试消息”时才调用。平时只检查服务是否正常，等下一个工作日 09:30 后确认状态文件被写入：
+
+```bash
+sudo journalctl -u ss-monitor -n 100 --no-pager
+sudo ls -l /opt/ss-monitor/state/dingtalk-*.json
+```
+
+如果到了发送时间没有收到简报，先检查 `.env` 是否同步到了 `/opt/ss-monitor/current/.env`，再看 `journalctl` 里是否有 `Daily DingTalk report failed`。机器人安全设置里如果开启了“加签”，必须同时配置对应 `DINGTALK_*_SECRET`；如果没有加签，secret 可以留空。
+
 ## 可选：抖音登录态和远程登录入口
 
 只有已经部署完整 BettaFish / MediaCrawler 抖音采集的生产机才需要这一段。主站本身不会绕过抖音登录验证；它只负责检查采集服务、调度状态、MediaCrawler profile 和 cookie 配置。当登录态异常时，页面顶部会出现“远程登录”按钮，点击后会启动一个临时 noVNC 桌面，让运维人员在服务器侧按 MediaCrawler 支持的 `qrcode`、`phone` 或 `cookie` 流程完成登录。
@@ -278,6 +334,7 @@ sudo systemctl status ss-monitor --no-pager
 - 页面打开但没有数据：先看页面里的来源健康状态；B 站或贴吧被风控时，再在服务器本地 `.env` 配置对应 cookie。
 - 改了 `.env` 但没有生效：执行 `sudo cp /opt/ss-monitor/.env /opt/ss-monitor/current/.env && sudo systemctl restart ss-monitor`。
 - 当前版本重点没有出现：确认 `/opt/ss-monitor/.env` 里有 `CONFLUENCE_TOKEN`、`CONFLUENCE_PAGE_ID` 和 `CURRENT_VERSION_FOCUS_CACHE_PATH`，执行一次 `force=1` 刷新，再看 `/opt/ss-monitor/data/current-version-focus.json` 是否生成。
+- 钉钉没有收到每日简报：确认 `DINGTALK_MONITOR_URL`、webhook、secret 和 statePath 已写入 `/opt/ss-monitor/.env` 并同步到 `/opt/ss-monitor/current/.env`；再看 `journalctl` 是否出现 `Daily DingTalk report failed`。
 - 需要接入 DingTalk、Confluence、BettaFish、MindSpider 或抖音远程登录：先完成上面的最小部署，再按 README 里的对应章节补配置。
 
 ## 这个包包含什么、不包含什么
