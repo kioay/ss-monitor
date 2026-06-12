@@ -30,7 +30,6 @@
   "dependencies": {
     "@vitejs/plugin-react": "^5.1.1",
     "cheerio": "^1.1.2",
-    "concurrently": "^9.2.1",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
@@ -50,6 +49,7 @@
     "@types/pg": "^8.20.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "concurrently": "^10.0.3",
     "ssh2": "^1.17.0",
     "typescript": "^5.9.3"
   }
