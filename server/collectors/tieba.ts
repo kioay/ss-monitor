@@ -102,6 +102,7 @@ export async function collectTieba(game: GameConfig, cutoff: Date) {
           }
           byTid.set(candidate.tid, candidate);
         }
+        if (!candidates.length && page < minListPages) continue;
         if (!candidates.length) break;
         if (!pageHasWindowItems && page >= minListPages) break;
       }
