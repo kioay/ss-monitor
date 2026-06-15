@@ -210,7 +210,7 @@ http://服务器IP:8787/
 sudo bash /opt/ss-monitor/current/scripts/setup-douyin-remote-login.sh
 ```
 
-脚本会自动探测 `ss-monitor.service` 的运行用户；如果服务用户无法自动判断，可先设置 `SS_MONITOR_SERVICE_USER`。如果不想让脚本安装依赖、重启主站或做烟测，可以分别加 `--no-install-packages`、`--no-restart`、`--no-smoke-test`。`BETTAFISH_DOUYIN_REMOTE_PASSWORD` 只会保存在服务器本地 `.env`，不要写进 Git、聊天记录或 Release note。
+脚本会自动探测 `ss-monitor.service` 的运行用户；如果服务用户无法自动判断，可先设置 `SS_MONITOR_SERVICE_USER`。默认不固定写入 noVNC URL，后端会按访问主站时的 Host 跳转；如果必须固定域名或 IP，可先设置 `DOUYIN_REMOTE_LOGIN_HOST=服务器域名或IP`。如果不想让脚本安装依赖、重启主站或做烟测，可以分别加 `--no-install-packages`、`--no-restart`、`--no-smoke-test`。`BETTAFISH_DOUYIN_REMOTE_PASSWORD` 只会保存在服务器本地 `.env`，不要写进 Git、聊天记录或 Release note。
 
 验证入口：
 

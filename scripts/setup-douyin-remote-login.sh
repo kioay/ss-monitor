@@ -6,6 +6,8 @@ CURRENT_DIR="${SS_MONITOR_CURRENT_DIR:-$APP_ROOT/current}"
 ENV_FILE="${SS_MONITOR_ENV_FILE:-$APP_ROOT/.env}"
 BETTAFISH_ROOT="${BETTAFISH_ROOT:-${DOUYIN_SERVER_BETTAFISH_ROOT:-/opt/BettaFish}}"
 REMOTE_SERVICE_NAME="${DOUYIN_REMOTE_LOGIN_SERVICE:-ss-monitor-douyin-remote-login.service}"
+SYSTEMD_UNIT_DIR="${SS_MONITOR_SYSTEMD_UNIT_DIR:-/etc/systemd/system}"
+SUDOERS_DIR="${SS_MONITOR_SUDOERS_DIR:-/etc/sudoers.d}"
 INSTALL_PACKAGES=true
 RESTART_MAIN_SERVICE=true
 SMOKE_TEST=true
@@ -120,13 +122,22 @@ PY
 }
 
 detect_service_user() {
-  local user
+  local owner user
   user="${SS_MONITOR_SERVICE_USER:-}"
   if [ -z "$user" ] && command -v systemctl >/dev/null 2>&1; then
     user="$(systemctl show ss-monitor.service -p User --value 2>/dev/null || true)"
   fi
-  if [ -z "$user" ] || [ "$user" = "root" ]; then
+  if { [ -z "$user" ] || [ "$user" = "root" ]; } && [ -n "${SUDO_USER:-}" ] && [ "${SUDO_USER:-}" != "root" ]; then
     user="${SUDO_USER:-yq}"
+  fi
+  if [ -z "$user" ] || [ "$user" = "root" ]; then
+    owner="$(stat -c %U "$CURRENT_DIR" 2>/dev/null || true)"
+    if [ -n "$owner" ] && [ "$owner" != "root" ] && [ "$owner" != "UNKNOWN" ]; then
+      user="$owner"
+    fi
+  fi
+  if [ -z "$user" ] || [ "$user" = "root" ]; then
+    user="yq"
   fi
   id "$user" >/dev/null 2>&1 || fail "Service user does not exist: $user. Set SS_MONITOR_SERVICE_USER first."
   printf '%s' "$user"
@@ -142,9 +153,16 @@ detect_host() {
 
 install_vnc_packages() {
   local need_packages=false
+  local novnc_dir="${BETTAFISH_DOUYIN_REMOTE_NOVNC_DIR:-}"
+  local novnc_proxy="${BETTAFISH_DOUYIN_REMOTE_NOVNC_PROXY:-}"
   command -v Xvnc >/dev/null 2>&1 || need_packages=true
   command -v vncpasswd >/dev/null 2>&1 || need_packages=true
-  if [ ! -x /usr/share/novnc/utils/novnc_proxy ] && [ ! -x /opt/novnc/utils/novnc_proxy ]; then
+
+  if [ -n "$novnc_proxy" ]; then
+    [ -x "$novnc_proxy" ] || need_packages=true
+  elif [ -n "$novnc_dir" ]; then
+    [ -x "$novnc_dir/utils/novnc_proxy" ] || need_packages=true
+  elif [ ! -x /usr/share/novnc/utils/novnc_proxy ] && [ ! -x /opt/novnc/utils/novnc_proxy ]; then
     need_packages=true
   fi
 
@@ -177,9 +195,10 @@ detect_novnc_dir() {
 write_remote_unit() {
   local service_user="$1"
   local home_dir
-  local unit_path="/etc/systemd/system/$REMOTE_SERVICE_NAME"
+  local unit_path="$SYSTEMD_UNIT_DIR/$REMOTE_SERVICE_NAME"
   home_dir="$(getent passwd "$service_user" | cut -d: -f6)"
   [ -n "$home_dir" ] || home_dir="/home/$service_user"
+  mkdir -p "$SYSTEMD_UNIT_DIR"
 
   cat > "$unit_path" <<UNIT
 [Unit]
@@ -211,8 +230,9 @@ UNIT
 write_sudoers() {
   local service_user="$1"
   local systemctl_bin
-  local sudoers_path="/etc/sudoers.d/ss-monitor-douyin-remote-login"
+  local sudoers_path="$SUDOERS_DIR/ss-monitor-douyin-remote-login"
   [ "$service_user" != "root" ] || return 0
+  mkdir -p "$SUDOERS_DIR"
   systemctl_bin="$(command -v systemctl || printf '/usr/bin/systemctl')"
   cat > "$sudoers_path" <<SUDOERS
 $service_user ALL=(root) NOPASSWD: $systemctl_bin start $REMOTE_SERVICE_NAME, $systemctl_bin stop $REMOTE_SERVICE_NAME, $systemctl_bin is-active $REMOTE_SERVICE_NAME, $systemctl_bin status $REMOTE_SERVICE_NAME
@@ -272,7 +292,9 @@ if [ -z "$REMOTE_PASSWORD" ]; then
   log "Generated a local VNC password and saved it in $ENV_FILE."
 fi
 
-upsert_env "$ENV_FILE" "DOUYIN_REMOTE_LOGIN_URL" "$REMOTE_URL"
+if [ -n "${DOUYIN_REMOTE_LOGIN_URL:-}" ] || [ -n "${DOUYIN_REMOTE_LOGIN_HOST:-}" ]; then
+  upsert_env "$ENV_FILE" "DOUYIN_REMOTE_LOGIN_URL" "$REMOTE_URL"
+fi
 upsert_env "$ENV_FILE" "DOUYIN_REMOTE_LOGIN_SERVICE" "$REMOTE_SERVICE_NAME"
 upsert_env "$ENV_FILE" "BETTAFISH_DOUYIN_REMOTE_NOVNC_PORT" "$NOVNC_PORT"
 upsert_env "$ENV_FILE" "BETTAFISH_DOUYIN_REMOTE_VNC_PORT" "$VNC_PORT"
