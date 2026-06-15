@@ -9,6 +9,12 @@ const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "ss-monitor-dingtalk-tes
 process.env.DINGTALK_WEBHOOK = "https://example.com/robot/primary";
 process.env.DINGTALK_SS1_EXTRA_WEBHOOKS = "https://example.com/robot/extra-1,https://example.com/robot/extra-2";
 process.env.DINGTALK_STATE_PATH = path.join(tempDir, "dingtalk-ss1-state.json");
+await fs.writeFile(process.env.DINGTALK_STATE_PATH, JSON.stringify({
+  initialized: true,
+  lastDailyReportDate: "2026-06-10",
+  lastDailyReportSentAt: "2026-06-10T01:30:00.000Z",
+  seen: {}
+}));
 
 const payloads: Array<{ markdown?: { title?: string; text?: string } }> = [];
 globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
@@ -21,19 +27,41 @@ globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => 
 
 try {
   const { sendDingTalkDailyReport } = await import("../server/dingtalk");
-  const response = makeResponse([makeItem("tieba:risk", "high"), makeItem("tieba:medium", "medium")]);
+  const response = makeResponse([
+    makeItem("tieba:before-window", "high", "2026-06-10T01:29:00.000Z"),
+    makeItem("tieba:risk", "high", "2026-06-10T02:30:00.000Z"),
+    makeItem("tieba:medium", "medium", "2026-06-11T01:59:00.000Z"),
+    makeItem("tieba:at-send-time", "high", "2026-06-11T02:00:00.000Z"),
+    makeItem("tieba:ss2-risk", "high", "2026-06-10T02:30:00.000Z", "ss2")
+  ]);
   const result = await sendDingTalkDailyReport(response, "ss1", new Date("2026-06-11T10:00:00+08:00"));
 
   assert.equal(result.ok, true);
   assert.equal(result.mode, "daily");
+  assert.equal(result.sent, 2);
   assert.equal(payloads.length, 3);
 
   for (const payload of payloads) {
     const text = payload.markdown?.text || "";
+    assert.equal(payload.markdown?.title?.includes("昨日舆情日报"), false);
+    assert.equal(text.includes("本期概况"), true);
+    assert.equal(text.includes("统计范围"), true);
+    assert.equal(text.includes("tieba:risk"), true);
+    assert.equal(text.includes("tieba:medium"), true);
+    assert.equal(text.includes("tieba:before-window"), false);
+    assert.equal(text.includes("tieba:at-send-time"), false);
+    assert.equal(text.includes("tieba:ss2-risk"), false);
     assert.equal(text.includes("中高风险持续汇总"), false);
     assert.equal(text.includes("近72小时中高风险存量"), false);
     assert.equal(text.includes("近72小时暂无中高风险舆情存量"), false);
   }
+
+  const state = JSON.parse(await fs.readFile(process.env.DINGTALK_STATE_PATH, "utf-8")) as {
+    lastDailyReportDate?: string;
+    lastDailyReportSentAt?: string;
+  };
+  assert.equal(state.lastDailyReportDate, "2026-06-11");
+  assert.equal(state.lastDailyReportSentAt, "2026-06-11T02:00:00.000Z");
 } finally {
   await fs.rm(tempDir, { recursive: true, force: true });
 }
@@ -80,18 +108,23 @@ function makeResponse(items: MonitorItem[]): MonitorResponse {
   };
 }
 
-function makeItem(id: string, riskLevel: MonitorItem["riskLevel"]): MonitorItem {
+function makeItem(
+  id: string,
+  riskLevel: MonitorItem["riskLevel"],
+  publishedAt: string,
+  gameId: MonitorItem["gameId"] = "ss1"
+): MonitorItem {
   return {
     id,
-    gameId: "ss1",
-    gameName: "生死狙击1",
+    gameId,
+    gameName: gameId === "ss1" ? "生死狙击1" : "生死狙击2",
     source: "tieba",
     sourceLabel: "百度贴吧",
     sourceItemId: id.split(":")[1],
     title: id,
     author: "tester",
     url: `https://tieba.baidu.com/p/${id}`,
-    publishedAt: "2026-06-10T02:30:00.000Z",
+    publishedAt,
     collectedAt: "2026-06-11T01:00:00.000Z",
     freshnessHours: 22,
     metrics: { replies: 10, comments: 10 },

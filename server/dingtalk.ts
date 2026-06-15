@@ -9,6 +9,7 @@ interface DingTalkState {
   lastSentAt?: string;
   lastTestSentAt?: string;
   lastDailyReportDate?: string;
+  lastDailyReportSentAt?: string;
   seen: Record<string, string>;
 }
 
@@ -32,6 +33,8 @@ interface DingTalkSendResult {
 
 const monitorUrl = runtimeConfig.dingTalkMonitorUrl;
 const stateRetentionMs = 30 * 24 * 3_600_000;
+const dailyReportHour = 9;
+const dailyReportMinute = 30;
 const highHeatScoreThreshold = 800;
 const highNegativeScoreThreshold = -0.45;
 const discussionContextReasons = new Set(["回游/环境询问语境"]);
@@ -80,19 +83,20 @@ export async function sendDingTalkDailyReport(
   if (!robots.length) return { ok: true, skipped: `DingTalk ${gameId} is not configured` };
   const robot = robots[0];
 
-  const reportDay = previousLocalDay(now);
-  const reportDate = localDateKey(reportDay);
   const state = await readState(robot);
-  if (state.lastDailyReportDate === reportDate) {
+  const reportDate = localDateKey(now);
+  if (hasDailyReportAlreadySent(state, reportDate)) {
     return { ok: true, skipped: `${robot.shortName} daily report already sent for ${reportDate}`, mode: "daily" };
   }
 
-  const items = gameItemsForLocalDay(response, gameId, reportDay);
-  await sendMarkdownToRobots(robots, buildDailyReportMarkdown(robot, items, reportDay, now));
+  const reportStart = dailyReportWindowStart(state, now);
+  const items = gameItemsForTimeRange(response, gameId, reportStart, now);
+  await sendMarkdownToRobots(robots, buildDailyReportMarkdown(robot, items, { start: reportStart, end: now }, now));
   await writeState(robot, {
     ...state,
     initialized: true,
-    lastDailyReportDate: reportDate
+    lastDailyReportDate: reportDate,
+    lastDailyReportSentAt: now.toISOString()
   });
   return { ok: true, sent: items.length, mode: "daily" };
 }
@@ -229,9 +233,7 @@ function gameItemsWithin72Hours(response: MonitorResponse, gameId: GameId) {
     .sort(compareDingTalkItems);
 }
 
-function gameItemsForLocalDay(response: MonitorResponse, gameId: GameId, day: Date) {
-  const start = startOfLocalDay(day);
-  const end = new Date(start.getTime() + 86_400_000);
+function gameItemsForTimeRange(response: MonitorResponse, gameId: GameId, start: Date, end: Date) {
   return response.items
     .filter((item) => item.gameId === gameId)
     .filter((item) => {
@@ -300,16 +302,16 @@ function buildTestMarkdown(robot: DingTalkRobotConfig, items: MonitorItem[], res
 function buildDailyReportMarkdown(
   robot: DingTalkRobotConfig,
   items: MonitorItem[],
-  reportDay: Date,
+  reportWindow: { start: Date; end: Date },
   sentAt: Date
 ) {
-  const reportDate = formatLocalDate(reportDay);
-  const title = `${robot.shortName}昨日舆情日报 ${reportDate}`;
+  const reportRange = formatReportWindow(reportWindow.start, reportWindow.end);
+  const title = `${robot.shortName}舆情日报 ${reportRange}`;
   const focusItems = items.filter(isDailyFocusItem).sort(compareDingTalkItems).slice(0, 8);
   const lines = [
     `## ${title}`,
     "",
-    `> 发送时间：${formatLocalTime(sentAt.toISOString())} | 统计范围：${reportDate} 00:00-24:00`,
+    `> 发送时间：${formatLocalTime(sentAt.toISOString())} | 统计范围：${reportRange}`,
     "",
     buildDailySummaryTable(items),
     "",
@@ -342,7 +344,7 @@ function buildDailySummaryTable(items: MonitorItem[]) {
   const negative = items.filter((item) => item.sentiment === "negative").length;
   const negativeRate = items.length ? `${Math.round((negative / items.length) * 100)}%` : "0%";
   return [
-    "| 指标 | 昨日概况 |",
+    "| 指标 | 本期概况 |",
     "| --- | --- |",
     `| 总量 | ${items.length}条 |`,
     `| 高风险 | ${highRisk}条 |`,
@@ -364,7 +366,7 @@ function buildDailySourceTable(items: MonitorItem[]) {
 }
 
 function buildDailyFocusTable(items: MonitorItem[]) {
-  if (!items.length) return "昨日无高风险、高热度或明显负面舆情。";
+  if (!items.length) return "本期无高风险、高热度或明显负面舆情。";
   return [
     "| 舆情 | 触发/情绪 | 简报 |",
     "| --- | --- | --- |",
@@ -463,6 +465,7 @@ async function readState(robot: DingTalkRobotConfig): Promise<DingTalkState> {
       lastSentAt: state.lastSentAt,
       lastTestSentAt: state.lastTestSentAt,
       lastDailyReportDate: state.lastDailyReportDate,
+      lastDailyReportSentAt: state.lastDailyReportSentAt,
       seen: state.seen || {}
     };
   } catch {
@@ -478,6 +481,22 @@ async function writeState(robot: DingTalkRobotConfig, state: DingTalkState) {
 
 function statePath(robot: DingTalkRobotConfig) {
   return path.resolve(robot.statePath);
+}
+
+function hasDailyReportAlreadySent(state: DingTalkState, reportDate: string) {
+  if (state.lastDailyReportDate === reportDate) return true;
+  if (state.lastDailyReportSentAt) return false;
+  return legacyDailyReportSentDateKey(state.lastDailyReportDate) === reportDate;
+}
+
+function dailyReportWindowStart(state: DingTalkState, reportEnd: Date) {
+  const explicitSentAt = validDateBefore(state.lastDailyReportSentAt, reportEnd);
+  if (explicitSentAt) return explicitSentAt;
+
+  const legacySentAt = legacyDailyReportSentAt(state.lastDailyReportDate);
+  if (legacySentAt && legacySentAt < reportEnd) return legacySentAt;
+
+  return previousScheduledReportBoundary(reportEnd);
 }
 
 function isDailyFocusItem(item: MonitorItem) {
@@ -579,11 +598,8 @@ function formatLocalTime(value: string) {
   }).format(new Date(value));
 }
 
-function formatLocalDate(value: Date) {
-  return new Intl.DateTimeFormat("zh-CN", {
-    month: "2-digit",
-    day: "2-digit"
-  }).format(value);
+function formatReportWindow(start: Date, end: Date) {
+  return `${formatLocalTime(start.toISOString())}-${formatLocalTime(end.toISOString())}`;
 }
 
 function localDateKey(value: Date) {
@@ -593,14 +609,48 @@ function localDateKey(value: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function previousLocalDay(value: Date) {
-  const day = startOfLocalDay(value);
-  day.setDate(day.getDate() - 1);
-  return day;
+function legacyDailyReportSentDateKey(reportDate: string | undefined) {
+  const sentAt = legacyDailyReportSentAt(reportDate);
+  return sentAt ? localDateKey(sentAt) : "";
 }
 
-function startOfLocalDay(value: Date) {
-  return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+function legacyDailyReportSentAt(reportDate: string | undefined) {
+  const reportDay = localDateFromKey(reportDate);
+  if (!reportDay) return undefined;
+  const sentAt = new Date(reportDay);
+  sentAt.setDate(sentAt.getDate() + 1);
+  sentAt.setHours(dailyReportHour, dailyReportMinute, 0, 0);
+  return sentAt;
+}
+
+function validDateBefore(value: string | undefined, end: Date) {
+  if (!value) return undefined;
+  const time = new Date(value).getTime();
+  if (!Number.isFinite(time) || time >= end.getTime()) return undefined;
+  return new Date(time);
+}
+
+function previousScheduledReportBoundary(value: Date) {
+  const boundary = new Date(value);
+  boundary.setHours(dailyReportHour, dailyReportMinute, 0, 0);
+  if (boundary >= value) boundary.setDate(boundary.getDate() - 1);
+  while (!isWorkday(boundary)) boundary.setDate(boundary.getDate() - 1);
+  return boundary;
+}
+
+function isWorkday(value: Date) {
+  const day = value.getDay();
+  return day >= 1 && day <= 5;
+}
+
+function localDateFromKey(value: string | undefined) {
+  const match = value?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return undefined;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return undefined;
+  return new Date(year, month - 1, day);
 }
 
 function formatShortTime(value: string) {
