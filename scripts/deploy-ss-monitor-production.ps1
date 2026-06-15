@@ -66,7 +66,12 @@ const input = await new Promise((resolve, reject) => {
   process.stdin.on("error", reject);
 });
 
-const config = JSON.parse(input);
+let config;
+try {
+  config = JSON.parse(input.replace(/^\uFEFF/, ""));
+} catch {
+  throw new Error("Invalid deploy payload JSON.");
+}
 const require = createRequire(path.join(config.repoRoot, "package.json"));
 const { Client } = require("ssh2");
 
