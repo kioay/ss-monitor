@@ -678,12 +678,13 @@ h2 {
 }
 
 .keyword-entry {
-  flex: 0 1 340px;
+  flex: 1 1 460px;
   min-height: 42px;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 .keyword-entry-button {
@@ -736,9 +737,9 @@ h2 {
 }
 
 .keyword-summary {
-  flex: 1 1 auto;
-  min-width: 0;
-  max-width: 190px;
+  flex: 1 1 260px;
+  min-width: min(260px, 100%);
+  max-width: none;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -749,9 +750,7 @@ h2 {
 
 .keyword-summary strong,
 .keyword-summary span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .keyword-summary strong {

@@ -1048,7 +1048,11 @@ function App() {
             <span>关键词 / 范围</span>
             {keywordEntryBadgeCount ? <b>{keywordEntryBadgeCount}</b> : null}
           </button>
-          <div className="keyword-summary" aria-label="关键词和采集范围摘要">
+          <div
+            className="keyword-summary"
+            aria-label="关键词和采集范围摘要"
+            title={`${keywordScopeSummary.primary} · ${keywordScopeSummary.secondary}`}
+          >
             <strong>{keywordScopeSummary.primary}</strong>
             <span>{keywordScopeSummary.secondary}</span>
           </div>
@@ -3260,8 +3264,8 @@ function makeKeywordScopeSummary(
   scopeSummary: { primary: string; secondary: string }
 ) {
   return {
-    primary: `${keywordSummary.primary} · ${scopeSummary.primary}`,
-    secondary: scopeSummary.secondary
+    primary: `${keywordSummary.primary} · ${keywordSummary.secondary}`,
+    secondary: `${scopeSummary.primary} · ${scopeSummary.secondary}`
   };
 }
 
