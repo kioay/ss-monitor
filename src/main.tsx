@@ -961,7 +961,6 @@ function App() {
       setTiebaKeywordsOverride(nextKeywords);
       setScopeBarDraft("");
       setScopeKeywordDraft("");
-      setKeywordPanelOpen(false);
     },
     [activeTiebaBarsOverride, activeTiebaKeywordsOverride, extraKeywords, resetFeedFilters, scopeBarsInput, scopeKeywordsInput, selectedGames, windowHours]
   );
@@ -974,7 +973,6 @@ function App() {
     setScopeKeywordsInput("");
     setScopeBarDraft("");
     setScopeKeywordDraft("");
-    setKeywordPanelOpen(false);
   }, [activeTiebaBarsOverride, activeTiebaKeywordsOverride, extraKeywords, selectedGames, windowHours]);
 
   return (
