@@ -89,7 +89,7 @@ export function parseMonitorQuery(raw: unknown) {
   const query = querySchema.parse(raw);
   const selectedGames = query.games.map((id) => gameById.get(id as GameId)).filter((game): game is GameConfig => Boolean(game));
   const baseGames = selectedGames.length ? selectedGames : games;
-  const tiebaBarsOverride = rawParamProvided(raw, "tiebaBars") && query.tiebaBars.length ? query.tiebaBars : undefined;
+  const tiebaBarsOverride = rawParamProvided(raw, "tiebaBars") ? query.tiebaBars : undefined;
   const tiebaKeywordsOverride = rawParamProvided(raw, "tiebaKeywords") ? query.tiebaKeywords : undefined;
   const scopeKey = collectionScopeKey(query.extraKeywords, tiebaBarsOverride, tiebaKeywordsOverride);
   return {
@@ -127,7 +127,7 @@ function withMonitorScope(
 ): GameConfig[] {
   return selectedGames.map((game) => ({
     ...game,
-    tiebaBars: scope.tiebaBarsOverride || game.tiebaBars,
+    tiebaBars: scope.tiebaBarsOverride ?? game.tiebaBars,
     bilibiliKeywords: mergeKeywordLists(game.bilibiliKeywords, scope.extraKeywords),
     douyinKeywords: mergeKeywordLists(game.douyinKeywords, scope.extraKeywords),
     tiebaKeywords: mergeKeywordLists(scope.tiebaKeywordsOverride ?? game.tiebaKeywords ?? [], scope.extraKeywords)
@@ -350,8 +350,8 @@ function normalizeKeywordScope(keyword: string) {
 function collectionScopeKey(extraKeywords: string[] = [], tiebaBarsOverride?: string[], tiebaKeywordsOverride?: string[]) {
   const parts = [
     `kw=${keywordScopeKey(extraKeywords)}`,
-    tiebaBarsOverride ? `tb=${keywordScopeKey(tiebaBarsOverride)}` : "",
-    tiebaKeywordsOverride ? `tk=${keywordScopeKey(tiebaKeywordsOverride)}` : ""
+    tiebaBarsOverride !== undefined ? `tb=${keywordScopeKey(tiebaBarsOverride)}` : "",
+    tiebaKeywordsOverride !== undefined ? `tk=${keywordScopeKey(tiebaKeywordsOverride)}` : ""
   ].filter(Boolean);
   return parts.length === 1 && parts[0] === "kw=base" ? "base" : parts.join("|");
 }

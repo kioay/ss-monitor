@@ -933,10 +933,10 @@ h2 {
   color: var(--ink);
 }
 
-.keyword-empty {
-  margin: 0;
-  padding: 28px 20px;
-  color: var(--muted);
+.keyword-empty-divider {
+  height: 1px;
+  margin: 0 20px;
+  background: var(--line);
 }
 
 .keyword-panel-actions {
@@ -962,27 +962,65 @@ h2 {
 }
 
 .keyword-scope-guide {
-  display: grid;
-  gap: 10px;
   margin: 14px 20px 0;
   border: 1px solid rgba(33, 152, 170, 0.18);
   border-radius: 8px;
-  padding: 12px;
+  overflow: hidden;
   background:
     linear-gradient(90deg, rgba(223, 244, 246, 0.76), rgba(251, 253, 249, 0.9)),
     var(--paper);
 }
 
-.keyword-guide-main {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+.keyword-scope-guide summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 10px;
-  align-items: start;
+  min-height: 44px;
+  padding: 0 12px;
+  cursor: pointer;
+  color: var(--ink-strong);
+  font-size: 14px;
+  font-weight: 860;
+  list-style: none;
 }
 
-.keyword-guide-main > svg {
-  margin-top: 2px;
+.keyword-scope-guide summary::-webkit-details-marker {
+  display: none;
+}
+
+.keyword-scope-guide summary > span {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.keyword-scope-guide summary svg {
+  flex: 0 0 auto;
   color: var(--cyan);
+}
+
+.keyword-scope-guide summary > svg:last-child {
+  transition: transform 0.16s ease;
+}
+
+.keyword-scope-guide[open] summary > svg:last-child {
+  transform: rotate(180deg);
+}
+
+.keyword-guide-content {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid rgba(33, 152, 170, 0.16);
+  padding: 12px;
+}
+
+.keyword-guide-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
 }
 
 .keyword-guide-main div {
@@ -1106,6 +1144,10 @@ h2 {
   color: var(--ink-strong);
   font-size: 12px;
   font-weight: 860;
+}
+
+.default-keyword-list.single .default-keyword-row {
+  grid-template-columns: 1fr;
 }
 
 .default-keyword-chips {
@@ -1453,6 +1495,10 @@ h2 {
   color: var(--ink-strong);
   font-size: 12px;
   font-weight: 860;
+}
+
+.scope-row.single {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
 .scope-group {

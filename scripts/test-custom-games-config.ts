@@ -82,6 +82,14 @@ const unfilteredTiebaQuery = parseMonitorQuery({
 assert.deepEqual(unfilteredTiebaQuery.selectedGames[0]?.tiebaBars, ["\u9006\u6218"]);
 assert.deepEqual(unfilteredTiebaQuery.selectedGames[0]?.tiebaKeywords, []);
 
+const emptyTiebaScopeQuery = parseMonitorQuery({
+  games: "out-of-control",
+  tiebaBars: "",
+  tiebaKeywords: ""
+});
+assert.deepEqual(emptyTiebaScopeQuery.selectedGames[0]?.tiebaBars, []);
+assert.deepEqual(emptyTiebaScopeQuery.selectedGames[0]?.tiebaKeywords, []);
+
 assert.equal(tiebaTextMatchesKeywords("\u9006\u6218\u5427\u91cc\u5bf9\u6bd4\u751f\u6b7b\u72d9\u51fb\u7684\u5e16\u5b50", ["\u751f\u6b7b\u72d9\u51fb"]), true);
 assert.equal(tiebaTextMatchesKeywords("\u9006\u6218\u5427\u81ea\u5df1\u7684\u65e5\u5e38\u8ba8\u8bba", ["\u751f\u6b7b\u72d9\u51fb"]), false);
 

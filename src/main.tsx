@@ -105,6 +105,7 @@ type InitialUiState = {
   topic: string;
   query: string;
   extraKeywords: string;
+  hasTiebaScopeOverride: boolean;
   tiebaBars: string;
   tiebaKeywords: string;
   trendOpen: boolean;
@@ -132,6 +133,7 @@ function readInitialUiState(): InitialUiState {
     topic: params.get("topic") || "all",
     query: params.get("q") || "",
     extraKeywords: normalizeSupplementalKeywordText(params.get("extraKeywords") || ""),
+    hasTiebaScopeOverride: params.has("tiebaBars") || params.has("tiebaKeywords"),
     tiebaBars: normalizeSupplementalKeywordText(params.get("tiebaBars") || ""),
     tiebaKeywords: normalizeSupplementalKeywordText(params.get("tiebaKeywords") || ""),
     trendOpen: params.get("trend") === "open",
@@ -150,6 +152,7 @@ function makeDefaultUiState(): InitialUiState {
     topic: "all",
     query: "",
     extraKeywords: "",
+    hasTiebaScopeOverride: false,
     tiebaBars: "",
     tiebaKeywords: "",
     trendOpen: false,
@@ -378,12 +381,18 @@ const runtimeActionExplanations: Array<{ id: string; label: string; effect: stri
 
 type InteractionMode = "display" | "interactive" | "link";
 
-function monitorCacheKey(gameIds: GameId[], windowHours: number, extraKeywords = "", tiebaBars = "", tiebaKeywords = "") {
+function monitorCacheKey(
+  gameIds: GameId[],
+  windowHours: number,
+  extraKeywords = "",
+  tiebaBars = "",
+  tiebaKeywords = "",
+  tiebaScopeOverrideActive = Boolean(normalizeSupplementalKeywordText(tiebaBars) || normalizeSupplementalKeywordText(tiebaKeywords))
+) {
   const keywordScope = normalizeSupplementalKeywordText(extraKeywords) || "base";
   const barScope = normalizeSupplementalKeywordText(tiebaBars);
   const tiebaKeywordScope = normalizeSupplementalKeywordText(tiebaKeywords);
-  const hasTiebaScopeOverride = Boolean(barScope || tiebaKeywordScope);
-  return `ss-monitor:${[...gameIds].sort().join(",")}:${windowHours}:${keywordScope}:tb=${barScope || "config"}:tk=${hasTiebaScopeOverride ? tiebaKeywordScope || "base" : "config"}`;
+  return `ss-monitor:${[...gameIds].sort().join(",")}:${windowHours}:${keywordScope}:tb=${tiebaScopeOverrideActive ? barScope || "base" : "config"}:tk=${tiebaScopeOverrideActive ? tiebaKeywordScope || "base" : "config"}`;
 }
 
 function normalizeSupplementalKeywordText(value: string) {
@@ -475,6 +484,7 @@ function App() {
   const [topic, setTopic] = React.useState(initialUiState.topic);
   const [query, setQuery] = React.useState(initialUiState.query);
   const [extraKeywords, setExtraKeywords] = React.useState(initialUiState.extraKeywords);
+  const [tiebaScopeOverrideActive, setTiebaScopeOverrideActive] = React.useState(initialUiState.hasTiebaScopeOverride);
   const [tiebaBarsOverride, setTiebaBarsOverride] = React.useState(initialUiState.tiebaBars);
   const [tiebaKeywordsOverride, setTiebaKeywordsOverride] = React.useState(initialUiState.tiebaKeywords);
   const [keywordInput, setKeywordInput] = React.useState("");
@@ -561,8 +571,7 @@ function App() {
       const normalizedExtraKeywords = normalizeSupplementalKeywordText(extraKeywords);
       const normalizedTiebaBars = normalizeSupplementalKeywordText(tiebaBarsOverride);
       const normalizedTiebaKeywords = normalizeSupplementalKeywordText(tiebaKeywordsOverride);
-      const hasTiebaScopeOverride = Boolean(normalizedTiebaBars || normalizedTiebaKeywords);
-      const cacheKey = monitorCacheKey(selectedGames, windowHours, normalizedExtraKeywords, normalizedTiebaBars, normalizedTiebaKeywords);
+      const cacheKey = monitorCacheKey(selectedGames, windowHours, normalizedExtraKeywords, normalizedTiebaBars, normalizedTiebaKeywords, tiebaScopeOverrideActive);
       const cachedPayload = force ? undefined : readCachedMonitor(cacheKey);
       if (cachedPayload) setData(cachedPayload);
       setLoading(true);
@@ -574,8 +583,7 @@ function App() {
           limit: "1000",
           notify: "0",
           ...(normalizedExtraKeywords ? { extraKeywords: normalizedExtraKeywords } : {}),
-          ...(normalizedTiebaBars ? { tiebaBars: normalizedTiebaBars } : {}),
-          ...(hasTiebaScopeOverride ? { tiebaKeywords: normalizedTiebaKeywords } : {}),
+          ...(tiebaScopeOverrideActive ? { tiebaBars: normalizedTiebaBars, tiebaKeywords: normalizedTiebaKeywords } : {}),
           ...(force ? { force: "1" } : {})
         });
         const response = await fetch(`${api.monitor}?${params.toString()}`);
@@ -597,7 +605,7 @@ function App() {
         if (latestRequestRef.current === requestId) setLoading(false);
       }
     },
-    [extraKeywords, loadDouyinStatus, selectedGames, tiebaBarsOverride, tiebaKeywordsOverride, windowHours]
+    [extraKeywords, loadDouyinStatus, selectedGames, tiebaBarsOverride, tiebaKeywordsOverride, tiebaScopeOverrideActive, windowHours]
   );
 
   React.useEffect(() => {
@@ -677,10 +685,8 @@ function App() {
     if (topic !== "all") params.set("topic", topic);
     if (query.trim()) params.set("q", query.trim());
     if (extraKeywords) params.set("extraKeywords", extraKeywords);
-    if (tiebaBarsOverride) {
+    if (tiebaScopeOverrideActive) {
       params.set("tiebaBars", tiebaBarsOverride);
-      params.set("tiebaKeywords", tiebaKeywordsOverride);
-    } else if (tiebaKeywordsOverride) {
       params.set("tiebaKeywords", tiebaKeywordsOverride);
     }
     if (trendOpen) params.set("trend", "open");
@@ -696,7 +702,7 @@ function App() {
     if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
       window.history.replaceState(null, "", nextUrl);
     }
-  }, [extraKeywords, query, risk, selectedGames, sentiment, source, tiebaBarsOverride, tiebaKeywordsOverride, topic, trendOpen, trendSeries, windowHours]);
+  }, [extraKeywords, query, risk, selectedGames, sentiment, source, tiebaBarsOverride, tiebaKeywordsOverride, tiebaScopeOverrideActive, topic, trendOpen, trendSeries, windowHours]);
 
   React.useEffect(() => {
     const target = controlSentinelRef.current;
@@ -742,21 +748,21 @@ function App() {
       const normalized = normalizeSupplementalKeywordText(`${extraKeywords},${additions.join(",")}`);
       setKeywordInput("");
       if (normalized === extraKeywords) return;
-      clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, normalized, tiebaBarsOverride, tiebaKeywordsOverride));
+      clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, normalized, tiebaBarsOverride, tiebaKeywordsOverride, tiebaScopeOverrideActive));
       if (extraKeywords) {
-        clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords, tiebaBarsOverride, tiebaKeywordsOverride));
+        clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords, tiebaBarsOverride, tiebaKeywordsOverride, tiebaScopeOverrideActive));
       }
       setExtraKeywords(normalized);
     },
-    [extraKeywords, keywordInput, selectedGames, tiebaBarsOverride, tiebaKeywordsOverride, windowHours]
+    [extraKeywords, keywordInput, selectedGames, tiebaBarsOverride, tiebaKeywordsOverride, tiebaScopeOverrideActive, windowHours]
   );
 
   const clearExtraKeywords = React.useCallback(() => {
     if (!extraKeywords) return;
-    clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords, tiebaBarsOverride, tiebaKeywordsOverride));
-    clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, "", tiebaBarsOverride, tiebaKeywordsOverride));
+    clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords, tiebaBarsOverride, tiebaKeywordsOverride, tiebaScopeOverrideActive));
+    clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, "", tiebaBarsOverride, tiebaKeywordsOverride, tiebaScopeOverrideActive));
     setExtraKeywords("");
-  }, [extraKeywords, selectedGames, tiebaBarsOverride, tiebaKeywordsOverride, windowHours]);
+  }, [extraKeywords, selectedGames, tiebaBarsOverride, tiebaKeywordsOverride, tiebaScopeOverrideActive, windowHours]);
 
   const removeExtraKeyword = React.useCallback(
     (keyword: string) => {
@@ -764,11 +770,11 @@ function App() {
       const remaining = splitSupplementalKeywords(extraKeywords).filter((item) => item.toLowerCase() !== normalizedKeyword);
       const normalized = normalizeSupplementalKeywordText(remaining.join(","));
       if (normalized === extraKeywords) return;
-      clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords, tiebaBarsOverride, tiebaKeywordsOverride));
-      clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, normalized, tiebaBarsOverride, tiebaKeywordsOverride));
+      clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords, tiebaBarsOverride, tiebaKeywordsOverride, tiebaScopeOverrideActive));
+      clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, normalized, tiebaBarsOverride, tiebaKeywordsOverride, tiebaScopeOverrideActive));
       setExtraKeywords(normalized);
     },
-    [extraKeywords, selectedGames, tiebaBarsOverride, tiebaKeywordsOverride, windowHours]
+    [extraKeywords, selectedGames, tiebaBarsOverride, tiebaKeywordsOverride, tiebaScopeOverrideActive, windowHours]
   );
 
   const addScopeBars = React.useCallback(() => {
@@ -873,8 +879,8 @@ function App() {
     [activeExtraKeywords, data?.keywordEffectiveness]
   );
   const tiebaScopeSummary = React.useMemo(
-    () => makeTiebaScopeSummary(selectedGameConfigs, activeExtraKeywords, activeTiebaBarsOverride, activeTiebaKeywordsOverride),
-    [activeExtraKeywords, activeTiebaBarsOverride, activeTiebaKeywordsOverride, selectedGameConfigs]
+    () => makeTiebaScopeSummary(selectedGameConfigs, activeExtraKeywords, tiebaScopeOverrideActive, activeTiebaBarsOverride, activeTiebaKeywordsOverride),
+    [activeExtraKeywords, activeTiebaBarsOverride, activeTiebaKeywordsOverride, selectedGameConfigs, tiebaScopeOverrideActive]
   );
   const keywordScopeSummary = React.useMemo(
     () => makeKeywordScopeSummary(keywordSummary, tiebaScopeSummary),
@@ -884,7 +890,7 @@ function App() {
   const keywordEntryBadgeCount = activeExtraKeywords.length + (tiebaScopeSummary.overridden ? 1 : 0);
   const editableScopeBars = React.useMemo(() => splitSupplementalKeywords(scopeBarsInput), [scopeBarsInput]);
   const editableScopeKeywords = React.useMemo(() => splitSupplementalKeywords(scopeKeywordsInput), [scopeKeywordsInput]);
-  const canApplyScope = editableScopeBars.length > 0;
+  const canApplyScope = selectedGameConfigs.length > 0;
   const topicOptions = React.useMemo(() => makeTopicOptions(data?.items || []), [data?.items]);
   const maxTopicCount = React.useMemo(
     () => Math.max(0, ...(data?.topicStats || []).map((topic) => topic.count)),
@@ -894,14 +900,14 @@ function App() {
     (gameIds: GameId[]) => {
       const sameSelection = sameGameSelection(selectedGames, gameIds);
       resetFeedFilters();
-      clearCachedMonitor(monitorCacheKey(gameIds, windowHours, extraKeywords, activeTiebaBarsOverride, activeTiebaKeywordsOverride));
+      clearCachedMonitor(monitorCacheKey(gameIds, windowHours, extraKeywords, activeTiebaBarsOverride, activeTiebaKeywordsOverride, tiebaScopeOverrideActive));
       if (sameSelection) {
         void load(true);
         return;
       }
       setSelectedGames(gameIds);
     },
-    [activeTiebaBarsOverride, activeTiebaKeywordsOverride, extraKeywords, load, resetFeedFilters, selectedGames, windowHours]
+    [activeTiebaBarsOverride, activeTiebaKeywordsOverride, extraKeywords, load, resetFeedFilters, selectedGames, tiebaScopeOverrideActive, windowHours]
   );
   const selectWindowHours = React.useCallback(
     (hours: number) => {
@@ -940,40 +946,43 @@ function App() {
   }, []);
 
   const openKeywordPanel = React.useCallback(() => {
-    const hasScopeOverride = Boolean(activeTiebaBarsOverride || activeTiebaKeywordsOverride);
-    setScopeBarsInput(activeTiebaBarsOverride || scopeListForGames(selectedGameConfigs, "tiebaBars").join(","));
-    setScopeKeywordsInput(hasScopeOverride ? activeTiebaKeywordsOverride : scopeListForGames(selectedGameConfigs, "tiebaKeywords").join(","));
+    setScopeBarsInput(tiebaScopeOverrideActive ? activeTiebaBarsOverride : scopeListForGames(selectedGameConfigs, "tiebaBars").join(","));
+    setScopeKeywordsInput(tiebaScopeOverrideActive ? activeTiebaKeywordsOverride : scopeListForGames(selectedGameConfigs, "tiebaKeywords").join(","));
     setScopeBarDraft("");
     setScopeKeywordDraft("");
     setKeywordPanelOpen(true);
-  }, [activeTiebaBarsOverride, activeTiebaKeywordsOverride, selectedGameConfigs]);
+  }, [activeTiebaBarsOverride, activeTiebaKeywordsOverride, selectedGameConfigs, tiebaScopeOverrideActive]);
 
   const applyScopePanel = React.useCallback(
     (event?: React.FormEvent<HTMLFormElement>) => {
       event?.preventDefault();
       const nextBars = normalizeSupplementalKeywordText(scopeBarsInput);
       const nextKeywords = normalizeSupplementalKeywordText(scopeKeywordsInput);
-      if (!nextBars) return;
-      clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords, activeTiebaBarsOverride, activeTiebaKeywordsOverride));
-      clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords, nextBars, nextKeywords));
+      clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords, activeTiebaBarsOverride, activeTiebaKeywordsOverride, tiebaScopeOverrideActive));
+      clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords, nextBars, nextKeywords, true));
       resetFeedFilters();
+      setTiebaScopeOverrideActive(true);
       setTiebaBarsOverride(nextBars);
       setTiebaKeywordsOverride(nextKeywords);
       setScopeBarDraft("");
       setScopeKeywordDraft("");
     },
-    [activeTiebaBarsOverride, activeTiebaKeywordsOverride, extraKeywords, resetFeedFilters, scopeBarsInput, scopeKeywordsInput, selectedGames, windowHours]
+    [activeTiebaBarsOverride, activeTiebaKeywordsOverride, extraKeywords, resetFeedFilters, scopeBarsInput, scopeKeywordsInput, selectedGames, tiebaScopeOverrideActive, windowHours]
   );
 
   const restoreConfiguredScope = React.useCallback(() => {
-    clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords, activeTiebaBarsOverride, activeTiebaKeywordsOverride));
+    const configuredBars = scopeListForGames(selectedGameConfigs, "tiebaBars").join(",");
+    const configuredKeywords = scopeListForGames(selectedGameConfigs, "tiebaKeywords").join(",");
+    clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords, activeTiebaBarsOverride, activeTiebaKeywordsOverride, tiebaScopeOverrideActive));
+    clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords, "", "", false));
+    setTiebaScopeOverrideActive(false);
     setTiebaBarsOverride("");
     setTiebaKeywordsOverride("");
-    setScopeBarsInput("");
-    setScopeKeywordsInput("");
+    setScopeBarsInput(configuredBars);
+    setScopeKeywordsInput(configuredKeywords);
     setScopeBarDraft("");
     setScopeKeywordDraft("");
-  }, [activeTiebaBarsOverride, activeTiebaKeywordsOverride, extraKeywords, selectedGames, windowHours]);
+  }, [activeTiebaBarsOverride, activeTiebaKeywordsOverride, extraKeywords, selectedGameConfigs, selectedGames, tiebaScopeOverrideActive, windowHours]);
 
   return (
     <>
@@ -1087,7 +1096,6 @@ function App() {
                     name="supplemental-keywords"
                     value={keywordInput}
                     onChange={(event) => setKeywordInput(event.target.value)}
-                    placeholder="在默认关键词之外追加，如 433、机甲、怀旧服"
                     autoComplete="off"
                     autoFocus
                   />
@@ -1119,7 +1127,7 @@ function App() {
                   })}
                 </div>
               ) : (
-                <p className="keyword-empty">先添加默认关键词之外要关注的玩家说法，例如 433、机甲、怀旧服。</p>
+                <div className="keyword-empty-divider" aria-hidden="true" />
               )}
               {activeExtraKeywords.length ? (
                 <div className="keyword-panel-actions">
@@ -1141,6 +1149,7 @@ function App() {
                 <ScopeRail
                   games={selectedGameConfigs}
                   extraKeywords={activeExtraKeywords}
+                  tiebaScopeOverrideActive={tiebaScopeOverrideActive}
                   tiebaBarsOverride={activeTiebaBarsOverride}
                   tiebaKeywordsOverride={activeTiebaKeywordsOverride}
                 />
@@ -1152,7 +1161,7 @@ function App() {
                     values={editableScopeBars}
                     emptyLabel="未选择贴吧来源"
                     draft={scopeBarDraft}
-                    placeholder="输入贴吧名，如 逆战、火线精英"
+                    placeholder=""
                     addLabel="添加来源"
                     onDraftChange={setScopeBarDraft}
                     onAdd={addScopeBars}
@@ -1165,7 +1174,7 @@ function App() {
                     values={editableScopeKeywords}
                     emptyLabel="无贴吧专属匹配词"
                     draft={scopeKeywordDraft}
-                    placeholder="输入别名、黑话或缩写"
+                    placeholder=""
                     addLabel="添加词"
                     onDraftChange={setScopeKeywordDraft}
                     onAdd={addScopeKeywords}
@@ -3041,11 +3050,13 @@ function Thumbnail({ item }: { item: MonitorItem }) {
 function ScopeRail({
   games,
   extraKeywords,
+  tiebaScopeOverrideActive,
   tiebaBarsOverride,
   tiebaKeywordsOverride
 }: {
   games: GameConfig[];
   extraKeywords: string[];
+  tiebaScopeOverrideActive: boolean;
   tiebaBarsOverride: string;
   tiebaKeywordsOverride: string;
 }) {
@@ -3053,7 +3064,8 @@ function ScopeRail({
 
   const overrideBars = splitSupplementalKeywords(tiebaBarsOverride);
   const overrideKeywords = splitSupplementalKeywords(tiebaKeywordsOverride);
-  const overridden = Boolean(tiebaBarsOverride || tiebaKeywordsOverride);
+  const overridden = tiebaScopeOverrideActive;
+  const showGameLabel = games.length > 1;
 
   return (
     <section className="scope-rail" aria-label="当前生效采集范围">
@@ -3065,11 +3077,11 @@ function ScopeRail({
       </div>
       <div className="scope-rail-list">
         {games.map((game) => {
-          const tiebaBars = overridden && overrideBars.length ? overrideBars : game.tiebaBars || [];
+          const tiebaBars = overridden ? overrideBars : game.tiebaBars || [];
           const tiebaKeywords = overridden ? overrideKeywords : game.tiebaKeywords || [];
           return (
-            <div className="scope-row" key={game.id}>
-              <strong>{game.shortName || game.name}</strong>
+            <div className={`scope-row ${showGameLabel ? "" : "single"}`} key={game.id}>
+              {showGameLabel ? <strong>{game.shortName || game.name}</strong> : null}
               <ScopeGroup icon="source" label="贴吧来源" values={scopeValues(tiebaBars, "未配置")} />
               <ScopeGroup
                 icon="keyword"
@@ -3115,20 +3127,28 @@ function ScopeGroup({
 
 function KeywordScopeGuide() {
   return (
-    <section className="keyword-scope-guide" aria-label="补充关键词和贴吧范围说明">
-      <div className="keyword-guide-main">
-        <Info size={17} aria-hidden="true" />
-        <div>
-          <strong>补充关键词会追加到全平台；贴吧来源只控制去哪几个吧找</strong>
-          <span>想在逆战吧收集生死狙击相关讨论：贴吧来源填“逆战”，贴吧专属匹配词填“生死狙击”。如果只是给当前看板新增关注点，填“补充全平台关注词”。</span>
+    <details className="keyword-scope-guide">
+      <summary>
+        <span>
+          <Info size={17} aria-hidden="true" />
+          <strong>关键词和贴吧来源怎么配</strong>
+        </span>
+        <ChevronDown size={16} aria-hidden="true" />
+      </summary>
+      <div className="keyword-guide-content">
+        <div className="keyword-guide-main">
+          <div>
+            <strong>补充关键词会追加到全平台；贴吧来源只控制去哪几个吧找</strong>
+            <span>想在逆战吧收集生死狙击相关讨论：贴吧来源填“逆战”，贴吧专属匹配词填“生死狙击”。如果只是给当前看板新增关注点，填“补充全平台关注词”。</span>
+          </div>
+        </div>
+        <div className="keyword-guide-steps">
+          <span><b>1</b> 补充全平台关注词</span>
+          <span><b>2</b> 贴吧来源：去哪些吧找</span>
+          <span><b>3</b> 贴吧专属匹配词</span>
         </div>
       </div>
-      <div className="keyword-guide-steps">
-        <span><b>1</b> 补充全平台关注词</span>
-        <span><b>2</b> 贴吧来源：去哪些吧找</span>
-        <span><b>3</b> 贴吧专属匹配词</span>
-      </div>
-    </section>
+    </details>
   );
 }
 
@@ -3140,6 +3160,7 @@ type DefaultKeywordGroup = {
 
 function DefaultKeywordOverview({ groups }: { groups: DefaultKeywordGroup[] }) {
   if (!groups.length) return null;
+  const showGroupLabel = groups.length > 1;
 
   return (
     <section className="default-keyword-overview" aria-label="当前看板默认关键词">
@@ -3151,10 +3172,10 @@ function DefaultKeywordOverview({ groups }: { groups: DefaultKeywordGroup[] }) {
         <em>只读配置</em>
       </div>
       <p>这些词已经随看板默认采集；下方只添加默认词之外的新说法。贴吧是否跨吧采集，仍看“贴吧来源”和“贴吧专属匹配词”。</p>
-      <div className="default-keyword-list">
+      <div className={`default-keyword-list ${showGroupLabel ? "" : "single"}`}>
         {groups.map((group) => (
           <div className="default-keyword-row" key={group.id}>
-            <strong>{group.label}</strong>
+            {showGroupLabel ? <strong>{group.label}</strong> : null}
             <span className="default-keyword-chips">
               {scopeValues(group.keywords, "未配置默认关键词").map((value) => (
                 <span
@@ -3288,13 +3309,14 @@ function scopeListForGames(games: GameConfig[], key: "tiebaBars" | "tiebaKeyword
 function makeTiebaScopeSummary(
   games: GameConfig[],
   extraKeywords: string[],
+  tiebaScopeOverrideActive: boolean,
   tiebaBarsOverride: string,
   tiebaKeywordsOverride: string
 ) {
-  const overridden = Boolean(tiebaBarsOverride || tiebaKeywordsOverride);
+  const overridden = tiebaScopeOverrideActive;
   const overrideBars = splitSupplementalKeywords(tiebaBarsOverride);
   const overrideKeywords = splitSupplementalKeywords(tiebaKeywordsOverride);
-  const sourceValues = overrideBars.length ? overrideBars : scopeListForGames(games, "tiebaBars");
+  const sourceValues = overridden ? overrideBars : scopeListForGames(games, "tiebaBars");
   const baseFilterValues = overridden ? overrideKeywords : scopeListForGames(games, "tiebaKeywords");
   const filterValues = mergeScopeKeywords(baseFilterValues, extraKeywords);
 
