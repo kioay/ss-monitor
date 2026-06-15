@@ -9,19 +9,22 @@ process.env.MONITOR_GAMES_JSON = JSON.stringify({
       shortName: "失控进化",
       bilibiliKeywords: ["失控进化"],
       douyinKeywords: ["失控进化", "失控进化手游"],
-      tiebaBars: ["失控进化"]
+      tiebaBars: ["逆战"],
+      tiebaKeywords: ["失控进化"]
     }
   ]
 });
 
 const { games, gameById, textMatchesGame } = await import("../server/config");
 const { parseMonitorQuery, makeKeywordEffectiveness } = await import("../server/monitor");
+const { tiebaTextMatchesKeywords } = await import("../server/collectors/tieba");
 
 assert.equal(games.length, 1);
 assert.equal(games[0].id, "out-of-control");
 assert.equal(games[0].name, "失控进化");
 assert.equal(gameById.get("out-of-control")?.shortName, "失控进化");
 assert.equal(textMatchesGame("失控进化 新版本 玩家反馈", games[0]), true);
+assert.equal(textMatchesGame("逆战 新版本 玩家反馈", games[0]), false);
 assert.equal(textMatchesGame("完全无关的内容", games[0]), false);
 
 const defaultQuery = parseMonitorQuery({});
@@ -47,12 +50,15 @@ assert.deepEqual(supplementalQuery.selectedGames[0]?.douyinKeywords, [
   "\u516c\u6d4b",
   "\u62db\u4eba"
 ]);
-assert.deepEqual(supplementalQuery.selectedGames[0]?.tiebaBars, [
+assert.deepEqual(supplementalQuery.selectedGames[0]?.tiebaBars, ["\u9006\u6218"]);
+assert.deepEqual(supplementalQuery.selectedGames[0]?.tiebaKeywords, [
   "\u5931\u63a7\u8fdb\u5316",
   "\u5931\u63a7\u8fdb\u5316\u624b\u6e38",
   "\u516c\u6d4b",
   "\u62db\u4eba"
 ]);
+assert.equal(tiebaTextMatchesKeywords("\u9006\u6218\u5427\u91cc\u5bf9\u6bd4\u751f\u6b7b\u72d9\u51fb\u7684\u5e16\u5b50", ["\u751f\u6b7b\u72d9\u51fb"]), true);
+assert.equal(tiebaTextMatchesKeywords("\u9006\u6218\u5427\u81ea\u5df1\u7684\u65e5\u5e38\u8ba8\u8bba", ["\u751f\u6b7b\u72d9\u51fb"]), false);
 
 const effectiveness = makeKeywordEffectiveness([
   makeItem("1", "\u5931\u63a7\u8fdb\u5316 7\u67089\u65e5\u516c\u6d4b", "tieba"),

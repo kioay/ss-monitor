@@ -13,6 +13,7 @@ export interface GameConfig {
   bilibiliKeywords: string[];
   douyinKeywords: string[];
   tiebaBars: string[];
+  tiebaKeywords: string[];
 }
 
 export interface ContentPart {

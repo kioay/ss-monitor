@@ -7,6 +7,7 @@ import type { ContentPart, GameConfig, MonitorItem, RiskSignalSource, SourceHeal
 
 interface TiebaThreadCandidate {
   tid: string;
+  bar: string;
   title: string;
   author: string;
   url: string;
@@ -75,17 +76,23 @@ export async function collectTieba(game: GameConfig, cutoff: Date) {
   const errors: string[] = [];
   let blocked = false;
   let staleDropped = 0;
+  let keywordDropped = 0;
   const byTid = new Map<string, TiebaThreadCandidate>();
+  const tiebaKeywords = normalizeTiebaKeywordList(game.tiebaKeywords || []);
 
   for (const bar of game.tiebaBars) {
     try {
       for (let page = 1; page <= runtimeConfig.maxTiebaListPages; page += 1) {
-        const candidates = await fetchBarThreads(bar, page);
+        const candidates = (await fetchBarThreads(bar, page)).map((candidate) => ({ ...candidate, bar }));
         let pageHasWindowItems = false;
         for (const candidate of candidates) {
           if (candidate.latestAt && candidate.latestAt >= cutoff) pageHasWindowItems = true;
           if (!candidate.latestAt || candidate.latestAt < cutoff) {
             staleDropped += 1;
+            continue;
+          }
+          if (!candidateMatchesTiebaKeywords(candidate, tiebaKeywords)) {
+            keywordDropped += 1;
             continue;
           }
           byTid.set(candidate.tid, candidate);
@@ -118,7 +125,7 @@ export async function collectTieba(game: GameConfig, cutoff: Date) {
     source: "tieba",
     sourceLabel: "百度贴吧",
     gameId: game.id,
-    ok: items.length > 0 && !blocked,
+    ok: !blocked && errors.length === 0,
     fetchedAt,
     latencyMs: Date.now() - started,
     itemCount: items.length,
@@ -126,7 +133,9 @@ export async function collectTieba(game: GameConfig, cutoff: Date) {
     blocked,
     message:
       errors.length === 0
-        ? "已读取对应吧最新主题，并按最新回复时间过滤。"
+        ? tiebaKeywords.length
+          ? `已读取 ${game.tiebaBars.length} 个贴吧来源，并按 ${tiebaKeywords.length} 个贴吧关键词过滤，排除 ${keywordDropped} 条不相关主题。`
+          : "已读取对应吧最新主题，并按最新回复时间过滤。"
         : `贴吧采集受限：${errors.slice(0, 2).join("；")}`
   };
 
@@ -176,6 +185,7 @@ async function fetchMobileBarThreads(bar: string, page: number): Promise<TiebaTh
       const thumbnail = firstMobileImage(thread);
       return {
         tid,
+        bar: "",
         title,
         author: stripHtml(thread.author?.name_show || thread.author?.name || thread.author_name || "未知用户"),
         url: normalizeUrl(thread.thread_share_link || `https://tieba.baidu.com/p/${tid}`),
@@ -222,6 +232,7 @@ async function fetchWebBarThreads(bar: string, page: number): Promise<TiebaThrea
 
     candidates.push({
       tid,
+      bar: "",
       title,
       author,
       url: normalizeUrl(href),
@@ -233,6 +244,33 @@ async function fetchWebBarThreads(bar: string, page: number): Promise<TiebaThrea
   });
 
   return candidates;
+}
+
+function candidateMatchesTiebaKeywords(candidate: TiebaThreadCandidate, normalizedKeywords: string[]) {
+  if (!normalizedKeywords.length) return true;
+  return tiebaTextMatchesKeywords(`${candidate.title}\n${candidate.abstractText}`, normalizedKeywords);
+}
+
+export function tiebaTextMatchesKeywords(text: string, keywords: string[]) {
+  const normalizedText = normalizeTiebaKeyword(text);
+  if (!normalizedText) return false;
+  return normalizeTiebaKeywordList(keywords).some((keyword) => normalizedText.includes(keyword));
+}
+
+function normalizeTiebaKeywordList(keywords: string[]) {
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const keyword of keywords) {
+    const value = normalizeTiebaKeyword(keyword);
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    normalized.push(value);
+  }
+  return normalized;
+}
+
+function normalizeTiebaKeyword(value: string) {
+  return value.toLowerCase().replace(/[#_\-]+/g, " ").replace(/\s+/g, " ").trim();
 }
 
 async function buildTiebaMonitorItem(game: GameConfig, candidate: TiebaThreadCandidate, deepParse: boolean): Promise<MonitorItem> {

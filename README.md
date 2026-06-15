@@ -107,7 +107,8 @@ sudo tee /opt/ss-monitor/data/monitor-games.json >/dev/null <<'JSON'
       "shortName": "失控进化",
       "bilibiliKeywords": ["失控进化"],
       "douyinKeywords": ["失控进化"],
-      "tiebaBars": ["失控进化"]
+      "tiebaBars": ["失控进化"],
+      "tiebaKeywords": ["失控进化"]
     }
   ]
 }
@@ -246,7 +247,8 @@ sudo nano /opt/ss-monitor/data/monitor-games.json
 - `shortName`：筛选按钮和日报里使用的短名。
 - `bilibiliKeywords`：B 站搜索关键词。
 - `douyinKeywords`：抖音授权数据、MindSpider 数据和公开搜索的匹配关键词。
-- `tiebaBars`：贴吧吧名，不带“吧”字；可填多个相关吧名，服务会逐个采集。
+- `tiebaBars`：贴吧来源吧名，不带“吧”字；可填多个相关吧名，服务会逐个采集。
+- `tiebaKeywords`：贴吧内容过滤关键词；配置后只保留来源吧里命中这些词的帖子。不配置时保留来源吧最新主题。
 
 改完重启：
 
@@ -316,7 +318,7 @@ npm run test:semantic-guard
 
 默认尝试公开页面和接口。若触发安全验证，可在服务器本地 `.env` 中配置对应站点 cookie 后重启服务。cookie 是敏感信息，不要写进文档、代码、Release note 或聊天记录。
 
-贴吧长期范围通过 `tiebaBars` 配多个吧名；页面里的“关键词 / 贴吧”补充项会在本次刷新中临时并入 B 站、抖音关键词和贴吧吧名，用于快速观察其他相关吧的舆论。
+贴吧来源和关键词是分开的：`tiebaBars` 控制去哪些吧抓，`tiebaKeywords` 控制在这些吧里保留哪些帖子。例如要在“逆战吧”观察《生死狙击》相关讨论，可配置 `"tiebaBars": ["逆战"]` 和 `"tiebaKeywords": ["生死狙击"]`。页面里的补充关键词会在本次刷新中临时并入 B 站、抖音关键词和 `tiebaKeywords`，不会新增贴吧来源。
 
 ### Confluence 当前版本重点
 

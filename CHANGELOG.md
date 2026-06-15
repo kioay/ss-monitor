@@ -4,7 +4,7 @@
 
 - Released `v0.1.8` with supplemental keyword management for production monitor operators.
 - Added manual supplemental keyword add/remove/clear controls and URL persistence for shared views.
-- Expanded supplemental monitor entries into Tieba bar scope so operators can collect public opinion from related bars beyond the configured home bar.
+- Added separate Tieba source bars and Tieba content keywords so operators can collect project-related posts from adjacent bars without importing the adjacent game's own public opinion.
 - Added keyword effectiveness summaries based on actual fetched public-opinion hits, including effective, weak, no-match, and pending states.
 - Refined the keyword UI into an independent entry button with an external summary and a dedicated management panel.
 - Hardened Douyin noVNC remote-login setup so release deployments can better adapt service users, systemd paths, sudoers paths, and dynamic host routing.

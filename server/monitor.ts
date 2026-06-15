@@ -105,7 +105,7 @@ function withSupplementalKeywords(selectedGames: GameConfig[], extraKeywords: st
     ...game,
     bilibiliKeywords: mergeKeywordLists(game.bilibiliKeywords, extraKeywords),
     douyinKeywords: mergeKeywordLists(game.douyinKeywords, extraKeywords),
-    tiebaBars: mergeKeywordLists(game.tiebaBars, extraKeywords)
+    tiebaKeywords: mergeKeywordLists(game.tiebaKeywords || [], extraKeywords)
   }));
 }
 

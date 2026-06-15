@@ -11,7 +11,8 @@ const defaultGames: GameConfig[] = [
     shortName: "SS1",
     bilibiliKeywords: ["生死狙击", "生死狙击1", "4399生死狙击", "生死狙击页游"],
     douyinKeywords: ["生死狙击", "生死狙击1", "4399生死狙击", "生死狙击页游"],
-    tiebaBars: ["生死狙击"]
+    tiebaBars: ["生死狙击"],
+    tiebaKeywords: []
   },
   {
     id: "ss2",
@@ -19,7 +20,8 @@ const defaultGames: GameConfig[] = [
     shortName: "SS2",
     bilibiliKeywords: ["生死狙击2", "生死狙击2热油"],
     douyinKeywords: ["生死狙击2", "生死狙击2热油"],
-    tiebaBars: ["生死狙击2"]
+    tiebaBars: ["生死狙击2"],
+    tiebaKeywords: []
   }
 ];
 
@@ -212,6 +214,7 @@ function normalizeGameConfig(value: unknown): GameConfig | undefined {
   const bilibiliKeywords = stringList(value.bilibiliKeywords || value.bilibili_keywords, [name, shortName]);
   const douyinKeywords = stringList(value.douyinKeywords || value.douyin_keywords, bilibiliKeywords);
   const tiebaBars = stringList(value.tiebaBars || value.tieba_bars, [name]);
+  const tiebaKeywords = stringList(value.tiebaKeywords || value.tieba_keywords, []);
 
   return {
     id,
@@ -219,7 +222,8 @@ function normalizeGameConfig(value: unknown): GameConfig | undefined {
     shortName,
     bilibiliKeywords,
     douyinKeywords,
-    tiebaBars
+    tiebaBars,
+    tiebaKeywords
   };
 }
 
@@ -239,13 +243,15 @@ function stringList(value: unknown, fallback: string[]) {
 }
 
 export function gameTermsForMatching(game: GameConfig) {
+  const tiebaKeywords = game.tiebaKeywords || [];
+  const tiebaTerms = tiebaKeywords.length ? tiebaKeywords : game.tiebaBars;
   return uniqStrings([
     game.id,
     game.name,
     game.shortName,
     ...game.bilibiliKeywords,
     ...game.douyinKeywords,
-    ...game.tiebaBars
+    ...tiebaTerms
   ]).filter((term) => term.length >= 2);
 }
 
