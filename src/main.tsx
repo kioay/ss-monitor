@@ -986,13 +986,13 @@ function App() {
           <h1>{monitorTitle}</h1>
         </div>
         <div className="top-actions">
-          <span className="timestamp">
-            <Clock3 size={16} aria-hidden="true" />
-            {monitorJudgementPending ? "回测中" : data ? formatDateTime(data.generatedAt) : "等待采集"}
-          </span>
-          <RiskBacktestBadge status={visibleRiskBacktest} />
-          {visiblePolicy ? <UpdatePolicyBadge policy={visiblePolicy} /> : null}
-          <DouyinStatusNotice status={douyinStatus} />
+          <RuntimeStatusTray
+            timestampText={monitorJudgementPending ? "回测中" : data ? formatDateTime(data.generatedAt) : "等待采集"}
+            riskBacktest={visibleRiskBacktest}
+            updatePolicy={visiblePolicy}
+            douyinStatus={douyinStatus}
+            bettafishCapabilities={data?.bettafishCapabilities || []}
+          />
           <button className="icon-button primary" type="button" onClick={() => load(true)} disabled={loading} title="强制刷新" aria-label="强制刷新舆情看板">
             <RefreshCw size={18} className={loading ? "spin" : ""} aria-hidden="true" />
           </button>
@@ -1211,8 +1211,6 @@ function App() {
           }
         />
       </section>
-
-      <BettaFishEffectStrip capabilities={data?.bettafishCapabilities || []} />
 
       <section className={`workspace-grid ${trendOpen ? "trend-open" : "trend-collapsed"}`}>
         <details className="chart-area trend-details" open={trendOpen} onToggle={(event) => setTrendOpen(event.currentTarget.open)}>
@@ -2332,56 +2330,149 @@ function Metric({
   );
 }
 
-function BettaFishEffectStrip({ capabilities }: { capabilities: BettaFishPanelCapability[] }) {
-  if (!capabilities.length) return null;
-  const summary = capabilities.map((capability) => `${capability.label} ${capability.value}`).join(" · ");
+function RuntimeStatusTray({
+  timestampText,
+  riskBacktest,
+  updatePolicy,
+  douyinStatus,
+  bettafishCapabilities
+}: {
+  timestampText: string;
+  riskBacktest?: MonitorResponse["riskBacktest"];
+  updatePolicy?: MonitorResponse["updatePolicy"];
+  douyinStatus?: DouyinCrawlStatus;
+  bettafishCapabilities: BettaFishPanelCapability[];
+}) {
+  const douyinIssue = douyinStatus && !douyinStatus.ok ? douyinStatus.issues.find((issue) => issue.type === "login") || douyinStatus.issues[0] : undefined;
+  const summaryParts = [
+    timestampText,
+    riskBacktestSummary(riskBacktest),
+    updatePolicy?.label || "",
+    bettafishCapabilities.length ? `BettaFish ${bettafishCapabilities.length}项` : "",
+    douyinIssue ? (douyinIssue.type === "login" ? "抖音需登录" : "抖音需检查") : ""
+  ].filter(Boolean);
+  const summaryText = summaryParts.join(" · ");
 
   return (
-    <aside className="bettafish-effect-corner" aria-label="BettaFish 实际生效能力">
-      <details className="bettafish-effect-strip">
-        <summary className="bettafish-effect-summary" title={summary}>
-          <Plug size={13} aria-hidden="true" />
-          <span>BettaFish</span>
-          <small>{capabilities.length} 项</small>
-          <ChevronDown size={13} aria-hidden="true" />
-        </summary>
-        <div className="bettafish-effect-panel">
-          <p className="bettafish-effect-note">仅显示本次监控响应中已有证据的能力</p>
-          <div className="bettafish-effect-list">
-            {capabilities.map((capability) => (
-              <article className={`bettafish-effect-card ${capability.id}`} key={capability.id} title={capability.description}>
-                <div>
-                  <strong>{capability.label}</strong>
-                  <span>{capability.value}</span>
-                </div>
-                <div className="bettafish-effect-evidence">
-                  {capability.evidence.slice(0, 2).map((entry) => (
-                    <small key={entry}>{entry}</small>
-                  ))}
-                </div>
-              </article>
-            ))}
-          </div>
+    <details className={`runtime-status-tray ${douyinIssue ? "has-warning" : ""}`}>
+      <summary className="runtime-status-trigger" title={summaryText}>
+        <Clock3 size={14} aria-hidden="true" />
+        <span>{summaryText || "运行状态"}</span>
+        <small>{douyinIssue ? "需处理" : "详情"}</small>
+        <ChevronDown size={14} aria-hidden="true" />
+      </summary>
+      <div className="runtime-status-panel">
+        <div className="runtime-status-row">
+          <span className="runtime-status-label">
+            <Clock3 size={14} aria-hidden="true" />
+            生成时间
+          </span>
+          <strong>{timestampText}</strong>
         </div>
-      </details>
-    </aside>
+        <div className="runtime-status-row">
+          <span className="runtime-status-label">
+            <TestTube2 size={14} aria-hidden="true" />
+            风险回测
+          </span>
+          <RiskBacktestBadge status={riskBacktest} />
+        </div>
+        {updatePolicy ? (
+          <div className="runtime-status-row">
+            <span className="runtime-status-label">
+              <Clock3 size={14} aria-hidden="true" />
+              更新策略
+            </span>
+            <UpdatePolicyBadge policy={updatePolicy} />
+          </div>
+        ) : null}
+        <div className="runtime-status-row runtime-status-row-wide">
+          <span className="runtime-status-label">
+            <Plug size={14} aria-hidden="true" />
+            BettaFish
+          </span>
+          <BettaFishCapabilityList capabilities={bettafishCapabilities} />
+        </div>
+        {douyinIssue ? (
+          <div className="runtime-status-row runtime-status-row-wide warning">
+            <span className="runtime-status-label">
+              <AlertTriangle size={14} aria-hidden="true" />
+              抖音状态
+            </span>
+            <DouyinStatusNotice status={douyinStatus} />
+          </div>
+        ) : null}
+      </div>
+    </details>
   );
 }
 
-function RiskBacktestBadge({ status }: { status?: MonitorResponse["riskBacktest"] }) {
-  if (!status) return null;
-  const tone = status.status === "passed" ? "passed" : status.status === "failed" ? "failed" : status.status === "running" ? "running" : "idle";
-  const title = [
+function BettaFishCapabilityList({ capabilities }: { capabilities: BettaFishPanelCapability[] }) {
+  if (!capabilities.length) return <span className="runtime-status-muted">本次无生效证据</span>;
+
+  return (
+    <div className="bettafish-effect-block">
+      <p className="bettafish-effect-note">仅显示本次监控响应中已有证据的能力</p>
+      <div className="bettafish-effect-list">
+        {capabilities.map((capability) => (
+          <article className={`bettafish-effect-card ${capability.id}`} key={capability.id} title={capability.description}>
+            <div>
+              <strong>{capability.label}</strong>
+              <span>{capability.value}</span>
+            </div>
+            <div className="bettafish-effect-evidence">
+              {capability.evidence.slice(0, 2).map((entry) => (
+                <small key={entry}>{entry}</small>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function riskBacktestSummary(status?: MonitorResponse["riskBacktest"]) {
+  if (!status) return "";
+  if (status.status === "running") return "回测中";
+  if (status.status === "passed") return "回测通过";
+  if (status.status === "failed") return "回测失败";
+  return "待回测";
+}
+
+function riskBacktestTone(status?: MonitorResponse["riskBacktest"]) {
+  if (status?.status === "passed") return "passed";
+  if (status?.status === "failed") return "failed";
+  if (status?.status === "running") return "running";
+  return "idle";
+}
+
+function riskBacktestLabel(status?: MonitorResponse["riskBacktest"]) {
+  return riskBacktestSummary(status) || "待回测";
+}
+
+function riskBacktestTitle(status?: MonitorResponse["riskBacktest"]) {
+  if (!status) return "";
+  return [
     status.message,
     status.caseCount ? `${status.caseCount} 个样本` : "",
     status.durationMs ? `${status.durationMs} ms` : "",
     status.details || ""
   ].filter(Boolean).join(" · ");
+}
+
+function riskBacktestCaseText(status?: MonitorResponse["riskBacktest"]) {
+  return status?.caseCount ? `${status.caseCount} 样本` : "";
+}
+
+function RiskBacktestBadge({ status }: { status?: MonitorResponse["riskBacktest"] }) {
+  const tone = riskBacktestTone(status);
+  const title = riskBacktestTitle(status);
+  const caseText = riskBacktestCaseText(status);
   return (
     <span className={`risk-backtest-badge ${tone}`} title={title}>
-      {status.status === "passed" ? <CheckCircle2 size={14} aria-hidden="true" /> : <TestTube2 size={14} aria-hidden="true" />}
-      <b>{status.status === "running" ? "回测中" : status.status === "passed" ? "回测通过" : status.status === "failed" ? "回测失败" : "待回测"}</b>
-      {status.caseCount ? <small>{status.caseCount} 样本</small> : null}
+      {status?.status === "passed" ? <CheckCircle2 size={14} aria-hidden="true" /> : <TestTube2 size={14} aria-hidden="true" />}
+      <b>{riskBacktestLabel(status)}</b>
+      {caseText ? <small>{caseText}</small> : null}
     </span>
   );
 }
