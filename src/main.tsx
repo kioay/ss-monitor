@@ -87,7 +87,7 @@ const trendLineMinY = 5;
 const trendLineMaxY = 30;
 const trendLineClipHeight = 32;
 const defaultWindowHours = 72;
-const windowHourOptions = [24, 72, 168, 336];
+const windowHourOptions = [24, 72, 168, 336, 720];
 const sourceFilterValues = ["all", "bilibili", "tieba", "douyin", "bettafish"] as const;
 const riskFilterValues = ["all", "high", "medium", "low"] as const;
 const sentimentFilterValues = ["all", "negative", "mixed", "neutral", "positive"] as const;
@@ -221,7 +221,7 @@ const bettaFishGlossaryGroups: Array<{ title: string; terms: LabTerm[] }> = [
       },
       {
         term: "测试窗口",
-        meaning: "当前只统计近 24 小时、72 小时、7 天或 14 天内的数据。",
+        meaning: "当前只统计近 24 小时、72 小时、7 天、14 天或 30 天内的数据。",
         role: "用同一个时间口径比较采集、导入、风险和情绪结果。"
       },
       {
@@ -1172,6 +1172,7 @@ function App() {
             <option value={72}>72 小时</option>
             <option value={168}>7 天</option>
             <option value={336}>14 天</option>
+            <option value={720}>30 天</option>
           </select>
         </label>
         <label className="field search-field">
