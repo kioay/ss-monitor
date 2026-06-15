@@ -13,6 +13,7 @@ import {
   Info,
   MousePointer2,
   Plug,
+  Plus,
   RefreshCw,
   Search,
   ShieldAlert,
@@ -34,6 +35,7 @@ import type {
   DouyinCrawlStatus,
   GameConfig,
   GameId,
+  KeywordEffectiveness,
   AlertItem,
   MonitorItem,
   MonitorResponse,
@@ -451,7 +453,7 @@ function App() {
   const [topic, setTopic] = React.useState(initialUiState.topic);
   const [query, setQuery] = React.useState(initialUiState.query);
   const [extraKeywords, setExtraKeywords] = React.useState(initialUiState.extraKeywords);
-  const [extraKeywordDraft, setExtraKeywordDraft] = React.useState(initialUiState.extraKeywords);
+  const [keywordInput, setKeywordInput] = React.useState("");
   const [searchData, setSearchData] = React.useState<SearchResponse>();
   const [searchLoading, setSearchLoading] = React.useState(false);
   const [searchError, setSearchError] = React.useState("");
@@ -676,31 +678,42 @@ function App() {
     setQuery("");
   }, []);
 
-  const applyExtraKeywords = React.useCallback(
+  const addExtraKeywords = React.useCallback(
     (event?: React.FormEvent<HTMLFormElement>) => {
       event?.preventDefault();
-      const normalized = normalizeSupplementalKeywordText(extraKeywordDraft);
-      setExtraKeywordDraft(normalized);
+      const additions = splitSupplementalKeywords(keywordInput);
+      if (!additions.length) return;
+      const normalized = normalizeSupplementalKeywordText(`${extraKeywords},${additions.join(",")}`);
+      setKeywordInput("");
+      if (normalized === extraKeywords) return;
       clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, normalized));
-      if (extraKeywords && normalized !== extraKeywords) {
+      if (extraKeywords) {
         clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords));
-      }
-      if (normalized === extraKeywords) {
-        void load(true);
-        return;
       }
       setExtraKeywords(normalized);
     },
-    [extraKeywordDraft, extraKeywords, load, selectedGames, windowHours]
+    [extraKeywords, keywordInput, selectedGames, windowHours]
   );
 
   const clearExtraKeywords = React.useCallback(() => {
-    setExtraKeywordDraft("");
     if (!extraKeywords) return;
     clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords));
     clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, ""));
     setExtraKeywords("");
   }, [extraKeywords, selectedGames, windowHours]);
+
+  const removeExtraKeyword = React.useCallback(
+    (keyword: string) => {
+      const normalizedKeyword = keyword.toLowerCase();
+      const remaining = splitSupplementalKeywords(extraKeywords).filter((item) => item.toLowerCase() !== normalizedKeyword);
+      const normalized = normalizeSupplementalKeywordText(remaining.join(","));
+      if (normalized === extraKeywords) return;
+      clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords));
+      clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, normalized));
+      setExtraKeywords(normalized);
+    },
+    [extraKeywords, selectedGames, windowHours]
+  );
 
   const filteredItems = React.useMemo(() => {
     const keyword = query.trim().toLowerCase();
@@ -770,6 +783,11 @@ function App() {
   const visibleHealth = React.useMemo(
     () => makeVisibleHealth(data?.health || [], sameGameSelection(selectedGames, configuredGameIds), gameLabelById),
     [configuredGameIds, data?.health, gameLabelById, selectedGames]
+  );
+  const activeExtraKeywords = React.useMemo(() => splitSupplementalKeywords(extraKeywords), [extraKeywords]);
+  const keywordEffectivenessByKeyword = React.useMemo(
+    () => new Map((data?.keywordEffectiveness || []).map((entry) => [entry.keyword.toLowerCase(), entry])),
+    [data?.keywordEffectiveness]
   );
   const topicOptions = React.useMemo(() => makeTopicOptions(data?.items || []), [data?.items]);
   const maxTopicCount = React.useMemo(
@@ -883,25 +901,47 @@ function App() {
             autoComplete="off"
           />
         </label>
-        <form className="field keyword-field" onSubmit={applyExtraKeywords}>
-          <Tags size={16} aria-hidden="true" />
-          <span>补词</span>
-          <input
-            name="supplemental-keywords"
-            value={extraKeywordDraft}
-            onChange={(event) => setExtraKeywordDraft(event.target.value)}
-            placeholder="补充关键词，逗号分隔"
-            autoComplete="off"
-          />
-          <button className="keyword-icon-button" type="submit" title="应用补充关键词" aria-label="应用补充关键词">
-            <CheckCircle2 size={16} aria-hidden="true" />
-          </button>
-          {extraKeywords ? (
-            <button className="keyword-icon-button" type="button" onClick={clearExtraKeywords} title="清空补充关键词" aria-label="清空补充关键词">
-              <X size={16} aria-hidden="true" />
+        <div className="keyword-manager">
+          <form className="field keyword-add-field" onSubmit={addExtraKeywords}>
+            <Tags size={16} aria-hidden="true" />
+            <span>补词</span>
+            <input
+              name="supplemental-keywords"
+              value={keywordInput}
+              onChange={(event) => setKeywordInput(event.target.value)}
+              placeholder="添加关键词，回车加入"
+              autoComplete="off"
+            />
+            <button className="keyword-icon-button" type="submit" title="添加关键词" aria-label="添加关键词">
+              <Plus size={16} aria-hidden="true" />
             </button>
+            {activeExtraKeywords.length ? (
+              <button className="keyword-icon-button" type="button" onClick={clearExtraKeywords} title="清空补充关键词" aria-label="清空补充关键词">
+                <X size={16} aria-hidden="true" />
+              </button>
+            ) : null}
+          </form>
+          {activeExtraKeywords.length ? (
+            <div className="keyword-chip-row" aria-label="补充关键词">
+              {activeExtraKeywords.map((keyword) => {
+                const effectiveness = keywordEffectivenessByKeyword.get(keyword.toLowerCase());
+                return (
+                  <span
+                    className={`keyword-chip ${effectiveness?.status || "pending"}`}
+                    title={keywordEffectivenessTitle(keyword, effectiveness)}
+                    key={keyword}
+                  >
+                    <span className="keyword-chip-main">{keyword}</span>
+                    <span className="keyword-chip-status">{keywordEffectivenessLabel(effectiveness)}</span>
+                    <button type="button" onClick={() => removeExtraKeyword(keyword)} title={`移除 ${keyword}`} aria-label={`移除 ${keyword}`}>
+                      <X size={13} aria-hidden="true" />
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
           ) : null}
-        </form>
+        </div>
       </section>
 
       {error || searchError ? <div className="error-strip" role="alert" aria-live="polite">{error || searchError}</div> : null}
@@ -2653,6 +2693,30 @@ function Thumbnail({ item }: { item: MonitorItem }) {
 
 function searchOriginText(origin: SearchResult["origin"]) {
   return origin === "mindspider-douyin-db" ? "MindSpider DB" : "历史记录";
+}
+
+function keywordEffectivenessLabel(effectiveness: KeywordEffectiveness | undefined) {
+  if (!effectiveness) return "待评估";
+  if (effectiveness.status === "effective") return `${effectiveness.matchedItems} 条有效`;
+  if (effectiveness.status === "weak") return `${effectiveness.matchedItems} 条弱命中`;
+  return "未命中";
+}
+
+function keywordEffectivenessTitle(keyword: string, effectiveness: KeywordEffectiveness | undefined) {
+  if (!effectiveness) return `${keyword}：刷新后评估`;
+  const sources = effectiveness.sources.length ? effectiveness.sources.map(sourceTypeText).join(" / ") : "暂无来源";
+  const riskSummary = effectiveness.highRisk || effectiveness.mediumRisk
+    ? `；高风险 ${effectiveness.highRisk}，中风险 ${effectiveness.mediumRisk}`
+    : "";
+  const latest = effectiveness.latestAt ? `；最近 ${formatDateTime(effectiveness.latestAt)}` : "";
+  return `${keyword}：命中 ${effectiveness.matchedItems} 条；${sources}${riskSummary}${latest}`;
+}
+
+function sourceTypeText(source: SourceType) {
+  if (source === "bilibili") return "B站";
+  if (source === "tieba") return "贴吧";
+  if (source === "douyin") return "抖音";
+  return "BettaFish";
 }
 
 function metricLine(item: MonitorItem) {

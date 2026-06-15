@@ -511,19 +511,100 @@ h2 {
   width: 100%;
 }
 
-.keyword-field {
-  flex: 1 1 360px;
+.keyword-manager {
+  flex: 2 1 520px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.keyword-field span:not(.sr-only) {
+.keyword-add-field {
+  flex: 1 1 240px;
+}
+
+.keyword-add-field span:not(.sr-only) {
   flex: 0 0 auto;
   font-weight: 760;
   color: var(--muted);
 }
 
-.keyword-field input {
+.keyword-add-field input {
   min-width: 120px;
   width: 100%;
+}
+
+.keyword-chip-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.keyword-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(251, 253, 249, 0.92);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.keyword-chip.effective {
+  border-color: rgba(38, 139, 97, 0.32);
+  background: var(--green-soft);
+}
+
+.keyword-chip.weak {
+  border-color: rgba(179, 130, 39, 0.34);
+  background: var(--gold-soft);
+}
+
+.keyword-chip.no_match {
+  border-color: rgba(138, 146, 139, 0.28);
+  background: rgba(237, 242, 237, 0.64);
+  color: var(--muted);
+}
+
+.keyword-chip.pending {
+  border-color: rgba(63, 120, 168, 0.28);
+  background: var(--blue-soft);
+}
+
+.keyword-chip-main,
+.keyword-chip-status {
+  padding: 0 8px;
+  line-height: 28px;
+  white-space: nowrap;
+}
+
+.keyword-chip-status {
+  border-left: 1px solid rgba(20, 36, 33, 0.1);
+  color: var(--muted);
+}
+
+.keyword-chip button {
+  flex: 0 0 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-left: 1px solid rgba(20, 36, 33, 0.1);
+  background: transparent;
+  color: var(--muted);
+}
+
+.keyword-chip button:hover,
+.keyword-chip button:focus-visible {
+  background: rgba(20, 36, 33, 0.06);
+  color: var(--ink);
 }
 
 .keyword-icon-button {
@@ -3366,8 +3447,14 @@ button.metric:focus-visible {
   }
 
   .control-band .segmented,
-  .control-band .field {
+  .control-band .field,
+  .control-band .keyword-manager {
     flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .keyword-add-field,
+  .keyword-chip-row {
     width: 100%;
   }
 

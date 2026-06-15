@@ -16,6 +16,7 @@ import type {
   BettaFishPanelCapability,
   GameConfig,
   GameId,
+  KeywordEffectiveness,
   MonitorItem,
   MonitorResponse,
   MonitorStats,
@@ -176,6 +177,7 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
     topicStats: makeTopicStats(windowItems),
     alerts: makeAlerts(windowItems, cutoff),
     health: responseHealth,
+    keywordEffectiveness: makeKeywordEffectiveness(windowItems, query.extraKeywords),
     bettafishCapabilities: makeBettaFishPanelCapabilities(windowItems, responseHealth),
     items: freshItems
   };
@@ -421,6 +423,51 @@ function makeStats(items: MonitorItem[]): MonitorStats {
     bettafish: items.filter((item) => item.source === "bettafish").length,
     freshestAt: items[0]?.publishedAt
   };
+}
+
+export function makeKeywordEffectiveness(items: MonitorItem[], keywords: string[]): KeywordEffectiveness[] {
+  return keywords.map((keyword) => {
+    const normalizedKeyword = normalizeKeywordScope(keyword);
+    const matchedItems = items.filter((item) => monitorItemSearchText(item).includes(normalizedKeyword));
+    const latest = matchedItems
+      .map((item) => new Date(item.publishedAt))
+      .filter((date) => Number.isFinite(date.getTime()))
+      .sort((left, right) => right.getTime() - left.getTime())[0];
+    const sources = Array.from(new Set(matchedItems.map((item) => item.source))).sort(sourceSort);
+    return {
+      keyword,
+      status: keywordStatus(matchedItems.length),
+      matchedItems: matchedItems.length,
+      highRisk: matchedItems.filter((item) => item.riskLevel === "high").length,
+      mediumRisk: matchedItems.filter((item) => item.riskLevel === "medium").length,
+      sources,
+      latestAt: latest?.toISOString(),
+      sampleTitles: matchedItems.slice(0, 3).map((item) => item.title)
+    };
+  });
+}
+
+function monitorItemSearchText(item: MonitorItem) {
+  return [
+    item.title,
+    item.summary,
+    item.author,
+    item.keywords.join(" "),
+    item.topics.join(" "),
+    item.riskReasons.join(" "),
+    ...item.contentParts.map((part) => part.text)
+  ].join("\n").toLowerCase();
+}
+
+function keywordStatus(matchedItems: number): KeywordEffectiveness["status"] {
+  if (matchedItems >= 3) return "effective";
+  if (matchedItems > 0) return "weak";
+  return "no_match";
+}
+
+function sourceSort(left: SourceType, right: SourceType) {
+  const order: SourceType[] = ["bilibili", "tieba", "douyin", "bettafish"];
+  return order.indexOf(left) - order.indexOf(right);
 }
 
 function makeBettaFishPanelCapabilities(items: MonitorItem[], health: SourceHealth[]): BettaFishPanelCapability[] {

@@ -120,6 +120,19 @@ export interface BettaFishPanelCapability {
   evidence: string[];
 }
 
+export type KeywordEffectivenessStatus = "effective" | "weak" | "no_match";
+
+export interface KeywordEffectiveness {
+  keyword: string;
+  status: KeywordEffectivenessStatus;
+  matchedItems: number;
+  highRisk: number;
+  mediumRisk: number;
+  sources: SourceType[];
+  latestAt?: string;
+  sampleTitles: string[];
+}
+
 export interface MonitorResponse {
   generatedAt: string;
   windowHours: number;
@@ -144,6 +157,7 @@ export interface MonitorResponse {
   topicStats: TopicStat[];
   alerts: AlertItem[];
   health: SourceHealth[];
+  keywordEffectiveness: KeywordEffectiveness[];
   bettafishCapabilities?: BettaFishPanelCapability[];
   items: MonitorItem[];
 }

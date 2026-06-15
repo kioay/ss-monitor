@@ -104,6 +104,7 @@ function makeResponse(items: MonitorItem[]): MonitorResponse {
     topicStats: [],
     alerts: [],
     health: [],
+    keywordEffectiveness: [],
     items
   };
 }
