@@ -5,6 +5,7 @@ import {
   ChevronDown,
   CheckCircle2,
   Clock3,
+  Copy,
   Database,
   Eye,
   ExternalLink,
@@ -505,6 +506,13 @@ function App() {
           message: "抖音采集状态暂时不可读",
           detail: reason instanceof Error ? reason.message : String(reason)
         }],
+        remoteLogin: {
+          ready: false,
+          url: api.douyinRemoteLogin,
+          setupCommand: "sudo bash /opt/ss-monitor/current/scripts/setup-douyin-remote-login.sh",
+          message: "运行 release 自带脚本生成可用 noVNC 入口",
+          missing: ["抖音状态 API"]
+        },
         service: { available: false },
         scheduler: { exists: false },
         loginProfile: {
@@ -2170,24 +2178,49 @@ function UpdatePolicyBadge({ policy }: { policy: MonitorResponse["updatePolicy"]
 }
 
 function DouyinStatusNotice({ status }: { status?: DouyinCrawlStatus }) {
+  const [copyState, setCopyState] = React.useState<"idle" | "copied" | "failed">("idle");
   if (!status || status.ok) return null;
   const loginIssue = status.issues.find((issue) => issue.type === "login");
   const primaryIssue = loginIssue || status.issues[0];
   if (!primaryIssue) return null;
-  const remoteLoginUrl = loginIssue ? api.douyinRemoteLogin : "";
+  const remoteLogin = status.remoteLogin;
+  const remoteLoginReady = remoteLogin?.ready ?? Boolean(loginIssue);
+  const setupCommand = remoteLogin && !remoteLogin.ready ? remoteLogin.setupCommand : "";
+  const noticeMessage = remoteLogin && !remoteLogin.ready ? remoteLogin.message : primaryIssue.message;
+  const noticeTitle = [
+    primaryIssue.detail || primaryIssue.message,
+    remoteLogin && !remoteLogin.ready && remoteLogin.missing.length ? `缺少：${remoteLogin.missing.join("、")}` : "",
+    setupCommand
+  ].filter(Boolean).join("\n");
+  const copySetupCommand = async () => {
+    if (!setupCommand) return;
+    try {
+      await navigator.clipboard.writeText(setupCommand);
+      setCopyState("copied");
+    } catch {
+      setCopyState("failed");
+    }
+    window.setTimeout(() => setCopyState("idle"), 1600);
+  };
+  const copyLabel = copyState === "copied" ? "已复制" : copyState === "failed" ? "复制失败" : "复制命令";
 
   return (
-    <div className={`douyin-status-notice ${primaryIssue.severity}`} role="status" title={primaryIssue.detail || primaryIssue.message}>
+    <div className={`douyin-status-notice ${primaryIssue.severity}`} role="status" title={noticeTitle}>
       <AlertTriangle size={16} aria-hidden="true" />
       <div>
         <strong>{loginIssue ? "抖音登录需处理" : "抖音采集异常"}</strong>
-        <small>{primaryIssue.message}</small>
+        <small>{noticeMessage}</small>
       </div>
-      {loginIssue ? (
-        <a href={remoteLoginUrl} target="_blank" rel="noreferrer" className="douyin-remote-login">
+      {remoteLoginReady ? (
+        <a href={api.douyinRemoteLogin} target="_blank" rel="noreferrer" className="douyin-remote-login">
           <ExternalLink size={14} aria-hidden="true" />
           远程登录
         </a>
+      ) : setupCommand ? (
+        <button type="button" className="douyin-remote-login" onClick={copySetupCommand}>
+          <Copy size={14} aria-hidden="true" />
+          {copyLabel}
+        </button>
       ) : null}
     </div>
   );

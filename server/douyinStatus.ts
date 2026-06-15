@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { constants as fsConstants } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { runtimeConfig, getUpdatePolicy } from "./config";
@@ -8,7 +9,8 @@ import type {
   DouyinCrawlServiceStatus,
   DouyinCrawlStatus,
   DouyinCrawlStatusIssue,
-  DouyinLoginProfileStatus
+  DouyinLoginProfileStatus,
+  DouyinRemoteLoginStatus
 } from "../src/shared";
 
 type CommandResult = {
@@ -22,12 +24,13 @@ type CommandResult = {
 const statusCacheTtlMs = 45_000;
 let cachedStatus: { createdAt: number; value: DouyinCrawlStatus } | undefined;
 
-export async function getDouyinCrawlStatus(force = false): Promise<DouyinCrawlStatus> {
+export async function getDouyinCrawlStatus(force = false, hostHeader = ""): Promise<DouyinCrawlStatus> {
   if (!force && cachedStatus && Date.now() - cachedStatus.createdAt < statusCacheTtlMs) return cachedStatus.value;
 
   const service = await readServiceStatus();
   const scheduler = await readSchedulerState();
   const loginProfile = await inspectLoginProfile();
+  const remoteLogin = await inspectRemoteLogin(hostHeader);
   const journal = service.available ? await readRecentJournal() : "";
   const issues = makeIssues(service, scheduler, loginProfile, journal);
   const status = statusFromIssues(issues, service);
@@ -42,6 +45,7 @@ export async function getDouyinCrawlStatus(force = false): Promise<DouyinCrawlSt
     message: issues[0]?.message || (status === "skipped" ? "抖音采集状态仅在生产 Linux 服务上检查" : "抖音登录态与采集任务正常"),
     issues,
     ...(runtimeConfig.douyinRemoteLoginUrl ? { remoteLoginUrl: runtimeConfig.douyinRemoteLoginUrl } : {}),
+    remoteLogin,
     service,
     scheduler,
     loginProfile
@@ -76,6 +80,55 @@ function douyinRemoteLoginUrl(hostHeader: string) {
   if (runtimeConfig.douyinRemoteLoginUrl) return runtimeConfig.douyinRemoteLoginUrl;
   const host = hostHeader.replace(/:\d+$/, "") || "127.0.0.1";
   return `http://${host}:6088/vnc.html?autoconnect=true&resize=scale`;
+}
+
+async function inspectRemoteLogin(hostHeader: string): Promise<DouyinRemoteLoginStatus> {
+  const appRoot = process.env.SS_MONITOR_APP_ROOT || process.env.APP_ROOT || "/opt/ss-monitor";
+  const setupCommand = `sudo bash ${path.posix.join(appRoot, "current", "scripts", "setup-douyin-remote-login.sh")}`;
+  const url = douyinRemoteLoginUrl(hostHeader);
+  if (process.platform === "win32") {
+    return {
+      ready: false,
+      url,
+      setupCommand,
+      message: "远程登录入口仅在生产 Linux 服务上生成",
+      missing: ["生产 Linux 环境"]
+    };
+  }
+
+  const missing: string[] = [];
+  const serviceName = runtimeConfig.douyinRemoteLoginServiceName;
+  const unitName = path.basename(serviceName);
+  if (!await pathExists(`/etc/systemd/system/${unitName}`)) missing.push("远程登录 systemd unit");
+
+  const passwordConfigured = Boolean(process.env.BETTAFISH_DOUYIN_REMOTE_PASSWORD || process.env.DOUYIN_REMOTE_LOGIN_PASSWORD);
+  if (!passwordConfigured) missing.push("VNC 密码");
+
+  const xvnc = process.env.BETTAFISH_DOUYIN_REMOTE_XVNC || "";
+  if (xvnc) {
+    if (!await executableExists(xvnc)) missing.push("Xvnc");
+  } else if (!(await commandAvailable("Xvnc"))) {
+    missing.push("Xvnc");
+  }
+
+  const novncProxy = process.env.BETTAFISH_DOUYIN_REMOTE_NOVNC_PROXY || "";
+  const novncDir = process.env.BETTAFISH_DOUYIN_REMOTE_NOVNC_DIR || "";
+  const novncCandidates = [
+    novncProxy,
+    novncDir ? path.join(novncDir, "utils", "novnc_proxy") : "",
+    "/usr/share/novnc/utils/novnc_proxy",
+    "/opt/novnc/utils/novnc_proxy"
+  ].filter(Boolean);
+  if (!await firstExecutable(novncCandidates)) missing.push("noVNC proxy");
+
+  const ready = missing.length === 0;
+  return {
+    ready,
+    url,
+    setupCommand,
+    message: ready ? "远程登录入口已就绪" : "运行 release 自带脚本生成可用 noVNC 入口",
+    missing
+  };
 }
 
 async function readServiceStatus(): Promise<DouyinCrawlServiceStatus> {
@@ -449,6 +502,31 @@ async function pathExists(candidate: string) {
   } catch {
     return false;
   }
+}
+
+async function executableExists(candidate: string) {
+  try {
+    await fs.access(candidate, fsConstants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function firstExecutable(candidates: string[]) {
+  for (const candidate of candidates) {
+    if (await executableExists(candidate)) return candidate;
+  }
+  return "";
+}
+
+async function commandAvailable(command: string) {
+  const result = await runCommand("bash", ["-lc", `command -v ${shellToken(command)}`], 2_000);
+  return result.ok && Boolean(result.stdout.trim());
+}
+
+function shellToken(value: string) {
+  return `'${value.replace(/'/g, "'\\''")}'`;
 }
 
 function runCommand(command: string, args: string[], timeoutMs = 5_000): Promise<CommandResult> {

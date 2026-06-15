@@ -45,7 +45,8 @@ app.get("/api/health", (_request, response) => {
 app.get("/api/douyin/status", async (request, response) => {
   try {
     const force = request.query.force === "1" || request.query.force === "true";
-    response.json(await getDouyinCrawlStatus(force));
+    const hostHeader = typeof request.headers.host === "string" ? request.headers.host : "";
+    response.json(await getDouyinCrawlStatus(force, hostHeader));
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "未知错误"

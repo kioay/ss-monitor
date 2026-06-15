@@ -353,10 +353,12 @@ h2 {
   padding: 0 8px;
   background: rgba(255, 255, 255, 0.72);
   color: inherit;
+  font-family: inherit;
   font-size: 12px;
   font-weight: 760;
   text-decoration: none;
   white-space: nowrap;
+  cursor: pointer;
 }
 
 .douyin-remote-login:hover,

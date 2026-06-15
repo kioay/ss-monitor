@@ -386,6 +386,14 @@ export interface DouyinLoginProfileStatus {
   error?: string;
 }
 
+export interface DouyinRemoteLoginStatus {
+  ready: boolean;
+  url: string;
+  setupCommand: string;
+  message: string;
+  missing: string[];
+}
+
 export interface DouyinCrawlStatus {
   generatedAt: string;
   status: BettaFishProbeStatus;
@@ -395,6 +403,7 @@ export interface DouyinCrawlStatus {
   message: string;
   issues: DouyinCrawlStatusIssue[];
   remoteLoginUrl?: string;
+  remoteLogin: DouyinRemoteLoginStatus;
   service: DouyinCrawlServiceStatus;
   scheduler: DouyinCrawlSchedulerState;
   loginProfile: DouyinLoginProfileStatus;

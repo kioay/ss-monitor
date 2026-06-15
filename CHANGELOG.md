@@ -8,6 +8,7 @@
 - Added `analysisVersion=3` response/cache gating so stale v2 monitor snapshots, history, and browser cache do not keep old risk judgements alive.
 - Added a production Douyin status API and topbar warning for login-state or crawl failures.
 - Added a server-side noVNC remote-login path so operators can open the production MediaCrawler browser profile when Douyin login needs manual verification.
+- Added a release-bundled Douyin noVNC setup script and topbar guidance so operators can generate the default remote-login entry from the deployed package.
 - Added deployment documentation for the Douyin remote-login unit, sudoers boundary, noVNC paths, and verification commands.
 - Hardened release archive generation so deploy archives require a clean Git working tree and always bundle a freshly generated `dist/`.
 - Expanded generated GitHub Release notes with copy-paste deployment, upgrade, verification, and troubleshooting steps.

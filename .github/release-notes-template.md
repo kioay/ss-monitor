@@ -250,52 +250,13 @@ sudo ls -l /opt/ss-monitor/state/dingtalk-*.json
 
 ## 可选：抖音登录态和远程登录入口
 
-只有已经部署完整 BettaFish / MediaCrawler 抖音采集的生产机才需要这一段。主站本身不会绕过抖音登录验证；它只负责检查采集服务、调度状态、MediaCrawler profile 和 cookie 配置。当登录态异常时，页面顶部会出现“远程登录”按钮，点击后会启动一个临时 noVNC 桌面，让运维人员在服务器侧按 MediaCrawler 支持的 `qrcode`、`phone` 或 `cookie` 流程完成登录。
-
-先安装 VNC / noVNC 依赖：
+只有已经部署完整 BettaFish / MediaCrawler 抖音采集的生产机才需要这一段。Release 包里已经带了默认引导脚本，会安装 VNC/noVNC 依赖、生成服务器本地 VNC 密码、写入 `/opt/ss-monitor/.env`、同步 `/opt/ss-monitor/current/.env`、安装远程登录 systemd unit 和 sudoers 授权，并做一次 noVNC 启动烟测。
 
 ```bash
-sudo apt-get install -y tigervnc-standalone-server tigervnc-tools novnc websockify
+sudo bash /opt/ss-monitor/current/scripts/setup-douyin-remote-login.sh
 ```
 
-写入远程登录配置。下面的密码只是占位符，真实 VNC 密码只能保存在服务器本地 `/opt/ss-monitor/.env`：
-
-```bash
-sudo tee -a /opt/ss-monitor/.env >/dev/null <<'ENV'
-DOUYIN_REMOTE_LOGIN_URL=http://服务器IP:6088/vnc.html?autoconnect=true&resize=scale
-DOUYIN_REMOTE_LOGIN_SERVICE=ss-monitor-douyin-remote-login.service
-BETTAFISH_DOUYIN_REMOTE_NOVNC_PORT=6088
-BETTAFISH_DOUYIN_REMOTE_VNC_PORT=5988
-BETTAFISH_DOUYIN_REMOTE_PASSWORD=换成服务器本地密码
-BETTAFISH_DOUYIN_REMOTE_NOVNC_DIR=/usr/share/novnc
-ENV
-```
-
-如果你的系统里 noVNC 不在 `/usr/share/novnc`，把 `BETTAFISH_DOUYIN_REMOTE_NOVNC_DIR` 改成实际目录；如果 `novnc_proxy` 和 Web 文件分开安装，可分别配置 `BETTAFISH_DOUYIN_REMOTE_NOVNC_PROXY` 和 `BETTAFISH_DOUYIN_REMOTE_NOVNC_WEB`。
-
-安装远程登录 unit：
-
-```bash
-sudo cp /opt/ss-monitor/current/scripts/ss-monitor-douyin-remote-login.service /etc/systemd/system/
-sudo systemctl daemon-reload
-```
-
-如果主站服务不是以 root 运行，还要授权主站运行用户启动和停止这个临时登录 unit。下面示例假设运行用户是 `yq`，请按实际 `ss-monitor.service` 的 `User=` 修改：
-
-```bash
-sudo tee /etc/sudoers.d/ss-monitor-douyin-remote-login >/dev/null <<'SUDOERS'
-yq ALL=(root) NOPASSWD: /usr/bin/systemctl start ss-monitor-douyin-remote-login.service, /usr/bin/systemctl stop ss-monitor-douyin-remote-login.service, /usr/bin/systemctl is-active ss-monitor-douyin-remote-login.service, /usr/bin/systemctl status ss-monitor-douyin-remote-login.service
-SUDOERS
-sudo chmod 440 /etc/sudoers.d/ss-monitor-douyin-remote-login
-sudo visudo -cf /etc/sudoers.d/ss-monitor-douyin-remote-login
-```
-
-同步配置并重启主站：
-
-```bash
-sudo cp /opt/ss-monitor/.env /opt/ss-monitor/current/.env
-sudo systemctl restart ss-monitor
-```
+脚本会自动探测 `ss-monitor.service` 的运行用户；如果服务用户无法自动判断，可先设置 `SS_MONITOR_SERVICE_USER`。如果不想让脚本安装依赖、重启主站或做烟测，可以分别加 `--no-install-packages`、`--no-restart`、`--no-smoke-test`。真实 noVNC/VNC 密码只保存在服务器本地 `.env`，不要写进 Git、Issue、Release note 或聊天记录。
 
 验证入口：
 
