@@ -1067,34 +1067,35 @@ function App() {
           >
             <header className="keyword-panel-head">
               <div>
-                <p className="eyebrow">采集条件</p>
-                <h2 id="keyword-panel-title">关键词与贴吧范围</h2>
+                <p className="eyebrow">跨吧舆情采集</p>
+                <h2 id="keyword-panel-title">要找什么，去哪里找</h2>
               </div>
               <button className="icon-button" type="button" onClick={() => setKeywordPanelOpen(false)} title="关闭" aria-label="关闭关键词与贴吧范围">
                 <X size={18} aria-hidden="true" />
               </button>
             </header>
             <div className="keyword-panel-summary">
-              <span>{keywordSummary.primary} · {keywordSummary.secondary}</span>
+              <span>补充关键词是“要关注的词”，贴吧采集范围是“去哪些贴吧找这些词”。</span>
               <strong>{tiebaScopeSummary.secondary}</strong>
             </div>
             <div className="keyword-panel-body">
+              <KeywordScopeGuide />
               <form className="keyword-panel-add" onSubmit={addExtraKeywords}>
                 <label className="field">
                   <Tags size={16} aria-hidden="true" />
-                  <span>添加</span>
+                  <span>1 关注词</span>
                   <input
                     name="supplemental-keywords"
                     value={keywordInput}
                     onChange={(event) => setKeywordInput(event.target.value)}
-                    placeholder="输入关键词，支持逗号分隔"
+                    placeholder="输入玩家提到的词，如 433、生死狙击；支持逗号分隔"
                     autoComplete="off"
                     autoFocus
                   />
                 </label>
                 <button className="keyword-add-button" type="submit">
                   <Plus size={16} aria-hidden="true" />
-                  加入
+                  加入关注
                 </button>
               </form>
               {activeExtraKeywords.length ? (
@@ -1119,7 +1120,7 @@ function App() {
                   })}
                 </div>
               ) : (
-                <p className="keyword-empty">暂无补充关键词</p>
+                <p className="keyword-empty">先添加要关注的玩家说法，例如 433、生死狙击、机甲。</p>
               )}
               {activeExtraKeywords.length ? (
                 <div className="keyword-panel-actions">
@@ -1131,7 +1132,8 @@ function App() {
                 <div className="keyword-section-head">
                   <div>
                     <p className="eyebrow">贴吧采集范围</p>
-                    <h3>来源和过滤词</h3>
+                    <h3>去这些贴吧里找关注词</h3>
+                    <p>来源只填贴吧名；补充关键词会自动参与贴吧过滤，过滤词用于补充别名、黑话或缩写。</p>
                   </div>
                   <span className={`scope-status-chip ${tiebaScopeSummary.overridden ? "temporary" : ""}`}>
                     {tiebaScopeSummary.overridden ? "临时范围" : "配置范围"}
@@ -1146,11 +1148,12 @@ function App() {
                 <form className="scope-panel-form" onSubmit={applyScopePanel}>
                   <ScopeEditorField
                     icon="source"
-                    title="贴吧来源"
+                    title="2 去哪些贴吧找"
+                    description="只填贴吧名，例如逆战、火线精英。不要把 433 这类关注词填在这里。"
                     values={editableScopeBars}
                     emptyLabel="未选择贴吧来源"
                     draft={scopeBarDraft}
-                    placeholder="输入贴吧名，可一次添加多个"
+                    placeholder="输入贴吧名，如 逆战、火线精英"
                     addLabel="添加来源"
                     onDraftChange={setScopeBarDraft}
                     onAdd={addScopeBars}
@@ -1158,12 +1161,13 @@ function App() {
                   />
                   <ScopeEditorField
                     icon="keyword"
-                    title="贴吧过滤"
+                    title="3 额外过滤词"
+                    description="补充关键词已经会参与过滤；这里只填额外别名或缩写。留空时不额外增加过滤词。"
                     values={editableScopeKeywords}
-                    emptyLabel="不过滤"
+                    emptyLabel="无额外过滤词"
                     draft={scopeKeywordDraft}
-                    placeholder="输入过滤词，可一次添加多个"
-                    addLabel="添加过滤"
+                    placeholder="输入别名、黑话或缩写"
+                    addLabel="添加词"
                     onDraftChange={setScopeKeywordDraft}
                     onAdd={addScopeKeywords}
                     onRemove={removeScopeKeyword}
@@ -1171,7 +1175,7 @@ function App() {
                   <div className="scope-panel-actions">
                     <button className="keyword-add-button" type="submit" disabled={!canApplyScope}>
                       <Database size={16} aria-hidden="true" />
-                      应用范围
+                      应用采集范围
                     </button>
                     {tiebaScopeSummary.overridden ? (
                       <button className="scope-restore-button" type="button" onClick={restoreConfiguredScope}>恢复配置</button>
@@ -3107,9 +3111,29 @@ function ScopeGroup({
   );
 }
 
+function KeywordScopeGuide() {
+  return (
+    <section className="keyword-scope-guide" aria-label="补充关键词和贴吧范围说明">
+      <div className="keyword-guide-main">
+        <Info size={17} aria-hidden="true" />
+        <div>
+          <strong>用来收集“玩家在别的贴吧提到这些词”的讨论</strong>
+          <span>例：关注词填“生死狙击”，贴吧来源填“逆战”，系统会去逆战吧收集提到生死狙击的帖子，而不是收集逆战自己的全部舆论。</span>
+        </div>
+      </div>
+      <div className="keyword-guide-steps">
+        <span><b>1</b> 关注词：玩家说了什么</span>
+        <span><b>2</b> 贴吧来源：去哪些吧找</span>
+        <span><b>3</b> 额外过滤：补充别名/缩写</span>
+      </div>
+    </section>
+  );
+}
+
 function ScopeEditorField({
   icon,
   title,
+  description,
   values,
   emptyLabel,
   draft,
@@ -3121,6 +3145,7 @@ function ScopeEditorField({
 }: {
   icon: "source" | "keyword";
   title: string;
+  description: string;
   values: string[];
   emptyLabel: string;
   draft: string;
@@ -3147,6 +3172,7 @@ function ScopeEditorField({
         </span>
         <b>{values.length}</b>
       </div>
+      <p className="scope-editor-description">{description}</p>
       <div className={`scope-editor-values ${values.length ? "" : "empty"}`}>
         {values.length ? values.map((value) => (
           <span className="scope-editor-token" key={`${title}-${value}`}>

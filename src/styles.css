@@ -988,6 +988,80 @@ h2 {
   color: #842d28;
 }
 
+.keyword-scope-guide {
+  display: grid;
+  gap: 10px;
+  margin: 14px 20px 0;
+  border: 1px solid rgba(33, 152, 170, 0.18);
+  border-radius: 8px;
+  padding: 12px;
+  background:
+    linear-gradient(90deg, rgba(223, 244, 246, 0.76), rgba(251, 253, 249, 0.9)),
+    var(--paper);
+}
+
+.keyword-guide-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.keyword-guide-main > svg {
+  margin-top: 2px;
+  color: var(--cyan);
+}
+
+.keyword-guide-main div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.keyword-guide-main strong {
+  color: var(--ink-strong);
+  font-size: 14px;
+}
+
+.keyword-guide-main span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.keyword-guide-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.keyword-guide-steps span {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(27, 45, 40, 0.1);
+  border-radius: 8px;
+  padding: 7px 8px;
+  background: rgba(255, 255, 255, 0.58);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 780;
+}
+
+.keyword-guide-steps b {
+  flex: 0 0 auto;
+  width: 19px;
+  height: 19px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--cyan);
+  color: white;
+  font-family: var(--font-data);
+  font-size: 11px;
+}
+
 .keyword-scope-section {
   border-top: 1px solid var(--line);
   padding: 16px 20px 18px;
@@ -1008,6 +1082,13 @@ h2 {
   margin-top: 3px;
   color: var(--ink-strong);
   font-size: 16px;
+}
+
+.keyword-section-head p {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .scope-status-chip {
@@ -1105,6 +1186,13 @@ h2 {
   color: var(--muted);
   font-family: var(--font-data);
   font-size: 12px;
+}
+
+.scope-editor-description {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .scope-editor-values {
@@ -4253,6 +4341,14 @@ button.metric:focus-visible {
   .keyword-panel-add {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .keyword-guide-main {
+    grid-template-columns: 1fr;
+  }
+
+  .keyword-guide-steps {
+    grid-template-columns: 1fr;
   }
 
   .keyword-section-head,
