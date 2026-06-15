@@ -11,6 +11,15 @@ process.env.MONITOR_GAMES_JSON = JSON.stringify({
       douyinKeywords: ["失控进化", "失控进化手游"],
       tiebaBars: ["逆战"],
       tiebaKeywords: ["失控进化"]
+    },
+    {
+      id: "direct-game",
+      name: "生死狙击",
+      shortName: "SS1",
+      bilibiliKeywords: ["生死狙击"],
+      douyinKeywords: ["生死狙击"],
+      tiebaBars: ["生死狙击"],
+      tiebaKeywords: []
     }
   ]
 });
@@ -19,7 +28,7 @@ const { games, gameById, textMatchesGame } = await import("../server/config");
 const { parseMonitorQuery, makeKeywordEffectiveness } = await import("../server/monitor");
 const { tiebaTextMatchesKeywords } = await import("../server/collectors/tieba");
 
-assert.equal(games.length, 1);
+assert.equal(games.length, 2);
 assert.equal(games[0].id, "out-of-control");
 assert.equal(games[0].name, "失控进化");
 assert.equal(gameById.get("out-of-control")?.shortName, "失控进化");
@@ -28,10 +37,10 @@ assert.equal(textMatchesGame("逆战 新版本 玩家反馈", games[0]), false);
 assert.equal(textMatchesGame("完全无关的内容", games[0]), false);
 
 const defaultQuery = parseMonitorQuery({});
-assert.deepEqual(defaultQuery.selectedGames.map((game) => game.id), ["out-of-control"]);
+assert.deepEqual(defaultQuery.selectedGames.map((game) => game.id), ["out-of-control", "direct-game"]);
 
 const unknownQuery = parseMonitorQuery({ games: "ss1,ss2" });
-assert.deepEqual(unknownQuery.selectedGames.map((game) => game.id), ["out-of-control"]);
+assert.deepEqual(unknownQuery.selectedGames.map((game) => game.id), ["out-of-control", "direct-game"]);
 
 const supplementalQuery = parseMonitorQuery({
   games: "out-of-control",
@@ -51,12 +60,16 @@ assert.deepEqual(supplementalQuery.selectedGames[0]?.douyinKeywords, [
   "\u62db\u4eba"
 ]);
 assert.deepEqual(supplementalQuery.selectedGames[0]?.tiebaBars, ["\u9006\u6218"]);
-assert.deepEqual(supplementalQuery.selectedGames[0]?.tiebaKeywords, [
-  "\u5931\u63a7\u8fdb\u5316",
-  "\u5931\u63a7\u8fdb\u5316\u624b\u6e38",
-  "\u516c\u6d4b",
-  "\u62db\u4eba"
-]);
+assert.deepEqual(supplementalQuery.selectedGames[0]?.tiebaKeywords, ["\u5931\u63a7\u8fdb\u5316"]);
+
+const directSupplementalQuery = parseMonitorQuery({
+  games: "direct-game",
+  extraKeywords: "\u661f\u77b3"
+});
+assert.deepEqual(directSupplementalQuery.selectedGames[0]?.bilibiliKeywords, ["\u751f\u6b7b\u72d9\u51fb", "\u661f\u77b3"]);
+assert.deepEqual(directSupplementalQuery.selectedGames[0]?.douyinKeywords, ["\u751f\u6b7b\u72d9\u51fb", "\u661f\u77b3"]);
+assert.deepEqual(directSupplementalQuery.selectedGames[0]?.tiebaBars, ["\u751f\u6b7b\u72d9\u51fb"]);
+assert.deepEqual(directSupplementalQuery.selectedGames[0]?.tiebaKeywords, []);
 
 const crossTiebaQuery = parseMonitorQuery({
   games: "out-of-control",
@@ -73,6 +86,20 @@ const additiveTiebaQuery = parseMonitorQuery({
 });
 assert.deepEqual(additiveTiebaQuery.selectedGames[0]?.tiebaBars, ["\u9006\u6218", "\u706b\u7ebf\u7cbe\u82f1"]);
 assert.deepEqual(additiveTiebaQuery.selectedGames[0]?.tiebaKeywords, ["\u751f\u6b7b\u72d9\u51fb"]);
+assert.deepEqual(additiveTiebaQuery.selectedGames[0]?.tiebaBarKeywords, {
+  "\u706b\u7ebf\u7cbe\u82f1": ["\u751f\u6b7b\u72d9\u51fb"]
+});
+
+const directCrossTiebaQuery = parseMonitorQuery({
+  games: "direct-game",
+  tiebaBars: "\u9006\u6218",
+  tiebaKeywords: "\u661f\u77b3"
+});
+assert.deepEqual(directCrossTiebaQuery.selectedGames[0]?.tiebaBars, ["\u751f\u6b7b\u72d9\u51fb", "\u9006\u6218"]);
+assert.deepEqual(directCrossTiebaQuery.selectedGames[0]?.tiebaKeywords, []);
+assert.deepEqual(directCrossTiebaQuery.selectedGames[0]?.tiebaBarKeywords, {
+  "\u9006\u6218": ["\u661f\u77b3"]
+});
 
 const multiCrossTiebaQuery = parseMonitorQuery({
   games: "out-of-control",

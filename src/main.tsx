@@ -873,8 +873,8 @@ function App() {
     [data?.keywordEffectiveness]
   );
   const tiebaScopeSummary = React.useMemo(
-    () => makeTiebaScopeSummary(selectedGameConfigs, activeExtraKeywords, tiebaScopeOverrideActive, activeTiebaBarsOverride, activeTiebaKeywordsOverride),
-    [activeExtraKeywords, activeTiebaBarsOverride, activeTiebaKeywordsOverride, selectedGameConfigs, tiebaScopeOverrideActive]
+    () => makeTiebaScopeSummary(selectedGameConfigs, tiebaScopeOverrideActive, activeTiebaBarsOverride, activeTiebaKeywordsOverride),
+    [activeTiebaBarsOverride, activeTiebaKeywordsOverride, selectedGameConfigs, tiebaScopeOverrideActive]
   );
   const keywordEntryActive = activeExtraKeywords.length > 0 || tiebaScopeSummary.overridden;
   const keywordEntryBadgeCount = activeExtraKeywords.length + (tiebaScopeSummary.overridden ? 1 : 0);
@@ -956,12 +956,15 @@ function App() {
   const applyScopePanel = React.useCallback(
     (event?: React.FormEvent<HTMLFormElement>) => {
       event?.preventDefault();
-      const nextBars = normalizeSupplementalKeywordText(mergeScopeValues(configuredScopeBars, splitSupplementalKeywords(scopeBarsInput)).join(","));
+      const nextBarValues = mergeScopeValues(configuredScopeBars, splitSupplementalKeywords(scopeBarsInput));
+      const nextSupplementalBarValues = nextBarValues.filter((bar) => !scopeValueInList(bar, configuredScopeBars));
+      const nextBars = normalizeSupplementalKeywordText(nextBarValues.join(","));
+      const nextSupplementalBars = normalizeSupplementalKeywordText(nextSupplementalBarValues.join(","));
       const nextKeywords = normalizeSupplementalKeywordText(scopeKeywordsInput);
       const configuredBarsText = normalizeSupplementalKeywordText(configuredScopeBars.join(","));
       const configuredKeywordsText = normalizeSupplementalKeywordText(configuredScopeKeywords.join(","));
       const matchesConfiguredScope = nextBars === configuredBarsText && nextKeywords === configuredKeywordsText;
-      const nextOverrideBars = matchesConfiguredScope ? "" : nextBars;
+      const nextOverrideBars = matchesConfiguredScope ? "" : nextSupplementalBars;
       const nextOverrideKeywords = matchesConfiguredScope ? "" : nextKeywords;
       const nextOverrideActive = !matchesConfiguredScope;
       clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords, activeTiebaBarsOverride, activeTiebaKeywordsOverride, tiebaScopeOverrideActive));
@@ -1156,7 +1159,6 @@ function App() {
                 </div>
                 <ScopeRail
                   games={selectedGameConfigs}
-                  extraKeywords={activeExtraKeywords}
                   tiebaScopeOverrideActive={tiebaScopeOverrideActive}
                   tiebaBarsOverride={activeTiebaBarsOverride}
                   tiebaKeywordsOverride={activeTiebaKeywordsOverride}
@@ -1178,10 +1180,10 @@ function App() {
                   />
                   <ScopeEditorField
                     icon="keyword"
-                    title="3 贴吧专属匹配词"
-                    description="仅对贴吧生效。用于给贴吧额外增加别名、黑话或缩写；多数情况下可以留空。"
+                    title="3 补充来源匹配词"
+                    description="只用于上一步新增的贴吧来源；默认贴吧来源继续全量读取。用于给跨吧来源限定别名、黑话或缩写；多数情况可以留空。"
                     values={editableScopeKeywords}
-                    emptyLabel="无贴吧专属匹配词"
+                    emptyLabel="无补充来源匹配词"
                     draft={scopeKeywordDraft}
                     placeholder=""
                     addLabel="添加词"
@@ -3058,13 +3060,11 @@ function Thumbnail({ item }: { item: MonitorItem }) {
 
 function ScopeRail({
   games,
-  extraKeywords,
   tiebaScopeOverrideActive,
   tiebaBarsOverride,
   tiebaKeywordsOverride
 }: {
   games: GameConfig[];
-  extraKeywords: string[];
   tiebaScopeOverrideActive: boolean;
   tiebaBarsOverride: string;
   tiebaKeywordsOverride: string;
@@ -3075,6 +3075,9 @@ function ScopeRail({
   const overrideKeywords = splitSupplementalKeywords(tiebaKeywordsOverride);
   const overridden = tiebaScopeOverrideActive;
   const showGameLabel = games.length > 1;
+  const configuredBars = scopeListForGames(games, "tiebaBars");
+  const supplementalBars = overridden ? overrideBars.filter((bar) => !scopeValueInList(bar, configuredBars)) : [];
+  const hasSupplementalBars = supplementalBars.length > 0;
 
   return (
     <section className="scope-rail" aria-label="当前生效采集范围">
@@ -3086,17 +3089,18 @@ function ScopeRail({
       </div>
       <div className="scope-rail-list">
         {games.map((game) => {
-          const tiebaBars = overridden ? mergeScopeValues(game.tiebaBars || [], overrideBars) : game.tiebaBars || [];
-          const tiebaKeywords = overridden ? overrideKeywords : game.tiebaKeywords || [];
+          const configuredKeywords = game.tiebaKeywords || [];
+          const tiebaBars = overridden ? mergeScopeValues(game.tiebaBars || [], supplementalBars) : game.tiebaBars || [];
+          const defaultTiebaKeywords = overridden && configuredKeywords.length ? overrideKeywords : configuredKeywords;
+          const supplementalTiebaKeywords = hasSupplementalBars && overridden ? overrideKeywords : [];
           return (
-            <div className={`scope-row ${showGameLabel ? "" : "single"}`} key={game.id}>
+            <div className={`scope-row ${showGameLabel ? "" : "single"} ${hasSupplementalBars ? "with-supplemental" : ""}`} key={game.id}>
               {showGameLabel ? <strong>{game.shortName || game.name}</strong> : null}
               <ScopeGroup icon="source" label="贴吧来源" values={scopeValues(tiebaBars, "未配置")} />
-              <ScopeGroup
-                icon="keyword"
-                label="贴吧匹配词"
-                values={scopeValues(mergeScopeKeywords(tiebaKeywords, extraKeywords), "不限关键词")}
-              />
+              <ScopeGroup icon="keyword" label="默认吧规则" values={scopeValues(defaultTiebaKeywords, "全量读取")} />
+              {hasSupplementalBars ? (
+                <ScopeGroup icon="keyword" label="补充来源匹配" values={scopeValues(supplementalTiebaKeywords, "不限关键词")} />
+              ) : null}
             </div>
           );
         })}
@@ -3147,14 +3151,14 @@ function KeywordScopeGuide() {
       <div className="keyword-guide-content">
         <div className="keyword-guide-main">
           <div>
-            <strong>补充关键词会追加到全平台；贴吧来源只控制去哪几个吧找</strong>
-            <span>想在逆战吧收集生死狙击相关讨论：贴吧来源填“逆战”，贴吧专属匹配词填“生死狙击”。如果只是给当前看板新增关注点，填“补充全平台关注词”。</span>
+            <strong>补充全平台关注词不会收窄默认贴吧；跨吧来源才需要匹配词</strong>
+            <span>想在逆战吧收集生死狙击相关讨论：贴吧来源填“逆战”，补充来源匹配词填“生死狙击”。只给当前看板新增关注点时，填“补充全平台关注词”，默认贴吧仍全量读取。</span>
           </div>
         </div>
         <div className="keyword-guide-steps">
           <span><b>1</b> 补充全平台关注词</span>
           <span><b>2</b> 贴吧来源：去哪些吧找</span>
-          <span><b>3</b> 贴吧专属匹配词</span>
+          <span><b>3</b> 补充来源匹配词</span>
         </div>
       </div>
     </details>
@@ -3180,7 +3184,7 @@ function DefaultKeywordOverview({ groups }: { groups: DefaultKeywordGroup[] }) {
         </span>
         <em>只读配置</em>
       </div>
-      <p>这些词已经随看板默认采集；下方只添加默认词之外的新关键词。贴吧是否跨吧采集，仍看“贴吧来源”和“贴吧专属匹配词”。</p>
+      <p>这些词已经随看板默认采集；下方只添加默认词之外的新关键词。贴吧是否跨吧采集，仍看“贴吧来源”和“补充来源匹配词”。</p>
       <div className={`default-keyword-list ${showGroupLabel ? "" : "single"}`}>
         {groups.map((group) => (
           <div className="default-keyword-row" key={group.id}>
@@ -3345,7 +3349,6 @@ function scopeListForGames(games: GameConfig[], key: "tiebaBars" | "tiebaKeyword
 
 function makeTiebaScopeSummary(
   games: GameConfig[],
-  extraKeywords: string[],
   tiebaScopeOverrideActive: boolean,
   tiebaBarsOverride: string,
   tiebaKeywordsOverride: string
@@ -3355,12 +3358,11 @@ function makeTiebaScopeSummary(
   const overrideKeywords = splitSupplementalKeywords(tiebaKeywordsOverride);
   const sourceValues = overridden ? mergeScopeValues(scopeListForGames(games, "tiebaBars"), overrideBars) : scopeListForGames(games, "tiebaBars");
   const baseFilterValues = overridden ? overrideKeywords : scopeListForGames(games, "tiebaKeywords");
-  const filterValues = mergeScopeKeywords(baseFilterValues, extraKeywords);
 
   return {
     overridden,
     primary: `${overridden ? "临时范围" : "配置范围"} · ${sourceValues.length || 0} 个贴吧`,
-    secondary: `贴吧来源 ${summarizeScopeList(sourceValues, "未配置")} · 匹配词 ${summarizeScopeList(filterValues, "不限关键词")}`
+    secondary: `贴吧来源 ${summarizeScopeList(sourceValues, "未配置")} · 匹配词 ${summarizeScopeList(baseFilterValues, "默认吧全量读取")}`
   };
 }
 

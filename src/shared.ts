@@ -14,6 +14,7 @@ export interface GameConfig {
   douyinKeywords: string[];
   tiebaBars: string[];
   tiebaKeywords: string[];
+  tiebaBarKeywords?: Record<string, string[]>;
 }
 
 export interface ContentPart {

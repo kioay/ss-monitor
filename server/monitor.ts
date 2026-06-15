@@ -91,6 +91,7 @@ export function parseMonitorQuery(raw: unknown) {
   const baseGames = selectedGames.length ? selectedGames : games;
   const tiebaBarsOverride = rawParamProvided(raw, "tiebaBars") ? query.tiebaBars : undefined;
   const tiebaKeywordsOverride = rawParamProvided(raw, "tiebaKeywords") ? query.tiebaKeywords : undefined;
+  const defaultTiebaBars = mergeKeywordLists([], baseGames.flatMap((game) => game.tiebaBars || []));
   const scopeKey = collectionScopeKey(query.extraKeywords, tiebaBarsOverride, tiebaKeywordsOverride);
   return {
     ...query,
@@ -98,7 +99,8 @@ export function parseMonitorQuery(raw: unknown) {
     selectedGames: withMonitorScope(baseGames, {
       extraKeywords: query.extraKeywords,
       tiebaBarsOverride,
-      tiebaKeywordsOverride
+      tiebaKeywordsOverride,
+      defaultTiebaBars
     })
   };
 }
@@ -123,15 +125,30 @@ function withMonitorScope(
     extraKeywords: string[];
     tiebaBarsOverride?: string[];
     tiebaKeywordsOverride?: string[];
+    defaultTiebaBars: string[];
   }
 ): GameConfig[] {
-  return selectedGames.map((game) => ({
-    ...game,
-    tiebaBars: scope.tiebaBarsOverride !== undefined ? mergeKeywordLists(game.tiebaBars, scope.tiebaBarsOverride) : game.tiebaBars,
-    bilibiliKeywords: mergeKeywordLists(game.bilibiliKeywords, scope.extraKeywords),
-    douyinKeywords: mergeKeywordLists(game.douyinKeywords, scope.extraKeywords),
-    tiebaKeywords: mergeKeywordLists(scope.tiebaKeywordsOverride ?? game.tiebaKeywords ?? [], scope.extraKeywords)
-  }));
+  return selectedGames.map((game) => {
+    const configuredTiebaKeywords = game.tiebaKeywords || [];
+    const supplementalTiebaBars = scope.tiebaBarsOverride !== undefined
+      ? scope.tiebaBarsOverride.filter((bar) => !keywordInList(bar, scope.defaultTiebaBars))
+      : [];
+    const tiebaBars = scope.tiebaBarsOverride !== undefined
+      ? mergeKeywordLists(game.tiebaBars, supplementalTiebaBars)
+      : game.tiebaBars;
+    const scopedTiebaKeywords = tiebaBarKeywordScope(game.tiebaBarKeywords, supplementalTiebaBars, scope.tiebaKeywordsOverride);
+
+    return {
+      ...game,
+      tiebaBars,
+      bilibiliKeywords: mergeKeywordLists(game.bilibiliKeywords, scope.extraKeywords),
+      douyinKeywords: mergeKeywordLists(game.douyinKeywords, scope.extraKeywords),
+      tiebaKeywords: scope.tiebaKeywordsOverride !== undefined && configuredTiebaKeywords.length
+        ? scope.tiebaKeywordsOverride
+        : configuredTiebaKeywords,
+      ...(Object.keys(scopedTiebaKeywords).length ? { tiebaBarKeywords: scopedTiebaKeywords } : {})
+    };
+  });
 }
 
 function mergeKeywordLists(baseKeywords: string[], extraKeywords: string[]) {
@@ -144,6 +161,26 @@ function mergeKeywordLists(baseKeywords: string[], extraKeywords: string[]) {
     merged.push(keyword);
   }
   return merged;
+}
+
+function keywordInList(keyword: string, keywords: string[]) {
+  const normalized = normalizeKeywordScope(keyword);
+  return Boolean(normalized) && keywords.some((item) => normalizeKeywordScope(item) === normalized);
+}
+
+function tiebaBarKeywordScope(
+  base: Record<string, string[]> | undefined,
+  supplementalBars: string[],
+  tiebaKeywordsOverride: string[] | undefined
+) {
+  const scoped: Record<string, string[]> = { ...(base || {}) };
+  if (tiebaKeywordsOverride === undefined || tiebaKeywordsOverride.length === 0) return scoped;
+  for (const bar of supplementalBars) {
+    const key = normalizeKeywordScope(bar);
+    if (!key) continue;
+    scoped[key] = tiebaKeywordsOverride;
+  }
+  return scoped;
 }
 
 export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResponse> {

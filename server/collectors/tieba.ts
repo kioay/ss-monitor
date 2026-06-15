@@ -78,9 +78,13 @@ export async function collectTieba(game: GameConfig, cutoff: Date) {
   let staleDropped = 0;
   let keywordDropped = 0;
   const byTid = new Map<string, TiebaThreadCandidate>();
-  const tiebaKeywords = normalizeTiebaKeywordList(game.tiebaKeywords || []);
+  const defaultTiebaKeywords = normalizeTiebaKeywordList(game.tiebaKeywords || []);
+  const scopedTiebaKeywords = makeTiebaBarKeywordMap(game.tiebaBarKeywords);
+  let filteredBarCount = 0;
 
   for (const bar of game.tiebaBars) {
+    const tiebaKeywords = scopedTiebaKeywords.get(tiebaBarScopeKey(bar)) ?? defaultTiebaKeywords;
+    if (tiebaKeywords.length) filteredBarCount += 1;
     try {
       for (let page = 1; page <= runtimeConfig.maxTiebaListPages; page += 1) {
         const candidates = (await fetchBarThreads(bar, page)).map((candidate) => ({ ...candidate, bar }));
@@ -133,8 +137,8 @@ export async function collectTieba(game: GameConfig, cutoff: Date) {
     blocked,
     message:
       errors.length === 0
-        ? tiebaKeywords.length
-          ? `已读取 ${game.tiebaBars.length} 个贴吧来源，并按 ${tiebaKeywords.length} 个贴吧关键词过滤，排除 ${keywordDropped} 条不相关主题。`
+        ? filteredBarCount
+          ? `已读取 ${game.tiebaBars.length} 个贴吧来源，其中 ${filteredBarCount} 个来源按贴吧匹配词过滤，排除 ${keywordDropped} 条不相关主题。`
           : "已读取对应吧最新主题，并按最新回复时间过滤。"
         : `贴吧采集受限：${errors.slice(0, 2).join("；")}`
   };
@@ -271,6 +275,20 @@ function normalizeTiebaKeywordList(keywords: string[]) {
 
 function normalizeTiebaKeyword(value: string) {
   return value.toLowerCase().replace(/[#_\-]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function makeTiebaBarKeywordMap(scopedKeywords: Record<string, string[]> | undefined) {
+  const mapped = new Map<string, string[]>();
+  for (const [bar, keywords] of Object.entries(scopedKeywords || {})) {
+    const key = tiebaBarScopeKey(bar);
+    if (!key) continue;
+    mapped.set(key, normalizeTiebaKeywordList(keywords));
+  }
+  return mapped;
+}
+
+function tiebaBarScopeKey(bar: string) {
+  return normalizeTiebaKeyword(bar);
 }
 
 async function buildTiebaMonitorItem(game: GameConfig, candidate: TiebaThreadCandidate, deepParse: boolean): Promise<MonitorItem> {
