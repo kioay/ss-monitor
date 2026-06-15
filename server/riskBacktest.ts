@@ -33,7 +33,8 @@ function runRiskBacktest() {
   return new Promise<RiskBacktestStatus>((resolve, reject) => {
     let stdout = "";
     let stderr = "";
-    const child = spawn(npmCommand(), ["run", "test:risk-backtest"], {
+    const command = npmRunCommand("test:risk-backtest");
+    const child = spawn(command.command, command.args, {
       cwd: path.resolve("."),
       windowsHide: true,
       env: { ...process.env }
@@ -86,8 +87,17 @@ function failedStatus(startedAt: Date, message: string, stdout: string, stderr: 
   };
 }
 
-function npmCommand() {
-  return process.platform === "win32" ? "npm.cmd" : "npm";
+function npmRunCommand(script: string) {
+  if (process.platform === "win32") {
+    return {
+      command: process.env.ComSpec || "cmd.exe",
+      args: ["/d", "/s", "/c", `npm run ${script}`]
+    };
+  }
+  return {
+    command: "npm",
+    args: ["run", script]
+  };
 }
 
 function parseCaseCount(output: string) {

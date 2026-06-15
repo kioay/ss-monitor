@@ -816,6 +816,147 @@ h2 {
   color: #842d28;
 }
 
+.scope-rail {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  margin-top: 10px;
+  border: 1px solid rgba(27, 45, 40, 0.12);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background:
+    linear-gradient(90deg, rgba(23, 33, 31, 0.045), transparent 34%),
+    rgba(251, 253, 249, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.scope-rail::before {
+  content: "";
+  width: 3px;
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, var(--cyan), var(--gold) 58%, var(--red)),
+    var(--cyan);
+  flex: 0 0 auto;
+}
+
+.scope-rail-head {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 4px 0 2px;
+  color: #40514c;
+  font-size: 12px;
+  font-weight: 820;
+  white-space: nowrap;
+}
+
+.scope-rail-head svg {
+  color: var(--cyan);
+}
+
+.scope-rail-list {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 8px;
+  flex: 1 1 auto;
+}
+
+.scope-row {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  border: 1px solid rgba(27, 45, 40, 0.08);
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.scope-row > strong {
+  flex: 0 0 auto;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink-strong);
+  font-size: 12px;
+  font-weight: 860;
+}
+
+.scope-group {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.scope-group-label {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.scope-group.source .scope-group-label svg {
+  color: var(--blue);
+}
+
+.scope-group.keyword .scope-group-label svg {
+  color: var(--gold);
+}
+
+.scope-chip-list {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.scope-chip {
+  max-width: 138px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 1px solid rgba(33, 152, 170, 0.2);
+  border-radius: 999px;
+  padding: 2px 7px;
+  background: rgba(223, 244, 246, 0.64);
+  color: #176a79;
+  font-size: 11px;
+  font-weight: 820;
+}
+
+.scope-group.keyword .scope-chip {
+  border-color: rgba(194, 138, 34, 0.24);
+  background: rgba(246, 235, 207, 0.72);
+  color: #7b5718;
+}
+
+.scope-chip.muted {
+  border-color: rgba(100, 113, 109, 0.18);
+  background: rgba(237, 242, 237, 0.62);
+  color: var(--muted);
+  font-weight: 720;
+}
+
+.scope-chip.overflow {
+  max-width: none;
+  background: rgba(23, 33, 31, 0.08);
+  color: var(--ink);
+  font-family: var(--font-data);
+}
+
 .error-strip {
   margin-top: 14px;
   padding: 12px 14px;
@@ -3527,6 +3668,16 @@ button.metric:focus-visible {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .scope-rail {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .scope-rail-list {
+    width: 100%;
+    grid-template-columns: 1fr;
+  }
+
   .monitor-card {
     grid-template-columns: 140px minmax(0, 1fr);
   }
@@ -3650,6 +3801,25 @@ button.metric:focus-visible {
 
   .keyword-summary {
     max-width: none;
+  }
+
+  .scope-rail {
+    padding: 9px;
+  }
+
+  .scope-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .scope-group {
+    width: 100%;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .scope-chip {
+    max-width: min(240px, 100%);
   }
 
   .keyword-panel-backdrop {

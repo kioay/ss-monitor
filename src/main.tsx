@@ -780,6 +780,12 @@ function App() {
     const configuredGames = config?.games || [];
     return configuredGames.map((game) => game.id);
   }, [config?.games]);
+  const selectedGameConfigs = React.useMemo(() => {
+    const configuredGames = config?.games || [];
+    if (!configuredGames.length) return [];
+    const selectedIds = new Set(selectedGames.length ? selectedGames : configuredGames.map((game) => game.id));
+    return configuredGames.filter((game) => selectedIds.has(game.id));
+  }, [config?.games, selectedGames]);
   const monitorTitle = React.useMemo(() => makeMonitorTitle(config?.games || []), [config?.games]);
   React.useEffect(() => {
     document.title = monitorTitle;
@@ -943,6 +949,7 @@ function App() {
           </div>
         </div>
       </section>
+      <ScopeRail games={selectedGameConfigs} extraKeywords={activeExtraKeywords} />
 
       {keywordPanelOpen ? (
         <div className="keyword-panel-backdrop" role="presentation" onMouseDown={() => setKeywordPanelOpen(false)}>
@@ -2788,6 +2795,79 @@ function Thumbnail({ item }: { item: MonitorItem }) {
   }
 
   return <img src={imageUrl} alt="" width={320} height={180} loading="lazy" onError={() => setFailed(true)} />;
+}
+
+function ScopeRail({ games, extraKeywords }: { games: GameConfig[]; extraKeywords: string[] }) {
+  if (!games.length) return null;
+
+  return (
+    <section className="scope-rail" aria-label="采集范围">
+      <div className="scope-rail-head">
+        <Database size={15} aria-hidden="true" />
+        <span>采集范围</span>
+      </div>
+      <div className="scope-rail-list">
+        {games.map((game) => (
+          <div className="scope-row" key={game.id}>
+            <strong>{game.shortName || game.name}</strong>
+            <ScopeGroup icon="source" label="贴吧来源" values={scopeValues(game.tiebaBars || [], "未配置")} />
+            <ScopeGroup
+              icon="keyword"
+              label="贴吧过滤"
+              values={scopeValues(mergeScopeKeywords(game.tiebaKeywords || [], extraKeywords), "不过滤")}
+            />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ScopeGroup({
+  icon,
+  label,
+  values
+}: {
+  icon: "source" | "keyword";
+  label: string;
+  values: Array<{ text: string; muted?: boolean; overflow?: boolean }>;
+}) {
+  const Icon = icon === "source" ? Database : Tags;
+  return (
+    <div className={`scope-group ${icon}`}>
+      <span className="scope-group-label">
+        <Icon size={13} aria-hidden="true" />
+        {label}
+      </span>
+      <span className="scope-chip-list">
+        {values.map((value) => (
+          <span className={`scope-chip ${value.muted ? "muted" : ""} ${value.overflow ? "overflow" : ""}`} key={`${label}-${value.text}`}>
+            {value.text}
+          </span>
+        ))}
+      </span>
+    </div>
+  );
+}
+
+function scopeValues(values: string[], emptyLabel: string) {
+  const cleaned = values.map((value) => value.trim()).filter(Boolean);
+  if (!cleaned.length) return [{ text: emptyLabel, muted: true }];
+  const visible = cleaned.slice(0, 4).map((text) => ({ text }));
+  const hidden = cleaned.length - visible.length;
+  return hidden > 0 ? [...visible, { text: `+${hidden}`, overflow: true }] : visible;
+}
+
+function mergeScopeKeywords(baseKeywords: string[], extraKeywords: string[]) {
+  const seen = new Set<string>();
+  const merged: string[] = [];
+  for (const keyword of [...baseKeywords, ...extraKeywords]) {
+    const normalized = keyword.trim().toLowerCase();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    merged.push(keyword.trim());
+  }
+  return merged;
 }
 
 function searchOriginText(origin: SearchResult["origin"]) {
