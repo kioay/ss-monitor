@@ -791,10 +791,6 @@ function App() {
     setScopeKeywordDraft("");
   }, [scopeKeywordDraft]);
 
-  const removeScopeBar = React.useCallback((value: string) => {
-    setScopeBarsInput((current) => removeScopeInputValue(current, value));
-  }, []);
-
   const removeScopeKeyword = React.useCallback((value: string) => {
     setScopeKeywordsInput((current) => removeScopeInputValue(current, value));
   }, []);
@@ -868,6 +864,8 @@ function App() {
   }, [config?.games, configuredGameIds]);
   const activeExtraKeywords = React.useMemo(() => splitSupplementalKeywords(extraKeywords), [extraKeywords]);
   const defaultKeywordGroups = React.useMemo(() => defaultKeywordGroupsForGames(selectedGameConfigs), [selectedGameConfigs]);
+  const configuredScopeBars = React.useMemo(() => scopeListForGames(selectedGameConfigs, "tiebaBars"), [selectedGameConfigs]);
+  const configuredScopeKeywords = React.useMemo(() => scopeListForGames(selectedGameConfigs, "tiebaKeywords"), [selectedGameConfigs]);
   const activeTiebaBarsOverride = React.useMemo(() => normalizeSupplementalKeywordText(tiebaBarsOverride), [tiebaBarsOverride]);
   const activeTiebaKeywordsOverride = React.useMemo(() => normalizeSupplementalKeywordText(tiebaKeywordsOverride), [tiebaKeywordsOverride]);
   const keywordEffectivenessByKeyword = React.useMemo(
@@ -883,6 +881,13 @@ function App() {
   const editableScopeBars = React.useMemo(() => splitSupplementalKeywords(scopeBarsInput), [scopeBarsInput]);
   const editableScopeKeywords = React.useMemo(() => splitSupplementalKeywords(scopeKeywordsInput), [scopeKeywordsInput]);
   const canApplyScope = selectedGameConfigs.length > 0;
+  const removeScopeBar = React.useCallback(
+    (value: string) => {
+      if (scopeValueInList(value, configuredScopeBars)) return;
+      setScopeBarsInput((current) => removeScopeInputValue(current, value));
+    },
+    [configuredScopeBars]
+  );
   const topicOptions = React.useMemo(() => makeTopicOptions(data?.items || []), [data?.items]);
   const maxTopicCount = React.useMemo(
     () => Math.max(0, ...(data?.topicStats || []).map((topic) => topic.count)),
@@ -938,33 +943,55 @@ function App() {
   }, []);
 
   const openKeywordPanel = React.useCallback(() => {
-    setScopeBarsInput(tiebaScopeOverrideActive ? activeTiebaBarsOverride : scopeListForGames(selectedGameConfigs, "tiebaBars").join(","));
-    setScopeKeywordsInput(tiebaScopeOverrideActive ? activeTiebaKeywordsOverride : scopeListForGames(selectedGameConfigs, "tiebaKeywords").join(","));
+    const editableBars = tiebaScopeOverrideActive
+      ? mergeScopeValues(configuredScopeBars, splitSupplementalKeywords(activeTiebaBarsOverride))
+      : configuredScopeBars;
+    setScopeBarsInput(editableBars.join(","));
+    setScopeKeywordsInput(tiebaScopeOverrideActive ? activeTiebaKeywordsOverride : configuredScopeKeywords.join(","));
     setScopeBarDraft("");
     setScopeKeywordDraft("");
     setKeywordPanelOpen(true);
-  }, [activeTiebaBarsOverride, activeTiebaKeywordsOverride, selectedGameConfigs, tiebaScopeOverrideActive]);
+  }, [activeTiebaBarsOverride, activeTiebaKeywordsOverride, configuredScopeBars, configuredScopeKeywords, tiebaScopeOverrideActive]);
 
   const applyScopePanel = React.useCallback(
     (event?: React.FormEvent<HTMLFormElement>) => {
       event?.preventDefault();
-      const nextBars = normalizeSupplementalKeywordText(scopeBarsInput);
+      const nextBars = normalizeSupplementalKeywordText(mergeScopeValues(configuredScopeBars, splitSupplementalKeywords(scopeBarsInput)).join(","));
       const nextKeywords = normalizeSupplementalKeywordText(scopeKeywordsInput);
+      const configuredBarsText = normalizeSupplementalKeywordText(configuredScopeBars.join(","));
+      const configuredKeywordsText = normalizeSupplementalKeywordText(configuredScopeKeywords.join(","));
+      const matchesConfiguredScope = nextBars === configuredBarsText && nextKeywords === configuredKeywordsText;
+      const nextOverrideBars = matchesConfiguredScope ? "" : nextBars;
+      const nextOverrideKeywords = matchesConfiguredScope ? "" : nextKeywords;
+      const nextOverrideActive = !matchesConfiguredScope;
       clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords, activeTiebaBarsOverride, activeTiebaKeywordsOverride, tiebaScopeOverrideActive));
-      clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords, nextBars, nextKeywords, true));
+      clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords, nextOverrideBars, nextOverrideKeywords, nextOverrideActive));
       resetFeedFilters();
-      setTiebaScopeOverrideActive(true);
-      setTiebaBarsOverride(nextBars);
-      setTiebaKeywordsOverride(nextKeywords);
+      setTiebaScopeOverrideActive(nextOverrideActive);
+      setTiebaBarsOverride(nextOverrideBars);
+      setTiebaKeywordsOverride(nextOverrideKeywords);
+      setScopeBarsInput(nextBars);
       setScopeBarDraft("");
       setScopeKeywordDraft("");
     },
-    [activeTiebaBarsOverride, activeTiebaKeywordsOverride, extraKeywords, resetFeedFilters, scopeBarsInput, scopeKeywordsInput, selectedGames, tiebaScopeOverrideActive, windowHours]
+    [
+      activeTiebaBarsOverride,
+      activeTiebaKeywordsOverride,
+      configuredScopeBars,
+      configuredScopeKeywords,
+      extraKeywords,
+      resetFeedFilters,
+      scopeBarsInput,
+      scopeKeywordsInput,
+      selectedGames,
+      tiebaScopeOverrideActive,
+      windowHours
+    ]
   );
 
   const restoreConfiguredScope = React.useCallback(() => {
-    const configuredBars = scopeListForGames(selectedGameConfigs, "tiebaBars").join(",");
-    const configuredKeywords = scopeListForGames(selectedGameConfigs, "tiebaKeywords").join(",");
+    const configuredBars = configuredScopeBars.join(",");
+    const configuredKeywords = configuredScopeKeywords.join(",");
     clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords, activeTiebaBarsOverride, activeTiebaKeywordsOverride, tiebaScopeOverrideActive));
     clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords, "", "", false));
     setTiebaScopeOverrideActive(false);
@@ -974,7 +1001,7 @@ function App() {
     setScopeKeywordsInput(configuredKeywords);
     setScopeBarDraft("");
     setScopeKeywordDraft("");
-  }, [activeTiebaBarsOverride, activeTiebaKeywordsOverride, extraKeywords, selectedGameConfigs, selectedGames, tiebaScopeOverrideActive, windowHours]);
+  }, [activeTiebaBarsOverride, activeTiebaKeywordsOverride, configuredScopeBars, configuredScopeKeywords, extraKeywords, selectedGames, tiebaScopeOverrideActive, windowHours]);
 
   return (
     <>
@@ -1144,6 +1171,7 @@ function App() {
                     draft={scopeBarDraft}
                     placeholder=""
                     addLabel="添加来源"
+                    lockedValues={configuredScopeBars}
                     onDraftChange={setScopeBarDraft}
                     onAdd={addScopeBars}
                     onRemove={removeScopeBar}
@@ -3058,7 +3086,7 @@ function ScopeRail({
       </div>
       <div className="scope-rail-list">
         {games.map((game) => {
-          const tiebaBars = overridden ? overrideBars : game.tiebaBars || [];
+          const tiebaBars = overridden ? mergeScopeValues(game.tiebaBars || [], overrideBars) : game.tiebaBars || [];
           const tiebaKeywords = overridden ? overrideKeywords : game.tiebaKeywords || [];
           return (
             <div className={`scope-row ${showGameLabel ? "" : "single"}`} key={game.id}>
@@ -3183,6 +3211,7 @@ function ScopeEditorField({
   draft,
   placeholder,
   addLabel,
+  lockedValues = [],
   onDraftChange,
   onAdd,
   onRemove
@@ -3195,12 +3224,17 @@ function ScopeEditorField({
   draft: string;
   placeholder: string;
   addLabel: string;
+  lockedValues?: string[];
   onDraftChange: (value: string) => void;
   onAdd: () => void;
   onRemove: (value: string) => void;
 }) {
   const Icon = icon === "source" ? Database : Tags;
   const canAdd = splitSupplementalKeywords(draft).length > 0;
+  const lockedValueKeys = React.useMemo(
+    () => new Set(lockedValues.map(scopeValueKey).filter(Boolean)),
+    [lockedValues]
+  );
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key !== "Enter") return;
     event.preventDefault();
@@ -3218,14 +3252,23 @@ function ScopeEditorField({
       </div>
       <p className="scope-editor-description">{description}</p>
       <div className={`scope-editor-values ${values.length ? "" : "empty"}`}>
-        {values.length ? values.map((value) => (
-          <span className="scope-editor-token" key={`${title}-${value}`}>
-            {value}
-            <button type="button" onClick={() => onRemove(value)} title={`移除 ${value}`} aria-label={`移除 ${value}`}>
-              <X size={13} aria-hidden="true" />
-            </button>
-          </span>
-        )) : <span>{emptyLabel}</span>}
+        {values.length ? values.map((value) => {
+          const locked = lockedValueKeys.has(scopeValueKey(value));
+          return (
+            <span className={`scope-editor-token ${locked ? "locked" : ""}`} key={`${title}-${value}`}>
+              {value}
+              {locked ? (
+                <span className="scope-editor-lock" title="默认贴吧来源不可删除">
+                  默认
+                </span>
+              ) : (
+                <button type="button" onClick={() => onRemove(value)} title={`移除 ${value}`} aria-label={`移除 ${value}`}>
+                  <X size={13} aria-hidden="true" />
+                </button>
+              )}
+            </span>
+          );
+        }) : <span>{emptyLabel}</span>}
       </div>
       <div className="scope-editor-add">
         <input
@@ -3252,16 +3295,29 @@ function scopeValues(values: string[], emptyLabel: string): ScopeValue[] {
   return hidden > 0 ? [...visible, { text: `+${hidden}`, overflow: true }] : visible;
 }
 
-function mergeScopeKeywords(baseKeywords: string[], extraKeywords: string[]) {
+function mergeScopeValues(baseValues: string[], extraValues: string[]) {
   const seen = new Set<string>();
   const merged: string[] = [];
-  for (const keyword of [...baseKeywords, ...extraKeywords]) {
-    const normalized = keyword.trim().toLowerCase();
+  for (const keyword of [...baseValues, ...extraValues]) {
+    const normalized = scopeValueKey(keyword);
     if (!normalized || seen.has(normalized)) continue;
     seen.add(normalized);
     merged.push(keyword.trim());
   }
   return merged;
+}
+
+function mergeScopeKeywords(baseKeywords: string[], extraKeywords: string[]) {
+  return mergeScopeValues(baseKeywords, extraKeywords);
+}
+
+function scopeValueKey(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function scopeValueInList(value: string, list: string[]) {
+  const key = scopeValueKey(value);
+  return Boolean(key) && list.some((item) => scopeValueKey(item) === key);
 }
 
 function defaultKeywordGroupsForGames(games: GameConfig[]): DefaultKeywordGroup[] {
@@ -3297,7 +3353,7 @@ function makeTiebaScopeSummary(
   const overridden = tiebaScopeOverrideActive;
   const overrideBars = splitSupplementalKeywords(tiebaBarsOverride);
   const overrideKeywords = splitSupplementalKeywords(tiebaKeywordsOverride);
-  const sourceValues = overridden ? overrideBars : scopeListForGames(games, "tiebaBars");
+  const sourceValues = overridden ? mergeScopeValues(scopeListForGames(games, "tiebaBars"), overrideBars) : scopeListForGames(games, "tiebaBars");
   const baseFilterValues = overridden ? overrideKeywords : scopeListForGames(games, "tiebaKeywords");
   const filterValues = mergeScopeKeywords(baseFilterValues, extraKeywords);
 

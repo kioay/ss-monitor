@@ -66,6 +66,14 @@ const crossTiebaQuery = parseMonitorQuery({
 assert.deepEqual(crossTiebaQuery.selectedGames[0]?.tiebaBars, ["\u9006\u6218"]);
 assert.deepEqual(crossTiebaQuery.selectedGames[0]?.tiebaKeywords, ["\u751f\u6b7b\u72d9\u51fb"]);
 
+const additiveTiebaQuery = parseMonitorQuery({
+  games: "out-of-control",
+  tiebaBars: "\u706b\u7ebf\u7cbe\u82f1",
+  tiebaKeywords: "\u751f\u6b7b\u72d9\u51fb"
+});
+assert.deepEqual(additiveTiebaQuery.selectedGames[0]?.tiebaBars, ["\u9006\u6218", "\u706b\u7ebf\u7cbe\u82f1"]);
+assert.deepEqual(additiveTiebaQuery.selectedGames[0]?.tiebaKeywords, ["\u751f\u6b7b\u72d9\u51fb"]);
+
 const multiCrossTiebaQuery = parseMonitorQuery({
   games: "out-of-control",
   tiebaBars: "\u9006\u6218,\u706b\u7ebf\u7cbe\u82f1",
@@ -87,7 +95,7 @@ const emptyTiebaScopeQuery = parseMonitorQuery({
   tiebaBars: "",
   tiebaKeywords: ""
 });
-assert.deepEqual(emptyTiebaScopeQuery.selectedGames[0]?.tiebaBars, []);
+assert.deepEqual(emptyTiebaScopeQuery.selectedGames[0]?.tiebaBars, ["\u9006\u6218"]);
 assert.deepEqual(emptyTiebaScopeQuery.selectedGames[0]?.tiebaKeywords, []);
 
 assert.equal(tiebaTextMatchesKeywords("\u9006\u6218\u5427\u91cc\u5bf9\u6bd4\u751f\u6b7b\u72d9\u51fb\u7684\u5e16\u5b50", ["\u751f\u6b7b\u72d9\u51fb"]), true);

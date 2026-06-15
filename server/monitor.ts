@@ -127,7 +127,7 @@ function withMonitorScope(
 ): GameConfig[] {
   return selectedGames.map((game) => ({
     ...game,
-    tiebaBars: scope.tiebaBarsOverride ?? game.tiebaBars,
+    tiebaBars: scope.tiebaBarsOverride !== undefined ? mergeKeywordLists(game.tiebaBars, scope.tiebaBarsOverride) : game.tiebaBars,
     bilibiliKeywords: mergeKeywordLists(game.bilibiliKeywords, scope.extraKeywords),
     douyinKeywords: mergeKeywordLists(game.douyinKeywords, scope.extraKeywords),
     tiebaKeywords: mergeKeywordLists(scope.tiebaKeywordsOverride ?? game.tiebaKeywords ?? [], scope.extraKeywords)

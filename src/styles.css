@@ -1290,6 +1290,24 @@ h2 {
   color: #76510f;
 }
 
+.scope-editor-token.locked {
+  padding-right: 6px;
+  border-color: rgba(66, 109, 145, 0.22);
+  background: rgba(230, 239, 246, 0.76);
+  color: #315c7a;
+}
+
+.scope-editor-lock {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 1px 5px;
+  background: rgba(255, 255, 255, 0.72);
+  color: currentColor;
+  font-size: 11px;
+  font-weight: 820;
+  line-height: 1.45;
+}
+
 .scope-editor-token button {
   width: 20px;
   height: 20px;
