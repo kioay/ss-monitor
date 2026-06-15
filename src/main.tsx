@@ -874,17 +874,9 @@ function App() {
     () => new Map((data?.keywordEffectiveness || []).map((entry) => [entry.keyword.toLowerCase(), entry])),
     [data?.keywordEffectiveness]
   );
-  const keywordSummary = React.useMemo(
-    () => makeKeywordSummary(activeExtraKeywords, data?.keywordEffectiveness || []),
-    [activeExtraKeywords, data?.keywordEffectiveness]
-  );
   const tiebaScopeSummary = React.useMemo(
     () => makeTiebaScopeSummary(selectedGameConfigs, activeExtraKeywords, tiebaScopeOverrideActive, activeTiebaBarsOverride, activeTiebaKeywordsOverride),
     [activeExtraKeywords, activeTiebaBarsOverride, activeTiebaKeywordsOverride, selectedGameConfigs, tiebaScopeOverrideActive]
-  );
-  const keywordScopeSummary = React.useMemo(
-    () => makeKeywordScopeSummary(keywordSummary, tiebaScopeSummary),
-    [keywordSummary, tiebaScopeSummary]
   );
   const keywordEntryActive = activeExtraKeywords.length > 0 || tiebaScopeSummary.overridden;
   const keywordEntryBadgeCount = activeExtraKeywords.length + (tiebaScopeSummary.overridden ? 1 : 0);
@@ -1056,14 +1048,6 @@ function App() {
             <span>关键词 / 范围</span>
             {keywordEntryBadgeCount ? <b>{keywordEntryBadgeCount}</b> : null}
           </button>
-          <div
-            className="keyword-summary"
-            aria-label="关键词和采集范围摘要"
-            title={`${keywordScopeSummary.primary} · ${keywordScopeSummary.secondary}`}
-          >
-            <strong>{keywordScopeSummary.primary}</strong>
-            <span>{keywordScopeSummary.secondary}</span>
-          </div>
         </div>
       </section>
 
@@ -3324,16 +3308,6 @@ function makeTiebaScopeSummary(
   };
 }
 
-function makeKeywordScopeSummary(
-  keywordSummary: { primary: string; secondary: string },
-  scopeSummary: { primary: string; secondary: string }
-) {
-  return {
-    primary: `${keywordSummary.primary} · ${keywordSummary.secondary}`,
-    secondary: `${scopeSummary.primary} · ${scopeSummary.secondary}`
-  };
-}
-
 function summarizeScopeList(values: string[], emptyLabel: string) {
   const cleaned = values.map((value) => value.trim()).filter(Boolean);
   if (!cleaned.length) return emptyLabel;
@@ -3343,31 +3317,6 @@ function summarizeScopeList(values: string[], emptyLabel: string) {
 
 function searchOriginText(origin: SearchResult["origin"]) {
   return origin === "mindspider-douyin-db" ? "MindSpider DB" : "历史记录";
-}
-
-function makeKeywordSummary(keywords: string[], effectiveness: KeywordEffectiveness[]) {
-  if (!keywords.length) return { primary: "未添加补充词", secondary: "点击管理" };
-  const byKeyword = new Map(effectiveness.map((entry) => [entry.keyword.toLowerCase(), entry]));
-  const summary = keywords.reduce(
-    (summary, keyword) => {
-      const entry = byKeyword.get(keyword.toLowerCase());
-      if (!entry) summary.pending += 1;
-      if (entry?.matchedItems) {
-        summary.hitKeywords += 1;
-        summary.matchedItems += entry.matchedItems;
-      }
-      return summary;
-    },
-    { hitKeywords: 0, matchedItems: 0, pending: 0 }
-  );
-  return {
-    primary: `${keywords.length} 个补充词`,
-    secondary: summary.matchedItems
-      ? `${summary.hitKeywords} 个词命中 ${summary.matchedItems} 条`
-      : summary.pending
-        ? "等待刷新"
-        : "等待新数据"
-  };
 }
 
 function keywordEffectivenessLabel(effectiveness: KeywordEffectiveness | undefined) {

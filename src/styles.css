@@ -678,7 +678,7 @@ h2 {
 }
 
 .keyword-entry {
-  flex: 1 1 460px;
+  flex: 0 0 auto;
   min-height: 42px;
   display: flex;
   align-items: center;
@@ -734,33 +734,6 @@ h2 {
   color: white;
   font-size: 11px;
   line-height: 1;
-}
-
-.keyword-summary {
-  flex: 1 1 260px;
-  min-width: min(260px, 100%);
-  max-width: none;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  border-left: 1px solid var(--line);
-  padding-left: 10px;
-  line-height: 1.25;
-}
-
-.keyword-summary strong,
-.keyword-summary span {
-  overflow-wrap: anywhere;
-}
-
-.keyword-summary strong {
-  color: var(--ink);
-  font-size: 13px;
-}
-
-.keyword-summary span {
-  color: var(--muted);
-  font-size: 12px;
 }
 
 .keyword-panel-backdrop {
@@ -4398,14 +4371,6 @@ button.metric:focus-visible {
   .control-band .keyword-entry {
     flex: 1 1 100%;
     width: 100%;
-  }
-
-  .keyword-entry {
-    justify-content: flex-start;
-  }
-
-  .keyword-summary {
-    max-width: none;
   }
 
   .scope-rail {
