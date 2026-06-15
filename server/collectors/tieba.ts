@@ -85,6 +85,7 @@ export async function collectTieba(game: GameConfig, cutoff: Date) {
   for (const bar of game.tiebaBars) {
     const tiebaKeywords = scopedTiebaKeywords.get(tiebaBarScopeKey(bar)) ?? defaultTiebaKeywords;
     if (tiebaKeywords.length) filteredBarCount += 1;
+    const minListPages = Math.min(runtimeConfig.maxTiebaListPages, runtimeConfig.minTiebaListPages);
     try {
       for (let page = 1; page <= runtimeConfig.maxTiebaListPages; page += 1) {
         const candidates = (await fetchBarThreads(bar, page)).map((candidate) => ({ ...candidate, bar }));
@@ -101,7 +102,8 @@ export async function collectTieba(game: GameConfig, cutoff: Date) {
           }
           byTid.set(candidate.tid, candidate);
         }
-        if (!candidates.length || !pageHasWindowItems) break;
+        if (!candidates.length) break;
+        if (!pageHasWindowItems && page >= minListPages) break;
       }
     } catch (error) {
       const sourceError = error as SourceError;

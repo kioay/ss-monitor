@@ -123,6 +123,7 @@ export const runtimeConfig = {
   maxDouyinImportedItemsPerGame: Math.max(1, Number(process.env.MAX_DOUYIN_IMPORTED_ITEMS_PER_GAME || 300)),
   maxBettaFishImportedItemsPerGame: Math.max(1, Number(process.env.MAX_BETTAFISH_IMPORTED_ITEMS_PER_GAME || 300)),
   maxTiebaListPages: Math.max(1, Number(process.env.MAX_TIEBA_LIST_PAGES || 5)),
+  minTiebaListPages: Math.max(1, Number(process.env.MIN_TIEBA_LIST_PAGES || 4)),
   tiebaThreadsPerPage: Math.max(1, Number(process.env.TIEBA_THREADS_PER_PAGE || 30)),
   maxTiebaThreadsPerBar: Math.max(1, Number(process.env.MAX_TIEBA_THREADS_PER_BAR || 150)),
   maxTiebaThreadsToDeepParse: 8
