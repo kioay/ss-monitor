@@ -63,6 +63,7 @@ const querySchema = z.object({
 });
 
 type MonitorQuery = z.infer<typeof querySchema>;
+type TiebaScopeMap = Record<string, string[]>;
 type CollectionEntry = {
   createdAt: number;
   items: MonitorItem[];
@@ -89,18 +90,30 @@ export function parseMonitorQuery(raw: unknown) {
   const query = querySchema.parse(raw);
   const selectedGames = query.games.map((id) => gameById.get(id as GameId)).filter((game): game is GameConfig => Boolean(game));
   const baseGames = selectedGames.length ? selectedGames : games;
-  const tiebaBarsOverride = rawParamProvided(raw, "tiebaBars") ? query.tiebaBars : undefined;
-  const tiebaKeywordsOverride = rawParamProvided(raw, "tiebaKeywords") ? query.tiebaKeywords : undefined;
-  const defaultTiebaBars = mergeKeywordLists([], baseGames.flatMap((game) => game.tiebaBars || []));
-  const scopeKey = collectionScopeKey(query.extraKeywords, tiebaBarsOverride, tiebaKeywordsOverride);
+  const scopedTiebaBars = readTiebaScopeMap(raw, "tiebaBars");
+  const scopedTiebaKeywords = readTiebaScopeMap(raw, "tiebaKeywords");
+  const hasScopedTiebaBars = Object.keys(scopedTiebaBars).length > 0;
+  const hasScopedTiebaKeywords = Object.keys(scopedTiebaKeywords).length > 0;
+  const tiebaBarsByGame = hasScopedTiebaBars
+    ? scopedTiebaBars
+    : rawParamProvided(raw, "tiebaBars")
+      ? scopeMapForGames(baseGames, query.tiebaBars)
+      : {};
+  const tiebaKeywordsByGame = hasScopedTiebaKeywords
+    ? scopedTiebaKeywords
+    : rawParamProvided(raw, "tiebaKeywords")
+      ? scopeMapForGames(baseGames, query.tiebaKeywords)
+      : {};
+  const legacyTiebaScope = !hasScopedTiebaBars && !hasScopedTiebaKeywords && (rawParamProvided(raw, "tiebaBars") || rawParamProvided(raw, "tiebaKeywords"));
+  const scopeKey = collectionScopeKey(query.extraKeywords, tiebaBarsByGame, tiebaKeywordsByGame);
   return {
     ...query,
     scopeKey,
     selectedGames: withMonitorScope(baseGames, {
       extraKeywords: query.extraKeywords,
-      tiebaBarsOverride,
-      tiebaKeywordsOverride,
-      defaultTiebaBars
+      tiebaBarsByGame,
+      tiebaKeywordsByGame,
+      legacyTiebaScope
     })
   };
 }
@@ -119,33 +132,61 @@ function parseSupplementalKeywords(raw: string) {
   return keywords;
 }
 
+function readTiebaScopeMap(raw: unknown, keyPrefix: "tiebaBars" | "tiebaKeywords"): TiebaScopeMap {
+  if (!raw || typeof raw !== "object") return {};
+  const prefix = `${keyPrefix}.`;
+  const scope: TiebaScopeMap = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (!key.startsWith(prefix)) continue;
+    const gameId = key.slice(prefix.length).trim();
+    if (!gameId) continue;
+    const parsed = parseSupplementalKeywords(rawQueryValue(value));
+    if (parsed.length) scope[gameId] = parsed;
+  }
+  return scope;
+}
+
+function rawQueryValue(value: unknown) {
+  if (Array.isArray(value)) return value.map((item) => String(item)).join(",");
+  return typeof value === "string" ? value : "";
+}
+
+function scopeMapForGames(selectedGames: GameConfig[], values: string[]): TiebaScopeMap {
+  if (!values.length) return {};
+  return Object.fromEntries(selectedGames.map((game) => [game.id, values]));
+}
+
 function withMonitorScope(
   selectedGames: GameConfig[],
   scope: {
     extraKeywords: string[];
-    tiebaBarsOverride?: string[];
-    tiebaKeywordsOverride?: string[];
-    defaultTiebaBars: string[];
+    tiebaBarsByGame: TiebaScopeMap;
+    tiebaKeywordsByGame: TiebaScopeMap;
+    legacyTiebaScope: boolean;
   }
 ): GameConfig[] {
+  const selectedDefaultTiebaBars = mergeKeywordLists([], selectedGames.flatMap((game) => game.tiebaBars || []));
   return selectedGames.map((game) => {
     const configuredTiebaKeywords = game.tiebaKeywords || [];
-    const supplementalTiebaBars = scope.tiebaBarsOverride !== undefined
-      ? scope.tiebaBarsOverride.filter((bar) => !keywordInList(bar, scope.defaultTiebaBars))
+    const tiebaBarsOverride = scope.tiebaBarsByGame[game.id];
+    const tiebaKeywordsOverride = scope.tiebaKeywordsByGame[game.id] || [];
+    const lockedTiebaBars = scope.legacyTiebaScope ? selectedDefaultTiebaBars : game.tiebaBars || [];
+    const supplementalTiebaBars = tiebaBarsOverride !== undefined
+      ? tiebaBarsOverride.filter((bar) => !keywordInList(bar, lockedTiebaBars))
       : [];
-    const tiebaBars = scope.tiebaBarsOverride !== undefined
+    const tiebaBars = tiebaBarsOverride !== undefined
       ? mergeKeywordLists(game.tiebaBars, supplementalTiebaBars)
       : game.tiebaBars;
-    const scopedTiebaKeywords = tiebaBarKeywordScope(game.tiebaBarKeywords, supplementalTiebaBars, scope.tiebaKeywordsOverride);
+    const defaultPlatformKeywords = mergeKeywordLists(game.bilibiliKeywords || [], game.douyinKeywords || []);
+    const supplementalTiebaKeywords = mergeKeywordLists(defaultPlatformKeywords, tiebaKeywordsOverride);
+    const scopedTiebaKeywords = tiebaBarKeywordScope(game.tiebaBarKeywords, supplementalTiebaBars, supplementalTiebaKeywords);
 
     return {
       ...game,
       tiebaBars,
       bilibiliKeywords: mergeKeywordLists(game.bilibiliKeywords, scope.extraKeywords),
       douyinKeywords: mergeKeywordLists(game.douyinKeywords, scope.extraKeywords),
-      tiebaKeywords: scope.tiebaKeywordsOverride !== undefined && configuredTiebaKeywords.length
-        ? scope.tiebaKeywordsOverride
-        : configuredTiebaKeywords,
+      tiebaKeywords: configuredTiebaKeywords,
       ...(Object.keys(scopedTiebaKeywords).length ? { tiebaBarKeywords: scopedTiebaKeywords } : {})
     };
   });
@@ -171,14 +212,14 @@ function keywordInList(keyword: string, keywords: string[]) {
 function tiebaBarKeywordScope(
   base: Record<string, string[]> | undefined,
   supplementalBars: string[],
-  tiebaKeywordsOverride: string[] | undefined
+  tiebaKeywords: string[]
 ) {
   const scoped: Record<string, string[]> = { ...(base || {}) };
-  if (tiebaKeywordsOverride === undefined || tiebaKeywordsOverride.length === 0) return scoped;
+  if (!tiebaKeywords.length) return scoped;
   for (const bar of supplementalBars) {
     const key = normalizeKeywordScope(bar);
     if (!key) continue;
-    scoped[key] = tiebaKeywordsOverride;
+    scoped[key] = tiebaKeywords;
   }
   return scoped;
 }
@@ -384,13 +425,22 @@ function normalizeKeywordScope(keyword: string) {
   return keyword.trim().toLowerCase();
 }
 
-function collectionScopeKey(extraKeywords: string[] = [], tiebaBarsOverride?: string[], tiebaKeywordsOverride?: string[]) {
+function tiebaScopeMapKey(scope: TiebaScopeMap = {}) {
+  const parts = Object.entries(scope)
+    .map(([gameId, values]) => [gameId, keywordScopeKey(values)] as const)
+    .filter(([, value]) => value !== "base")
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([gameId, value]) => `${gameId}:${value}`);
+  return parts.length ? parts.join(";") : "base";
+}
+
+function collectionScopeKey(extraKeywords: string[] = [], tiebaBarsByGame: TiebaScopeMap = {}, tiebaKeywordsByGame: TiebaScopeMap = {}) {
   const parts = [
     `kw=${keywordScopeKey(extraKeywords)}`,
-    tiebaBarsOverride !== undefined ? `tb=${keywordScopeKey(tiebaBarsOverride)}` : "",
-    tiebaKeywordsOverride !== undefined ? `tk=${keywordScopeKey(tiebaKeywordsOverride)}` : ""
+    `tb=${tiebaScopeMapKey(tiebaBarsByGame)}`,
+    `tk=${tiebaScopeMapKey(tiebaKeywordsByGame)}`
   ].filter(Boolean);
-  return parts.length === 1 && parts[0] === "kw=base" ? "base" : parts.join("|");
+  return parts.every((part) => part.endsWith("=base")) ? "base" : parts.join("|");
 }
 
 function entryScopeKey(entry: CollectionEntry | undefined) {

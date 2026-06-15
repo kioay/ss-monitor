@@ -1196,6 +1196,42 @@ h2 {
   padding-top: 2px;
 }
 
+.scope-game-editor {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(27, 45, 40, 0.12);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(251, 253, 249, 0.72);
+}
+
+.scope-game-editor-head {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.scope-game-editor-head strong {
+  color: var(--ink-strong);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.scope-game-editor-head span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.scope-game-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
 .scope-editor-field {
   min-width: 0;
   display: grid;
@@ -4409,6 +4445,10 @@ button.metric:focus-visible {
 
   .scope-group {
     width: 100%;
+  }
+
+  .scope-game-editor-grid {
+    grid-template-columns: 1fr;
   }
 
   .scope-chip {

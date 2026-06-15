@@ -77,7 +77,7 @@ const crossTiebaQuery = parseMonitorQuery({
   tiebaKeywords: "\u751f\u6b7b\u72d9\u51fb"
 });
 assert.deepEqual(crossTiebaQuery.selectedGames[0]?.tiebaBars, ["\u9006\u6218"]);
-assert.deepEqual(crossTiebaQuery.selectedGames[0]?.tiebaKeywords, ["\u751f\u6b7b\u72d9\u51fb"]);
+assert.deepEqual(crossTiebaQuery.selectedGames[0]?.tiebaKeywords, ["\u5931\u63a7\u8fdb\u5316"]);
 
 const additiveTiebaQuery = parseMonitorQuery({
   games: "out-of-control",
@@ -85,9 +85,9 @@ const additiveTiebaQuery = parseMonitorQuery({
   tiebaKeywords: "\u751f\u6b7b\u72d9\u51fb"
 });
 assert.deepEqual(additiveTiebaQuery.selectedGames[0]?.tiebaBars, ["\u9006\u6218", "\u706b\u7ebf\u7cbe\u82f1"]);
-assert.deepEqual(additiveTiebaQuery.selectedGames[0]?.tiebaKeywords, ["\u751f\u6b7b\u72d9\u51fb"]);
+assert.deepEqual(additiveTiebaQuery.selectedGames[0]?.tiebaKeywords, ["\u5931\u63a7\u8fdb\u5316"]);
 assert.deepEqual(additiveTiebaQuery.selectedGames[0]?.tiebaBarKeywords, {
-  "\u706b\u7ebf\u7cbe\u82f1": ["\u751f\u6b7b\u72d9\u51fb"]
+  "\u706b\u7ebf\u7cbe\u82f1": ["\u5931\u63a7\u8fdb\u5316", "\u5931\u63a7\u8fdb\u5316\u624b\u6e38", "\u751f\u6b7b\u72d9\u51fb"]
 });
 
 const directCrossTiebaQuery = parseMonitorQuery({
@@ -98,7 +98,19 @@ const directCrossTiebaQuery = parseMonitorQuery({
 assert.deepEqual(directCrossTiebaQuery.selectedGames[0]?.tiebaBars, ["\u751f\u6b7b\u72d9\u51fb", "\u9006\u6218"]);
 assert.deepEqual(directCrossTiebaQuery.selectedGames[0]?.tiebaKeywords, []);
 assert.deepEqual(directCrossTiebaQuery.selectedGames[0]?.tiebaBarKeywords, {
-  "\u9006\u6218": ["\u661f\u77b3"]
+  "\u9006\u6218": ["\u751f\u6b7b\u72d9\u51fb", "\u661f\u77b3"]
+});
+
+const perGameTiebaQuery = parseMonitorQuery({
+  games: "out-of-control,direct-game",
+  "tiebaBars.direct-game": "\u9006\u6218",
+  "tiebaKeywords.direct-game": "\u661f\u77b3"
+});
+assert.deepEqual(perGameTiebaQuery.selectedGames[0]?.tiebaBars, ["\u9006\u6218"]);
+assert.deepEqual(perGameTiebaQuery.selectedGames[0]?.tiebaBarKeywords, undefined);
+assert.deepEqual(perGameTiebaQuery.selectedGames[1]?.tiebaBars, ["\u751f\u6b7b\u72d9\u51fb", "\u9006\u6218"]);
+assert.deepEqual(perGameTiebaQuery.selectedGames[1]?.tiebaBarKeywords, {
+  "\u9006\u6218": ["\u751f\u6b7b\u72d9\u51fb", "\u661f\u77b3"]
 });
 
 const multiCrossTiebaQuery = parseMonitorQuery({
@@ -107,7 +119,7 @@ const multiCrossTiebaQuery = parseMonitorQuery({
   tiebaKeywords: "\u751f\u6b7b\u72d9\u51fb,\u673a\u7532"
 });
 assert.deepEqual(multiCrossTiebaQuery.selectedGames[0]?.tiebaBars, ["\u9006\u6218", "\u706b\u7ebf\u7cbe\u82f1"]);
-assert.deepEqual(multiCrossTiebaQuery.selectedGames[0]?.tiebaKeywords, ["\u751f\u6b7b\u72d9\u51fb", "\u673a\u7532"]);
+assert.deepEqual(multiCrossTiebaQuery.selectedGames[0]?.tiebaKeywords, ["\u5931\u63a7\u8fdb\u5316"]);
 
 const unfilteredTiebaQuery = parseMonitorQuery({
   games: "out-of-control",
@@ -115,7 +127,7 @@ const unfilteredTiebaQuery = parseMonitorQuery({
   tiebaKeywords: ""
 });
 assert.deepEqual(unfilteredTiebaQuery.selectedGames[0]?.tiebaBars, ["\u9006\u6218"]);
-assert.deepEqual(unfilteredTiebaQuery.selectedGames[0]?.tiebaKeywords, []);
+assert.deepEqual(unfilteredTiebaQuery.selectedGames[0]?.tiebaKeywords, ["\u5931\u63a7\u8fdb\u5316"]);
 
 const emptyTiebaScopeQuery = parseMonitorQuery({
   games: "out-of-control",
@@ -123,7 +135,7 @@ const emptyTiebaScopeQuery = parseMonitorQuery({
   tiebaKeywords: ""
 });
 assert.deepEqual(emptyTiebaScopeQuery.selectedGames[0]?.tiebaBars, ["\u9006\u6218"]);
-assert.deepEqual(emptyTiebaScopeQuery.selectedGames[0]?.tiebaKeywords, []);
+assert.deepEqual(emptyTiebaScopeQuery.selectedGames[0]?.tiebaKeywords, ["\u5931\u63a7\u8fdb\u5316"]);
 
 assert.equal(tiebaTextMatchesKeywords("\u9006\u6218\u5427\u91cc\u5bf9\u6bd4\u751f\u6b7b\u72d9\u51fb\u7684\u5e16\u5b50", ["\u751f\u6b7b\u72d9\u51fb"]), true);
 assert.equal(tiebaTextMatchesKeywords("\u9006\u6218\u5427\u81ea\u5df1\u7684\u65e5\u5e38\u8ba8\u8bba", ["\u751f\u6b7b\u72d9\u51fb"]), false);
