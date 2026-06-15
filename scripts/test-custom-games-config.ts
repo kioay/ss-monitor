@@ -47,6 +47,12 @@ assert.deepEqual(supplementalQuery.selectedGames[0]?.douyinKeywords, [
   "\u516c\u6d4b",
   "\u62db\u4eba"
 ]);
+assert.deepEqual(supplementalQuery.selectedGames[0]?.tiebaBars, [
+  "\u5931\u63a7\u8fdb\u5316",
+  "\u5931\u63a7\u8fdb\u5316\u624b\u6e38",
+  "\u516c\u6d4b",
+  "\u62db\u4eba"
+]);
 
 const effectiveness = makeKeywordEffectiveness([
   makeItem("1", "\u5931\u63a7\u8fdb\u5316 7\u67089\u65e5\u516c\u6d4b", "tieba"),

@@ -104,7 +104,8 @@ function withSupplementalKeywords(selectedGames: GameConfig[], extraKeywords: st
   return selectedGames.map((game) => ({
     ...game,
     bilibiliKeywords: mergeKeywordLists(game.bilibiliKeywords, extraKeywords),
-    douyinKeywords: mergeKeywordLists(game.douyinKeywords, extraKeywords)
+    douyinKeywords: mergeKeywordLists(game.douyinKeywords, extraKeywords),
+    tiebaBars: mergeKeywordLists(game.tiebaBars, extraKeywords)
   }));
 }
 

@@ -931,10 +931,10 @@ function App() {
             aria-haspopup="dialog"
             aria-controls="keyword-panel"
             aria-expanded={keywordPanelOpen}
-            title="管理补充关键词"
+            title="管理补充关键词和贴吧范围"
           >
             <Tags size={16} aria-hidden="true" />
-            <span>关键词</span>
+            <span>关键词 / 贴吧</span>
             {activeExtraKeywords.length ? <b>{activeExtraKeywords.length}</b> : null}
           </button>
           <div className="keyword-summary" aria-label="关键词摘要">
@@ -957,9 +957,9 @@ function App() {
             <header className="keyword-panel-head">
               <div>
                 <p className="eyebrow">补充词池</p>
-                <h2 id="keyword-panel-title">关键词管理</h2>
+                <h2 id="keyword-panel-title">关键词 / 贴吧管理</h2>
               </div>
-              <button className="icon-button" type="button" onClick={() => setKeywordPanelOpen(false)} title="关闭" aria-label="关闭关键词管理">
+              <button className="icon-button" type="button" onClick={() => setKeywordPanelOpen(false)} title="关闭" aria-label="关闭关键词和贴吧管理">
                 <X size={18} aria-hidden="true" />
               </button>
             </header>
@@ -975,7 +975,7 @@ function App() {
                   name="supplemental-keywords"
                   value={keywordInput}
                   onChange={(event) => setKeywordInput(event.target.value)}
-                  placeholder="输入关键词，支持逗号分隔"
+                  placeholder="输入关键词或贴吧吧名，支持逗号分隔"
                   autoComplete="off"
                   autoFocus
                 />
