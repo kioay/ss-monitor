@@ -1142,9 +1142,6 @@ function App() {
                     <h3>贴吧只去这些吧里找</h3>
                     <p>这里仅影响贴吧采集；B站、抖音等来源仍使用全平台关注词。</p>
                   </div>
-                  <span className={`scope-status-chip ${tiebaScopeSummary.overridden ? "temporary" : ""}`}>
-                    {tiebaScopeSummary.overridden ? "临时范围" : "配置范围"}
-                  </span>
                 </div>
                 <ScopeRail
                   games={selectedGameConfigs}
@@ -1157,7 +1154,7 @@ function App() {
                   <ScopeEditorField
                     icon="source"
                     title="2 去哪些贴吧找"
-                    description="只填贴吧名，例如逆战、火线精英。不要把 433 这类全平台关注词填在这里。"
+                    description="只填贴吧名；不要把全平台关注词填在这里。"
                     values={editableScopeBars}
                     emptyLabel="未选择贴吧来源"
                     draft={scopeBarDraft}
@@ -3171,7 +3168,7 @@ function DefaultKeywordOverview({ groups }: { groups: DefaultKeywordGroup[] }) {
         </span>
         <em>只读配置</em>
       </div>
-      <p>这些词已经随看板默认采集；下方只添加默认词之外的新说法。贴吧是否跨吧采集，仍看“贴吧来源”和“贴吧专属匹配词”。</p>
+      <p>这些词已经随看板默认采集；下方只添加默认词之外的新关键词。贴吧是否跨吧采集，仍看“贴吧来源”和“贴吧专属匹配词”。</p>
       <div className={`default-keyword-list ${showGroupLabel ? "" : "single"}`}>
         {groups.map((group) => (
           <div className="default-keyword-row" key={group.id}>

@@ -1192,24 +1192,6 @@ h2 {
   line-height: 1.45;
 }
 
-.scope-status-chip {
-  flex: 0 0 auto;
-  border: 1px solid rgba(66, 109, 145, 0.22);
-  border-radius: 999px;
-  padding: 4px 9px;
-  background: var(--blue-soft);
-  color: #315c7a;
-  font-size: 12px;
-  font-weight: 820;
-  white-space: nowrap;
-}
-
-.scope-status-chip.temporary {
-  border-color: rgba(33, 152, 170, 0.28);
-  background: var(--cyan-soft);
-  color: #176a79;
-}
-
 .scope-panel-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
