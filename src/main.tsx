@@ -861,6 +861,7 @@ function App() {
     ];
   }, [config?.games, configuredGameIds]);
   const activeExtraKeywords = React.useMemo(() => splitSupplementalKeywords(extraKeywords), [extraKeywords]);
+  const defaultKeywordGroups = React.useMemo(() => defaultKeywordGroupsForGames(selectedGameConfigs), [selectedGameConfigs]);
   const activeTiebaBarsOverride = React.useMemo(() => normalizeSupplementalKeywordText(tiebaBarsOverride), [tiebaBarsOverride]);
   const activeTiebaKeywordsOverride = React.useMemo(() => normalizeSupplementalKeywordText(tiebaKeywordsOverride), [tiebaKeywordsOverride]);
   const keywordEffectivenessByKeyword = React.useMemo(
@@ -1071,28 +1072,24 @@ function App() {
           >
             <header className="keyword-panel-head">
               <div>
-                <p className="eyebrow">跨吧舆情采集</p>
                 <h2 id="keyword-panel-title">要找什么，去哪里找</h2>
               </div>
               <button className="icon-button" type="button" onClick={() => setKeywordPanelOpen(false)} title="关闭" aria-label="关闭关键词与贴吧范围">
                 <X size={18} aria-hidden="true" />
               </button>
             </header>
-            <div className="keyword-panel-summary">
-              <span>补充关键词会扩展全平台采集；贴吧采集范围只决定贴吧去哪些吧里找。</span>
-              <strong>{tiebaScopeSummary.secondary}</strong>
-            </div>
             <div className="keyword-panel-body">
               <KeywordScopeGuide />
+              <DefaultKeywordOverview groups={defaultKeywordGroups} />
               <form className="keyword-panel-add" onSubmit={addExtraKeywords}>
                 <label className="field">
                   <Tags size={16} aria-hidden="true" />
-                  <span>1 全平台关注词</span>
+                  <span>1 补充全平台关注词</span>
                   <input
                     name="supplemental-keywords"
                     value={keywordInput}
                     onChange={(event) => setKeywordInput(event.target.value)}
-                    placeholder="会用于 B站、贴吧、抖音等来源，如 433、生死狙击"
+                    placeholder="在默认关键词之外追加，如 433、机甲、怀旧服"
                     autoComplete="off"
                     autoFocus
                   />
@@ -1124,7 +1121,7 @@ function App() {
                   })}
                 </div>
               ) : (
-                <p className="keyword-empty">先添加要关注的玩家说法，例如 433、生死狙击、机甲。</p>
+                <p className="keyword-empty">先添加默认关键词之外要关注的玩家说法，例如 433、机甲、怀旧服。</p>
               )}
               {activeExtraKeywords.length ? (
                 <div className="keyword-panel-actions">
@@ -3061,11 +3058,12 @@ function ScopeRail({
   const overridden = Boolean(tiebaBarsOverride || tiebaKeywordsOverride);
 
   return (
-    <section className="scope-rail" aria-label="采集范围">
+    <section className="scope-rail" aria-label="当前生效采集范围">
       <div className="scope-rail-head">
         <Database size={15} aria-hidden="true" />
-        <span>采集范围</span>
-        <em>{overridden ? "临时" : "配置"}</em>
+        <span>当前生效范围</span>
+        <em>{overridden ? "临时生效" : "配置生效"}</em>
+        <small>编辑下方内容后，点击“应用采集范围”才会更新这里。</small>
       </div>
       <div className="scope-rail-list">
         {games.map((game) => {
@@ -3088,6 +3086,8 @@ function ScopeRail({
   );
 }
 
+type ScopeValue = { text: string; muted?: boolean; overflow?: boolean };
+
 function ScopeGroup({
   icon,
   label,
@@ -3095,7 +3095,7 @@ function ScopeGroup({
 }: {
   icon: "source" | "keyword";
   label: string;
-  values: Array<{ text: string; muted?: boolean; overflow?: boolean }>;
+  values: ScopeValue[];
 }) {
   const Icon = icon === "source" ? Database : Tags;
   return (
@@ -3121,14 +3121,54 @@ function KeywordScopeGuide() {
       <div className="keyword-guide-main">
         <Info size={17} aria-hidden="true" />
         <div>
-          <strong>补充关键词是全平台关注词，贴吧范围是贴吧专属位置</strong>
-          <span>例：关注词填“生死狙击”会扩展 B站、贴吧、抖音等采集；贴吧来源填“逆战”时，贴吧部分会去逆战吧找提到生死狙击的帖子。</span>
+          <strong>补充关键词会追加到全平台；贴吧来源只控制去哪几个吧找</strong>
+          <span>想在逆战吧收集生死狙击相关讨论：贴吧来源填“逆战”，贴吧专属匹配词填“生死狙击”。如果只是给当前看板新增关注点，填“补充全平台关注词”。</span>
         </div>
       </div>
       <div className="keyword-guide-steps">
-        <span><b>1</b> 全平台关注词</span>
+        <span><b>1</b> 补充全平台关注词</span>
         <span><b>2</b> 贴吧来源：去哪些吧找</span>
         <span><b>3</b> 贴吧专属匹配词</span>
+      </div>
+    </section>
+  );
+}
+
+type DefaultKeywordGroup = {
+  id: string;
+  label: string;
+  keywords: string[];
+};
+
+function DefaultKeywordOverview({ groups }: { groups: DefaultKeywordGroup[] }) {
+  if (!groups.length) return null;
+
+  return (
+    <section className="default-keyword-overview" aria-label="当前看板默认关键词">
+      <div className="default-keyword-head">
+        <span className="default-keyword-title">
+          <Tags size={15} aria-hidden="true" />
+          <strong>当前看板默认关键词</strong>
+        </span>
+        <em>只读配置</em>
+      </div>
+      <p>这些词已经随看板默认采集；下方只添加默认词之外的新说法。贴吧是否跨吧采集，仍看“贴吧来源”和“贴吧专属匹配词”。</p>
+      <div className="default-keyword-list">
+        {groups.map((group) => (
+          <div className="default-keyword-row" key={group.id}>
+            <strong>{group.label}</strong>
+            <span className="default-keyword-chips">
+              {scopeValues(group.keywords, "未配置默认关键词").map((value) => (
+                <span
+                  className={`scope-chip default-keyword-chip ${value.muted ? "muted" : ""} ${value.overflow ? "overflow" : ""}`}
+                  key={`${group.id}-${value.text}`}
+                >
+                  {value.text}
+                </span>
+              ))}
+            </span>
+          </div>
+        ))}
       </div>
     </section>
   );
@@ -3204,7 +3244,7 @@ function ScopeEditorField({
   );
 }
 
-function scopeValues(values: string[], emptyLabel: string) {
+function scopeValues(values: string[], emptyLabel: string): ScopeValue[] {
   const cleaned = values.map((value) => value.trim()).filter(Boolean);
   if (!cleaned.length) return [{ text: emptyLabel, muted: true }];
   const visible = cleaned.slice(0, 4).map((text) => ({ text }));
@@ -3222,6 +3262,14 @@ function mergeScopeKeywords(baseKeywords: string[], extraKeywords: string[]) {
     merged.push(keyword.trim());
   }
   return merged;
+}
+
+function defaultKeywordGroupsForGames(games: GameConfig[]): DefaultKeywordGroup[] {
+  return games.map((game) => ({
+    id: game.id,
+    label: game.shortName || game.name,
+    keywords: mergeScopeKeywords(game.bilibiliKeywords || [], game.douyinKeywords || [])
+  }));
 }
 
 function scopeListForGames(games: GameConfig[], key: "tiebaBars" | "tiebaKeywords") {
