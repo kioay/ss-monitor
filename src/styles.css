@@ -612,7 +612,7 @@ h2 {
 }
 
 .keyword-panel {
-  width: min(720px, 100%);
+  width: min(840px, 100%);
   max-height: min(720px, calc(100vh - 120px));
   display: flex;
   flex-direction: column;
@@ -643,7 +643,7 @@ h2 {
 
 .keyword-panel-summary {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   padding: 10px 20px;
@@ -655,9 +655,7 @@ h2 {
 
 .keyword-panel-summary span {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.45;
   color: var(--ink);
   font-weight: 820;
 }
@@ -665,9 +663,8 @@ h2 {
 .keyword-panel-summary strong {
   flex: 0 1 auto;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.45;
+  text-align: right;
 }
 
 .keyword-panel-body {
@@ -870,8 +867,8 @@ h2 {
 .scope-panel-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 10px;
-  margin-top: 12px;
+  gap: 12px;
+  margin-top: 14px;
 }
 
 .scope-panel-form .field {
@@ -895,6 +892,147 @@ h2 {
 .scope-panel-actions {
   grid-column: 1 / -1;
   justify-content: flex-end;
+  padding-top: 2px;
+}
+
+.scope-editor-field {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(27, 45, 40, 0.12);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.scope-editor-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.scope-editor-title span {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-strong);
+  font-size: 13px;
+  font-weight: 860;
+}
+
+.scope-editor-title svg {
+  color: var(--blue);
+}
+
+.scope-editor-field.keyword .scope-editor-title svg {
+  color: var(--gold);
+}
+
+.scope-editor-title b {
+  flex: 0 0 auto;
+  min-width: 24px;
+  height: 22px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(23, 33, 31, 0.08);
+  color: var(--muted);
+  font-family: var(--font-data);
+  font-size: 12px;
+}
+
+.scope-editor-values {
+  min-height: 42px;
+  display: flex;
+  align-content: flex-start;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 6px;
+  border: 1px dashed rgba(27, 45, 40, 0.16);
+  border-radius: 8px;
+  padding: 8px;
+  background: rgba(237, 242, 237, 0.42);
+}
+
+.scope-editor-values.empty {
+  align-items: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.scope-editor-token {
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid rgba(33, 152, 170, 0.24);
+  border-radius: 999px;
+  padding: 4px 5px 4px 9px;
+  background: var(--cyan-soft);
+  color: #176a79;
+  font-size: 13px;
+  font-weight: 820;
+}
+
+.scope-editor-field.keyword .scope-editor-token {
+  border-color: rgba(194, 138, 34, 0.28);
+  background: var(--gold-soft);
+  color: #76510f;
+}
+
+.scope-editor-token button {
+  width: 20px;
+  height: 20px;
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: currentColor;
+}
+
+.scope-editor-token button:hover,
+.scope-editor-token button:focus-visible {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.scope-editor-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.scope-editor-add input {
+  min-width: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: rgba(251, 253, 249, 0.94);
+  color: var(--ink);
+}
+
+.scope-editor-add button {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid rgba(33, 152, 170, 0.28);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: rgba(223, 244, 246, 0.72);
+  color: #176a79;
+  font-weight: 820;
+  white-space: nowrap;
+}
+
+.scope-editor-add button:disabled {
+  cursor: not-allowed;
+  border-color: rgba(100, 113, 109, 0.18);
+  background: rgba(237, 242, 237, 0.62);
+  color: var(--muted);
 }
 
 .scope-restore-button {
@@ -916,36 +1054,31 @@ h2 {
 
 .scope-rail {
   position: relative;
-  display: flex;
-  align-items: stretch;
-  gap: 10px;
-  margin-top: 10px;
-  border: 1px solid rgba(27, 45, 40, 0.12);
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  border: 1px solid rgba(27, 45, 40, 0.14);
   border-radius: 8px;
-  padding: 8px 10px;
-  background:
-    linear-gradient(90deg, rgba(23, 33, 31, 0.045), transparent 34%),
-    rgba(251, 253, 249, 0.72);
+  padding: 10px;
+  background: rgba(251, 253, 249, 0.86);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .scope-rail::before {
   content: "";
+  position: absolute;
+  inset: 10px auto 10px 0;
   width: 3px;
-  border-radius: 999px;
-  background:
-    linear-gradient(180deg, var(--cyan), var(--gold) 58%, var(--red)),
-    var(--cyan);
-  flex: 0 0 auto;
+  border-radius: 0 999px 999px 0;
+  background: linear-gradient(180deg, var(--cyan), var(--gold) 58%, var(--red));
 }
 
 .scope-rail-head {
-  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  min-height: 32px;
-  padding: 0 4px 0 2px;
+  min-height: 24px;
+  padding-left: 8px;
   color: #40514c;
   font-size: 12px;
   font-weight: 820;
@@ -968,26 +1101,25 @@ h2 {
 .scope-rail-list {
   min-width: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: 1fr;
   gap: 8px;
-  flex: 1 1 auto;
 }
 
 .scope-row {
   min-width: 0;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 7px;
-  border: 1px solid rgba(27, 45, 40, 0.08);
+  display: grid;
+  grid-template-columns: minmax(72px, 0.32fr) minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  border: 1px solid rgba(27, 45, 40, 0.1);
   border-radius: 8px;
-  padding: 6px 8px;
-  background: rgba(255, 255, 255, 0.42);
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.56);
 }
 
 .scope-row > strong {
-  flex: 0 0 auto;
-  max-width: 120px;
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -998,9 +1130,8 @@ h2 {
 
 .scope-group {
   min-width: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
+  display: grid;
+  gap: 6px;
 }
 
 .scope-group-label {
@@ -1025,13 +1156,13 @@ h2 {
 .scope-chip-list {
   min-width: 0;
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 5px;
 }
 
 .scope-chip {
-  max-width: 138px;
+  max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3985,14 +4116,11 @@ button.metric:focus-visible {
   }
 
   .scope-row {
-    align-items: flex-start;
-    flex-direction: column;
+    grid-template-columns: 1fr;
   }
 
   .scope-group {
     width: 100%;
-    align-items: flex-start;
-    flex-direction: column;
   }
 
   .scope-chip {
@@ -4008,6 +4136,14 @@ button.metric:focus-visible {
     max-height: calc(100vh - 82px);
   }
 
+  .keyword-panel-summary {
+    flex-direction: column;
+  }
+
+  .keyword-panel-summary strong {
+    text-align: left;
+  }
+
   .keyword-panel-add {
     align-items: stretch;
     flex-direction: column;
@@ -4021,6 +4157,14 @@ button.metric:focus-visible {
 
   .scope-panel-form {
     grid-template-columns: 1fr;
+  }
+
+  .scope-editor-add {
+    grid-template-columns: 1fr;
+  }
+
+  .scope-editor-add button {
+    width: 100%;
   }
 
   .scope-panel-actions {

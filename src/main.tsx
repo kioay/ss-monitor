@@ -404,6 +404,19 @@ function splitSupplementalKeywords(value: string) {
   return keywords;
 }
 
+function mergeScopeInputText(current: string, additions: string[]) {
+  return normalizeSupplementalKeywordText(`${current},${additions.join(",")}`);
+}
+
+function removeScopeInputValue(current: string, value: string) {
+  const normalizedValue = value.trim().toLowerCase();
+  return normalizeSupplementalKeywordText(
+    splitSupplementalKeywords(current)
+      .filter((item) => item.toLowerCase() !== normalizedValue)
+      .join(",")
+  );
+}
+
 function readCachedMonitor(key: string) {
   try {
     const raw = window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
@@ -467,6 +480,8 @@ function App() {
   const [keywordInput, setKeywordInput] = React.useState("");
   const [scopeBarsInput, setScopeBarsInput] = React.useState("");
   const [scopeKeywordsInput, setScopeKeywordsInput] = React.useState("");
+  const [scopeBarDraft, setScopeBarDraft] = React.useState("");
+  const [scopeKeywordDraft, setScopeKeywordDraft] = React.useState("");
   const [searchData, setSearchData] = React.useState<SearchResponse>();
   const [searchLoading, setSearchLoading] = React.useState(false);
   const [searchError, setSearchError] = React.useState("");
@@ -756,6 +771,28 @@ function App() {
     [extraKeywords, selectedGames, tiebaBarsOverride, tiebaKeywordsOverride, windowHours]
   );
 
+  const addScopeBars = React.useCallback(() => {
+    const additions = splitSupplementalKeywords(scopeBarDraft);
+    if (!additions.length) return;
+    setScopeBarsInput((current) => mergeScopeInputText(current, additions));
+    setScopeBarDraft("");
+  }, [scopeBarDraft]);
+
+  const addScopeKeywords = React.useCallback(() => {
+    const additions = splitSupplementalKeywords(scopeKeywordDraft);
+    if (!additions.length) return;
+    setScopeKeywordsInput((current) => mergeScopeInputText(current, additions));
+    setScopeKeywordDraft("");
+  }, [scopeKeywordDraft]);
+
+  const removeScopeBar = React.useCallback((value: string) => {
+    setScopeBarsInput((current) => removeScopeInputValue(current, value));
+  }, []);
+
+  const removeScopeKeyword = React.useCallback((value: string) => {
+    setScopeKeywordsInput((current) => removeScopeInputValue(current, value));
+  }, []);
+
   const filteredItems = React.useMemo(() => {
     const keyword = query.trim().toLowerCase();
     return (data?.items || []).filter((item) => {
@@ -844,7 +881,9 @@ function App() {
   );
   const keywordEntryActive = activeExtraKeywords.length > 0 || tiebaScopeSummary.overridden;
   const keywordEntryBadgeCount = activeExtraKeywords.length + (tiebaScopeSummary.overridden ? 1 : 0);
-  const canApplyScope = Boolean(normalizeSupplementalKeywordText(scopeBarsInput));
+  const editableScopeBars = React.useMemo(() => splitSupplementalKeywords(scopeBarsInput), [scopeBarsInput]);
+  const editableScopeKeywords = React.useMemo(() => splitSupplementalKeywords(scopeKeywordsInput), [scopeKeywordsInput]);
+  const canApplyScope = editableScopeBars.length > 0;
   const topicOptions = React.useMemo(() => makeTopicOptions(data?.items || []), [data?.items]);
   const maxTopicCount = React.useMemo(
     () => Math.max(0, ...(data?.topicStats || []).map((topic) => topic.count)),
@@ -903,6 +942,8 @@ function App() {
     const hasScopeOverride = Boolean(activeTiebaBarsOverride || activeTiebaKeywordsOverride);
     setScopeBarsInput(activeTiebaBarsOverride || scopeListForGames(selectedGameConfigs, "tiebaBars").join(","));
     setScopeKeywordsInput(hasScopeOverride ? activeTiebaKeywordsOverride : scopeListForGames(selectedGameConfigs, "tiebaKeywords").join(","));
+    setScopeBarDraft("");
+    setScopeKeywordDraft("");
     setKeywordPanelOpen(true);
   }, [activeTiebaBarsOverride, activeTiebaKeywordsOverride, selectedGameConfigs]);
 
@@ -917,6 +958,8 @@ function App() {
       resetFeedFilters();
       setTiebaBarsOverride(nextBars);
       setTiebaKeywordsOverride(nextKeywords);
+      setScopeBarDraft("");
+      setScopeKeywordDraft("");
       setKeywordPanelOpen(false);
     },
     [activeTiebaBarsOverride, activeTiebaKeywordsOverride, extraKeywords, resetFeedFilters, scopeBarsInput, scopeKeywordsInput, selectedGames, windowHours]
@@ -928,6 +971,8 @@ function App() {
     setTiebaKeywordsOverride("");
     setScopeBarsInput("");
     setScopeKeywordsInput("");
+    setScopeBarDraft("");
+    setScopeKeywordDraft("");
     setKeywordPanelOpen(false);
   }, [activeTiebaBarsOverride, activeTiebaKeywordsOverride, extraKeywords, selectedGames, windowHours]);
 
@@ -1099,28 +1144,30 @@ function App() {
                   tiebaKeywordsOverride={activeTiebaKeywordsOverride}
                 />
                 <form className="scope-panel-form" onSubmit={applyScopePanel}>
-                  <label className="field">
-                    <Database size={16} aria-hidden="true" />
-                    <span>贴吧来源</span>
-                    <input
-                      name="tieba-bars"
-                      value={scopeBarsInput}
-                      onChange={(event) => setScopeBarsInput(event.target.value)}
-                      placeholder="例如：逆战、火线精英"
-                      autoComplete="off"
-                    />
-                  </label>
-                  <label className="field">
-                    <Tags size={16} aria-hidden="true" />
-                    <span>贴吧过滤</span>
-                    <input
-                      name="tieba-keywords"
-                      value={scopeKeywordsInput}
-                      onChange={(event) => setScopeKeywordsInput(event.target.value)}
-                      placeholder="例如：生死狙击；留空则不过滤"
-                      autoComplete="off"
-                    />
-                  </label>
+                  <ScopeEditorField
+                    icon="source"
+                    title="贴吧来源"
+                    values={editableScopeBars}
+                    emptyLabel="未选择贴吧来源"
+                    draft={scopeBarDraft}
+                    placeholder="输入贴吧名，可一次添加多个"
+                    addLabel="添加来源"
+                    onDraftChange={setScopeBarDraft}
+                    onAdd={addScopeBars}
+                    onRemove={removeScopeBar}
+                  />
+                  <ScopeEditorField
+                    icon="keyword"
+                    title="贴吧过滤"
+                    values={editableScopeKeywords}
+                    emptyLabel="不过滤"
+                    draft={scopeKeywordDraft}
+                    placeholder="输入过滤词，可一次添加多个"
+                    addLabel="添加过滤"
+                    onDraftChange={setScopeKeywordDraft}
+                    onAdd={addScopeKeywords}
+                    onRemove={removeScopeKeyword}
+                  />
                   <div className="scope-panel-actions">
                     <button className="keyword-add-button" type="submit" disabled={!canApplyScope}>
                       <Database size={16} aria-hidden="true" />
@@ -2965,6 +3012,73 @@ function ScopeGroup({
           </span>
         ))}
       </span>
+    </div>
+  );
+}
+
+function ScopeEditorField({
+  icon,
+  title,
+  values,
+  emptyLabel,
+  draft,
+  placeholder,
+  addLabel,
+  onDraftChange,
+  onAdd,
+  onRemove
+}: {
+  icon: "source" | "keyword";
+  title: string;
+  values: string[];
+  emptyLabel: string;
+  draft: string;
+  placeholder: string;
+  addLabel: string;
+  onDraftChange: (value: string) => void;
+  onAdd: () => void;
+  onRemove: (value: string) => void;
+}) {
+  const Icon = icon === "source" ? Database : Tags;
+  const canAdd = splitSupplementalKeywords(draft).length > 0;
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    onAdd();
+  };
+
+  return (
+    <div className={`scope-editor-field ${icon}`}>
+      <div className="scope-editor-title">
+        <span>
+          <Icon size={15} aria-hidden="true" />
+          {title}
+        </span>
+        <b>{values.length}</b>
+      </div>
+      <div className={`scope-editor-values ${values.length ? "" : "empty"}`}>
+        {values.length ? values.map((value) => (
+          <span className="scope-editor-token" key={`${title}-${value}`}>
+            {value}
+            <button type="button" onClick={() => onRemove(value)} title={`移除 ${value}`} aria-label={`移除 ${value}`}>
+              <X size={13} aria-hidden="true" />
+            </button>
+          </span>
+        )) : <span>{emptyLabel}</span>}
+      </div>
+      <div className="scope-editor-add">
+        <input
+          value={draft}
+          onChange={(event) => onDraftChange(event.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          autoComplete="off"
+        />
+        <button type="button" onClick={onAdd} disabled={!canAdd}>
+          <Plus size={15} aria-hidden="true" />
+          {addLabel}
+        </button>
+      </div>
     </div>
   );
 }
