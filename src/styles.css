@@ -1585,6 +1585,90 @@ h2 {
   font-family: var(--font-data);
 }
 
+.scope-chip-more {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  outline: none;
+}
+
+.scope-chip-more .scope-chip.overflow {
+  cursor: help;
+}
+
+.scope-chip-more:focus-visible .scope-chip.overflow {
+  outline: 2px solid rgba(33, 152, 170, 0.3);
+  outline-offset: 2px;
+}
+
+.scope-chip-popover {
+  position: absolute;
+  z-index: 70;
+  top: calc(100% + 7px);
+  right: 0;
+  display: flex;
+  width: max-content;
+  min-width: 180px;
+  max-width: min(320px, calc(100vw - 32px));
+  flex-wrap: wrap;
+  gap: 6px;
+  border: 1px solid rgba(27, 45, 40, 0.16);
+  border-radius: 8px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 16px 34px rgba(23, 33, 31, 0.15), 0 3px 10px rgba(23, 33, 31, 0.08);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-3px);
+  transition: opacity 0.16s ease, transform 0.16s ease, visibility 0.16s ease;
+  visibility: hidden;
+}
+
+.scope-chip-popover::before {
+  content: "";
+  position: absolute;
+  top: -8px;
+  right: 10px;
+  width: 52px;
+  height: 8px;
+}
+
+.scope-chip-more:hover .scope-chip-popover,
+.scope-chip-more:focus .scope-chip-popover,
+.scope-chip-more:focus-within .scope-chip-popover {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+  visibility: visible;
+}
+
+.scope-chip-popover-item {
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid rgba(33, 152, 170, 0.2);
+  border-radius: 999px;
+  padding: 3px 7px;
+  background: rgba(223, 244, 246, 0.72);
+  color: #176a79;
+  font-size: 11px;
+  font-weight: 780;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.scope-group.keyword .scope-chip-popover-item {
+  border-color: rgba(194, 138, 34, 0.24);
+  background: rgba(246, 235, 207, 0.82);
+  color: #7b5718;
+}
+
+.scope-chip-popover-item.default-keyword-chip {
+  border-color: rgba(62, 143, 89, 0.24);
+  background: rgba(225, 243, 229, 0.82);
+  color: #2f6a45;
+}
+
 .error-strip {
   margin-top: 14px;
   padding: 12px 14px;
@@ -4453,6 +4537,12 @@ button.metric:focus-visible {
 
   .scope-chip {
     max-width: min(240px, 100%);
+  }
+
+  .scope-chip-popover {
+    right: auto;
+    left: 0;
+    max-width: min(280px, calc(100vw - 24px));
   }
 
   .keyword-panel-backdrop {

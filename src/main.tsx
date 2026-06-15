@@ -3243,7 +3243,44 @@ function ScopeRail({
   );
 }
 
-type ScopeValue = { text: string; muted?: boolean; overflow?: boolean };
+type ScopeValue = {
+  text: string;
+  muted?: boolean;
+  overflow?: boolean;
+  popoverValues?: string[];
+};
+
+function ScopeChip({
+  value,
+  label,
+  className = ""
+}: {
+  value: ScopeValue;
+  label: string;
+  className?: string;
+}) {
+  const chipClassName = ["scope-chip", className, value.muted ? "muted" : "", value.overflow ? "overflow" : ""]
+    .filter(Boolean)
+    .join(" ");
+  const popoverValues = value.popoverValues?.filter(Boolean) || [];
+
+  if (!value.overflow || !popoverValues.length) {
+    return <span className={chipClassName}>{value.text}</span>;
+  }
+
+  return (
+    <span className="scope-chip-more" tabIndex={0} aria-label={`${label}完整列表：${popoverValues.join("、")}`}>
+      <span className={chipClassName}>{value.text}</span>
+      <span className="scope-chip-popover" role="tooltip">
+        {popoverValues.map((item, index) => (
+          <span className={`scope-chip-popover-item ${className}`} key={`${item}-${index}`}>
+            {item}
+          </span>
+        ))}
+      </span>
+    </span>
+  );
+}
 
 function ScopeGroup({
   icon,
@@ -3263,9 +3300,7 @@ function ScopeGroup({
       </span>
       <span className="scope-chip-list">
         {values.map((value) => (
-          <span className={`scope-chip ${value.muted ? "muted" : ""} ${value.overflow ? "overflow" : ""}`} key={`${label}-${value.text}`}>
-            {value.text}
-          </span>
+          <ScopeChip value={value} label={label} key={`${label}-${value.text}`} />
         ))}
       </span>
     </div>
@@ -3325,12 +3360,7 @@ function DefaultKeywordOverview({ groups }: { groups: DefaultKeywordGroup[] }) {
             {showGroupLabel ? <strong>{group.label}</strong> : null}
             <span className="default-keyword-chips">
               {scopeValues(group.keywords, "未配置默认关键词").map((value) => (
-                <span
-                  className={`scope-chip default-keyword-chip ${value.muted ? "muted" : ""} ${value.overflow ? "overflow" : ""}`}
-                  key={`${group.id}-${value.text}`}
-                >
-                  {value.text}
-                </span>
+                <ScopeChip value={value} label={group.label} className="default-keyword-chip" key={`${group.id}-${value.text}`} />
               ))}
             </span>
           </div>
@@ -3430,7 +3460,7 @@ function scopeValues(values: string[], emptyLabel: string): ScopeValue[] {
   if (!cleaned.length) return [{ text: emptyLabel, muted: true }];
   const visible = cleaned.slice(0, 4).map((text) => ({ text }));
   const hidden = cleaned.length - visible.length;
-  return hidden > 0 ? [...visible, { text: `+${hidden}`, overflow: true }] : visible;
+  return hidden > 0 ? [...visible, { text: "更多", overflow: true, popoverValues: cleaned }] : visible;
 }
 
 function mergeScopeValues(baseValues: string[], extraValues: string[]) {
