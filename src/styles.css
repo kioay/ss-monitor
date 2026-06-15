@@ -2645,39 +2645,104 @@ button.metric:focus-visible {
   color: var(--red);
 }
 
+.bettafish-effect-corner {
+  display: flex;
+  justify-content: flex-end;
+  margin: -2px 0 8px;
+}
+
 .bettafish-effect-strip {
-  display: flex;
+  width: auto;
+  max-width: min(680px, 100%);
+}
+
+.bettafish-effect-strip[open] {
+  width: min(680px, 100%);
+}
+
+.bettafish-effect-summary {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  margin: 0 0 8px;
-  padding: 7px 9px;
+  gap: 5px;
+  min-height: 26px;
+  padding: 3px 8px;
   border: 1px solid rgba(63, 120, 168, 0.18);
-  border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgba(251, 253, 249, 0.78), rgba(238, 246, 243, 0.58)),
-    var(--paper);
+  border-radius: 999px;
+  background: rgba(251, 253, 249, 0.52);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0.72;
   box-shadow: none;
+  user-select: none;
 }
 
-.bettafish-effect-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 0 0 auto;
+.bettafish-effect-summary:hover,
+.bettafish-effect-summary:focus-visible {
+  border-color: rgba(63, 120, 168, 0.28);
+  background: rgba(251, 253, 249, 0.86);
+  color: var(--ink);
+  opacity: 1;
 }
 
-.bettafish-effect-head svg {
+.bettafish-effect-summary::-webkit-details-marker {
+  display: none;
+}
+
+.bettafish-effect-summary::marker {
+  content: "";
+}
+
+.bettafish-effect-summary svg {
   flex: 0 0 auto;
   color: var(--blue);
 }
 
-.bettafish-effect-head h2 {
-  font-size: 14px;
+.bettafish-effect-summary span {
+  color: inherit;
+  font-weight: 780;
   white-space: nowrap;
 }
 
-.bettafish-effect-head p {
-  display: none;
+.bettafish-effect-summary small {
+  border-radius: 999px;
+  padding: 1px 6px;
+  background: rgba(237, 242, 237, 0.78);
+  color: inherit;
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.bettafish-effect-summary svg:last-child {
+  color: currentColor;
+  opacity: 0.56;
+  transition: transform 0.16s ease;
+}
+
+.bettafish-effect-strip[open] .bettafish-effect-summary {
+  opacity: 1;
+}
+
+.bettafish-effect-strip[open] .bettafish-effect-summary svg:last-child {
+  transform: rotate(180deg);
+}
+
+.bettafish-effect-panel {
+  margin-top: 6px;
+  padding: 9px;
+  border: 1px solid rgba(63, 120, 168, 0.16);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(251, 253, 249, 0.86), rgba(238, 246, 243, 0.66)),
+    var(--paper);
+  box-shadow: none;
+}
+
+.bettafish-effect-note {
+  margin: 0 0 7px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 .bettafish-effect-list {
@@ -2685,7 +2750,8 @@ button.metric:focus-visible {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex: 1 1 auto;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   overflow: hidden;
 }
 
@@ -3760,13 +3826,17 @@ button.metric:focus-visible {
     grid-template-columns: 1fr 1fr;
   }
 
-  .bettafish-effect-strip {
-    align-items: flex-start;
-    flex-direction: column;
+  .bettafish-effect-corner {
+    justify-content: flex-start;
+  }
+
+  .bettafish-effect-strip[open] {
+    width: 100%;
   }
 
   .bettafish-effect-list {
     width: 100%;
+    justify-content: flex-start;
     flex-wrap: wrap;
     overflow: visible;
   }

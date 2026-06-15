@@ -2287,32 +2287,37 @@ function Metric({
 
 function BettaFishEffectStrip({ capabilities }: { capabilities: BettaFishPanelCapability[] }) {
   if (!capabilities.length) return null;
+  const summary = capabilities.map((capability) => `${capability.label} ${capability.value}`).join(" · ");
 
   return (
-    <section className="bettafish-effect-strip" aria-label="BettaFish 实际生效能力">
-      <div className="bettafish-effect-head">
-        <Plug size={16} aria-hidden="true" />
-        <div>
-          <h2>BettaFish 实际生效</h2>
-          <p>仅显示本次监控响应中已有证据的能力</p>
+    <aside className="bettafish-effect-corner" aria-label="BettaFish 实际生效能力">
+      <details className="bettafish-effect-strip">
+        <summary className="bettafish-effect-summary" title={summary}>
+          <Plug size={13} aria-hidden="true" />
+          <span>BettaFish</span>
+          <small>{capabilities.length} 项</small>
+          <ChevronDown size={13} aria-hidden="true" />
+        </summary>
+        <div className="bettafish-effect-panel">
+          <p className="bettafish-effect-note">仅显示本次监控响应中已有证据的能力</p>
+          <div className="bettafish-effect-list">
+            {capabilities.map((capability) => (
+              <article className={`bettafish-effect-card ${capability.id}`} key={capability.id} title={capability.description}>
+                <div>
+                  <strong>{capability.label}</strong>
+                  <span>{capability.value}</span>
+                </div>
+                <div className="bettafish-effect-evidence">
+                  {capability.evidence.slice(0, 2).map((entry) => (
+                    <small key={entry}>{entry}</small>
+                  ))}
+                </div>
+              </article>
+            ))}
+          </div>
         </div>
-      </div>
-      <div className="bettafish-effect-list">
-        {capabilities.map((capability) => (
-          <article className={`bettafish-effect-card ${capability.id}`} key={capability.id} title={capability.description}>
-            <div>
-              <strong>{capability.label}</strong>
-              <span>{capability.value}</span>
-            </div>
-            <div className="bettafish-effect-evidence">
-              {capability.evidence.slice(0, 2).map((entry) => (
-                <small key={entry}>{entry}</small>
-              ))}
-            </div>
-          </article>
-        ))}
-      </div>
-    </section>
+      </details>
+    </aside>
   );
 }
 
