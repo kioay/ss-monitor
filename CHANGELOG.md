@@ -2,12 +2,17 @@
 
 ## 2026-06-15
 
-- Released `v0.1.8` with supplemental keyword management for production monitor operators.
-- Added manual supplemental keyword add/remove/clear controls and URL persistence for shared views.
-- Added separate Tieba source bars and Tieba content keywords so operators can collect project-related posts from adjacent bars without importing the adjacent game's own public opinion.
-- Added keyword effectiveness summaries based on actual fetched public-opinion hits, including effective, weak, no-match, and pending states.
-- Refined the keyword UI into an independent entry button with an external summary and a dedicated management panel.
-- Hardened Douyin noVNC remote-login setup so release deployments can better adapt service users, systemd paths, sudoers paths, and dynamic host routing.
+- 发布 `v0.1.8`，重点补齐“关键词 / 范围”配置、补充贴吧来源采集、30 天窗口和生产一键部署。
+- 关键词 / 范围面板改为按看板独立配置，SS1、SS2 或通过 `MONITOR_GAMES_JSON` / `MONITOR_GAMES_PATH` 新增的自定义看板都会拥有独立贴吧来源和补充来源匹配词。
+- 页面新增当前看板默认全平台关键词展示；默认贴吧来源保持锁定，不允许删除，避免默认贴吧舆情收集被误关。
+- 贴吧来源和关键词彻底分离：默认贴吧来源继续广泛读取；新增来源吧会使用“看板全平台默认关键词 + 补充来源匹配词”过滤，适合在“逆战吧”“rust 吧”等相邻贴吧收集本项目相关讨论。
+- 补充关键词管理支持新增、移除、清空和 URL 持久化；测试占位文字、冗余标题、未命中歧义提示和旧的范围摘要已清理。
+- 范围展示支持悬浮 / 聚焦查看全部内容，替代 `+1` 这类不清晰的折叠标签。
+- 贴吧采集默认至少读取最新列表页再往下 3 页：新增 `MIN_TIEBA_LIST_PAGES=4`，并修复中间空页导致提前停止的问题；仍受 `MAX_TIEBA_LIST_PAGES` 和 30 天采集窗口约束。
+- 前端时间窗口开放 30 天选项，后端 `/api/monitor` 与搜索窗口最大保持 30 天。
+- 新增 `scripts/deploy-ss-monitor-production.ps1` 一键生产部署脚本：生成 fresh deploy archive、上传、安装生产依赖、切换 `current`、同步服务器 `.env`、重启服务并校验 `/api/health`。
+- 强化部署归档与生产部署载荷解析，降低路径、参数和 JSON 转义导致的发布失败风险。
+- 强化抖音 noVNC 远程登录安装流程，使发布部署能更好适配服务用户、systemd 路径、sudoers 路径和动态访问域名。
 
 ## 2026-06-12
 
