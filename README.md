@@ -206,6 +206,13 @@ http://服务器IP:8787/
 
 只有部署了完整 BettaFish / MediaCrawler 抖音采集的生产机才需要这一步。Release 包里自带 `scripts/setup-douyin-remote-login.sh`，默认会安装 VNC/noVNC 依赖、生成服务器本地 VNC 密码、写入 `/opt/ss-monitor/.env`、同步 `/opt/ss-monitor/current/.env`、安装远程登录 systemd unit 和 sudoers 授权，并做一次 noVNC 启动烟测。
 
+使用方式：
+
+1. 先按前面的部署步骤把主站启动起来。
+2. 打开网页；如果顶部提示远程登录入口未就绪，点击“复制命令”。
+3. SSH 登录到这台生产服务器，把复制的命令粘贴执行。网页不会直接安装系统依赖，因为安装 VNC/noVNC、写 systemd unit 和 sudoers 都需要 root 权限。
+4. 命令执行成功后刷新网页；登录态异常时顶部会显示“远程登录”，点击后会启动临时 noVNC 桌面。
+
 ```bash
 sudo bash /opt/ss-monitor/current/scripts/setup-douyin-remote-login.sh
 ```
