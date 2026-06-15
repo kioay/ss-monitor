@@ -1075,7 +1075,7 @@ function App() {
               </button>
             </header>
             <div className="keyword-panel-summary">
-              <span>补充关键词是“要关注的词”，贴吧采集范围是“去哪些贴吧找这些词”。</span>
+              <span>补充关键词会扩展全平台采集；贴吧采集范围只决定贴吧去哪些吧里找。</span>
               <strong>{tiebaScopeSummary.secondary}</strong>
             </div>
             <div className="keyword-panel-body">
@@ -1083,12 +1083,12 @@ function App() {
               <form className="keyword-panel-add" onSubmit={addExtraKeywords}>
                 <label className="field">
                   <Tags size={16} aria-hidden="true" />
-                  <span>1 关注词</span>
+                  <span>1 全平台关注词</span>
                   <input
                     name="supplemental-keywords"
                     value={keywordInput}
                     onChange={(event) => setKeywordInput(event.target.value)}
-                    placeholder="输入玩家提到的词，如 433、生死狙击；支持逗号分隔"
+                    placeholder="会用于 B站、贴吧、抖音等来源，如 433、生死狙击"
                     autoComplete="off"
                     autoFocus
                   />
@@ -1131,9 +1131,9 @@ function App() {
               <section className="keyword-scope-section" aria-label="贴吧采集范围">
                 <div className="keyword-section-head">
                   <div>
-                    <p className="eyebrow">贴吧采集范围</p>
-                    <h3>去这些贴吧里找关注词</h3>
-                    <p>来源只填贴吧名；补充关键词会自动参与贴吧过滤，过滤词用于补充别名、黑话或缩写。</p>
+                    <p className="eyebrow">贴吧专属范围</p>
+                    <h3>贴吧只去这些吧里找</h3>
+                    <p>这里仅影响贴吧采集；B站、抖音等来源仍使用全平台关注词。</p>
                   </div>
                   <span className={`scope-status-chip ${tiebaScopeSummary.overridden ? "temporary" : ""}`}>
                     {tiebaScopeSummary.overridden ? "临时范围" : "配置范围"}
@@ -1149,7 +1149,7 @@ function App() {
                   <ScopeEditorField
                     icon="source"
                     title="2 去哪些贴吧找"
-                    description="只填贴吧名，例如逆战、火线精英。不要把 433 这类关注词填在这里。"
+                    description="只填贴吧名，例如逆战、火线精英。不要把 433 这类全平台关注词填在这里。"
                     values={editableScopeBars}
                     emptyLabel="未选择贴吧来源"
                     draft={scopeBarDraft}
@@ -1161,10 +1161,10 @@ function App() {
                   />
                   <ScopeEditorField
                     icon="keyword"
-                    title="3 额外过滤词"
-                    description="补充关键词已经会参与过滤；这里只填额外别名或缩写。留空时不额外增加过滤词。"
+                    title="3 贴吧专属匹配词"
+                    description="仅对贴吧生效。用于给贴吧额外增加别名、黑话或缩写；多数情况下可以留空。"
                     values={editableScopeKeywords}
-                    emptyLabel="无额外过滤词"
+                    emptyLabel="无贴吧专属匹配词"
                     draft={scopeKeywordDraft}
                     placeholder="输入别名、黑话或缩写"
                     addLabel="添加词"
@@ -3073,8 +3073,8 @@ function ScopeRail({
               <ScopeGroup icon="source" label="贴吧来源" values={scopeValues(tiebaBars, "未配置")} />
               <ScopeGroup
                 icon="keyword"
-                label="贴吧过滤"
-                values={scopeValues(mergeScopeKeywords(tiebaKeywords, extraKeywords), "不过滤")}
+                label="贴吧匹配词"
+                values={scopeValues(mergeScopeKeywords(tiebaKeywords, extraKeywords), "不限关键词")}
               />
             </div>
           );
@@ -3117,14 +3117,14 @@ function KeywordScopeGuide() {
       <div className="keyword-guide-main">
         <Info size={17} aria-hidden="true" />
         <div>
-          <strong>用来收集“玩家在别的贴吧提到这些词”的讨论</strong>
-          <span>例：关注词填“生死狙击”，贴吧来源填“逆战”，系统会去逆战吧收集提到生死狙击的帖子，而不是收集逆战自己的全部舆论。</span>
+          <strong>补充关键词是全平台关注词，贴吧范围是贴吧专属位置</strong>
+          <span>例：关注词填“生死狙击”会扩展 B站、贴吧、抖音等采集；贴吧来源填“逆战”时，贴吧部分会去逆战吧找提到生死狙击的帖子。</span>
         </div>
       </div>
       <div className="keyword-guide-steps">
-        <span><b>1</b> 关注词：玩家说了什么</span>
+        <span><b>1</b> 全平台关注词</span>
         <span><b>2</b> 贴吧来源：去哪些吧找</span>
-        <span><b>3</b> 额外过滤：补充别名/缩写</span>
+        <span><b>3</b> 贴吧专属匹配词</span>
       </div>
     </section>
   );
@@ -3251,7 +3251,7 @@ function makeTiebaScopeSummary(
   return {
     overridden,
     primary: `${overridden ? "临时范围" : "配置范围"} · ${sourceValues.length || 0} 个贴吧`,
-    secondary: `来源 ${summarizeScopeList(sourceValues, "未配置")} · 过滤 ${summarizeScopeList(filterValues, "不过滤")}`
+    secondary: `贴吧来源 ${summarizeScopeList(sourceValues, "未配置")} · 匹配词 ${summarizeScopeList(filterValues, "不限关键词")}`
   };
 }
 
