@@ -44,7 +44,6 @@ import type {
   SearchResponse,
   SearchResult,
   Sentiment,
-  SourceHealth,
   SourceType,
   TrendPoint
 } from "./shared";
@@ -800,14 +799,6 @@ function App() {
       ...configuredGames.map((game) => ({ key: game.id, label: game.shortName, ids: [game.id] }))
     ];
   }, [config?.games, configuredGameIds]);
-  const gameLabelById = React.useMemo(
-    () => new Map((config?.games || []).map((game) => [game.id, game.shortName || game.name])),
-    [config?.games]
-  );
-  const visibleHealth = React.useMemo(
-    () => makeVisibleHealth(data?.health || [], sameGameSelection(selectedGames, configuredGameIds), gameLabelById),
-    [configuredGameIds, data?.health, gameLabelById, selectedGames]
-  );
   const activeExtraKeywords = React.useMemo(() => splitSupplementalKeywords(extraKeywords), [extraKeywords]);
   const keywordEffectivenessByKeyword = React.useMemo(
     () => new Map((data?.keywordEffectiveness || []).map((entry) => [entry.keyword.toLowerCase(), entry])),
@@ -1053,23 +1044,6 @@ function App() {
         />
       </section>
 
-      <section className="health-row">
-        {visibleHealth.map((health, index) => (
-          <div className="health-tile" key={`${health.source}-${health.gameId || "all"}-${index}`} title={health.message}>
-            <div className="health-main">
-              {health.ok ? <CheckCircle2 size={16} aria-hidden="true" /> : <AlertTriangle size={16} aria-hidden="true" />}
-              <strong>{health.sourceLabel}</strong>
-              {health.gameId ? <span>{health.gameId.toUpperCase()}</span> : null}
-            </div>
-            <p>{health.message}</p>
-            <div className="health-meta">
-              <span>{health.itemCount} 条</span>
-              <span>旧 {health.staleDropped}</span>
-              <span>{health.latencyMs} ms</span>
-            </div>
-          </div>
-        ))}
-      </section>
       <BettaFishEffectStrip capabilities={data?.bettafishCapabilities || []} />
 
       <section className={`workspace-grid ${trendOpen ? "trend-open" : "trend-collapsed"}`}>
@@ -2994,37 +2968,6 @@ function makeMonitorTitle(games: GameConfig[]) {
   if (games.length === 1) return `${games[0].name}舆情监测`;
   const names = games.slice(0, 2).map((game) => game.shortName || game.name).join(" / ");
   return `${names}${games.length > 2 ? "等" : ""}舆情监测`;
-}
-
-function makeVisibleHealth(health: SourceHealth[], aggregateBySource: boolean, gameLabelById: Map<GameId, string>) {
-  const visibleHealth = health.filter((entry) => entry.source !== "bettafish");
-  if (!aggregateBySource) return visibleHealth;
-  const bySource = new Map<SourceType, SourceHealth[]>();
-  for (const entry of visibleHealth) {
-    bySource.set(entry.source, [...(bySource.get(entry.source) || []), entry]);
-  }
-  const sourceOrder: SourceType[] = ["bilibili", "tieba", "douyin"];
-  return Array.from(bySource.values())
-    .map((entries) => {
-      const [first] = entries;
-      const gameLabels = entries
-        .map((entry) => entry.gameId ? gameLabelById.get(entry.gameId) || entry.gameId.toUpperCase() : "")
-        .filter((value): value is string => Boolean(value));
-      const issueMessages = Array.from(new Set(entries.filter((entry) => !entry.ok || entry.blocked).map((entry) => entry.message).filter(Boolean)));
-      const fetchedAt = entries.reduce((latest, entry) => (new Date(entry.fetchedAt).getTime() > new Date(latest).getTime() ? entry.fetchedAt : latest), first.fetchedAt);
-      return {
-        ...first,
-        gameId: undefined,
-        ok: entries.every((entry) => entry.ok),
-        fetchedAt,
-        latencyMs: Math.max(...entries.map((entry) => entry.latencyMs)),
-        itemCount: entries.reduce((sum, entry) => sum + entry.itemCount, 0),
-        staleDropped: entries.reduce((sum, entry) => sum + entry.staleDropped, 0),
-        blocked: entries.some((entry) => entry.blocked),
-        message: issueMessages.length ? issueMessages.join(" / ") : `覆盖 ${gameLabels.join(" / ") || "全部项目"}`
-      } satisfies SourceHealth;
-    })
-    .sort((left, right) => sourceOrder.indexOf(left.source) - sourceOrder.indexOf(right.source));
 }
 
 function makeTopicOptions(items: MonitorItem[]) {
