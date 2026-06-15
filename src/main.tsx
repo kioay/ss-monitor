@@ -3162,35 +3162,37 @@ function searchOriginText(origin: SearchResult["origin"]) {
 function makeKeywordSummary(keywords: string[], effectiveness: KeywordEffectiveness[]) {
   if (!keywords.length) return { primary: "未添加补充词", secondary: "点击管理" };
   const byKeyword = new Map(effectiveness.map((entry) => [entry.keyword.toLowerCase(), entry]));
-  const counts = keywords.reduce(
+  const summary = keywords.reduce(
     (summary, keyword) => {
-      const status: KeywordEffectiveness["status"] | "pending" = byKeyword.get(keyword.toLowerCase())?.status || "pending";
-      summary[status] += 1;
+      const entry = byKeyword.get(keyword.toLowerCase());
+      if (!entry) summary.pending += 1;
+      if (entry?.matchedItems) {
+        summary.hitKeywords += 1;
+        summary.matchedItems += entry.matchedItems;
+      }
       return summary;
     },
-    { effective: 0, weak: 0, no_match: 0, pending: 0 } as Record<KeywordEffectiveness["status"] | "pending", number>
+    { hitKeywords: 0, matchedItems: 0, pending: 0 }
   );
-  const parts = [
-    counts.effective ? `有效 ${counts.effective}` : "",
-    counts.weak ? `弱 ${counts.weak}` : "",
-    counts.no_match ? `未命中 ${counts.no_match}` : "",
-    counts.pending ? `待评估 ${counts.pending}` : ""
-  ].filter(Boolean);
   return {
     primary: `${keywords.length} 个补充词`,
-    secondary: parts.join(" · ") || "等待刷新"
+    secondary: summary.matchedItems
+      ? `${summary.hitKeywords} 个词命中 ${summary.matchedItems} 条`
+      : summary.pending
+        ? "等待刷新"
+        : "等待新数据"
   };
 }
 
 function keywordEffectivenessLabel(effectiveness: KeywordEffectiveness | undefined) {
   if (!effectiveness) return "待评估";
-  if (effectiveness.status === "effective") return `${effectiveness.matchedItems} 条有效`;
-  if (effectiveness.status === "weak") return `${effectiveness.matchedItems} 条弱命中`;
-  return "未命中";
+  if (effectiveness.matchedItems) return `命中 ${effectiveness.matchedItems} 条`;
+  return "等待命中数据";
 }
 
 function keywordEffectivenessTitle(keyword: string, effectiveness: KeywordEffectiveness | undefined) {
   if (!effectiveness) return `${keyword}：刷新后评估`;
+  if (!effectiveness.matchedItems) return `${keyword}：已加入词池，等待采集命中`;
   const sources = effectiveness.sources.length ? effectiveness.sources.map(sourceTypeText).join(" / ") : "暂无来源";
   const riskSummary = effectiveness.highRisk || effectiveness.mediumRisk
     ? `；高风险 ${effectiveness.highRisk}，中风险 ${effectiveness.mediumRisk}`
@@ -3206,7 +3208,7 @@ function keywordEffectivenessSourceText(effectiveness: KeywordEffectiveness | un
 
 function keywordRiskSummary(effectiveness: KeywordEffectiveness | undefined) {
   if (!effectiveness) return "等待刷新";
-  if (!effectiveness.matchedItems) return "0 条";
+  if (!effectiveness.matchedItems) return "暂未产生条目";
   return `高 ${effectiveness.highRisk} · 中 ${effectiveness.mediumRisk}`;
 }
 
