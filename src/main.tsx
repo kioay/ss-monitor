@@ -467,6 +467,7 @@ function App() {
   const [trendSeries, setTrendSeries] = React.useState<TrendSeriesVisibility>(initialUiState.trendSeries);
   const [selectedAlertId, setSelectedAlertId] = React.useState("");
   const [isControlFloating, setControlFloating] = React.useState(false);
+  const [keywordPanelOpen, setKeywordPanelOpen] = React.useState(false);
   const controlSentinelRef = React.useRef<HTMLDivElement>(null);
   const latestRequestRef = React.useRef(0);
   const latestSearchRequestRef = React.useRef(0);
@@ -670,6 +671,15 @@ function App() {
     return () => observer.disconnect();
   }, []);
 
+  React.useEffect(() => {
+    if (!keywordPanelOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setKeywordPanelOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [keywordPanelOpen]);
+
   const toggleTrendSeries = React.useCallback((series: TrendSeries) => {
     setTrendSeries((current) => {
       const activeCount = Object.values(current).filter(Boolean).length;
@@ -797,6 +807,10 @@ function App() {
     () => new Map((data?.keywordEffectiveness || []).map((entry) => [entry.keyword.toLowerCase(), entry])),
     [data?.keywordEffectiveness]
   );
+  const keywordSummary = React.useMemo(
+    () => makeKeywordSummary(activeExtraKeywords, data?.keywordEffectiveness || []),
+    [activeExtraKeywords, data?.keywordEffectiveness]
+  );
   const topicOptions = React.useMemo(() => makeTopicOptions(data?.items || []), [data?.items]);
   const maxTopicCount = React.useMemo(
     () => Math.max(0, ...(data?.topicStats || []).map((topic) => topic.count)),
@@ -909,48 +923,100 @@ function App() {
             autoComplete="off"
           />
         </label>
-        <div className="keyword-manager">
-          <form className="field keyword-add-field" onSubmit={addExtraKeywords}>
+        <div className="keyword-entry">
+          <button
+            className={`keyword-entry-button ${activeExtraKeywords.length ? "active" : ""}`}
+            type="button"
+            onClick={() => setKeywordPanelOpen(true)}
+            aria-haspopup="dialog"
+            aria-controls="keyword-panel"
+            aria-expanded={keywordPanelOpen}
+            title="管理补充关键词"
+          >
             <Tags size={16} aria-hidden="true" />
-            <span>补词</span>
-            <input
-              name="supplemental-keywords"
-              value={keywordInput}
-              onChange={(event) => setKeywordInput(event.target.value)}
-              placeholder="添加关键词，回车加入"
-              autoComplete="off"
-            />
-            <button className="keyword-icon-button" type="submit" title="添加关键词" aria-label="添加关键词">
-              <Plus size={16} aria-hidden="true" />
-            </button>
-            {activeExtraKeywords.length ? (
-              <button className="keyword-icon-button" type="button" onClick={clearExtraKeywords} title="清空补充关键词" aria-label="清空补充关键词">
-                <X size={16} aria-hidden="true" />
-              </button>
-            ) : null}
-          </form>
-          {activeExtraKeywords.length ? (
-            <div className="keyword-chip-row" aria-label="补充关键词">
-              {activeExtraKeywords.map((keyword) => {
-                const effectiveness = keywordEffectivenessByKeyword.get(keyword.toLowerCase());
-                return (
-                  <span
-                    className={`keyword-chip ${effectiveness?.status || "pending"}`}
-                    title={keywordEffectivenessTitle(keyword, effectiveness)}
-                    key={keyword}
-                  >
-                    <span className="keyword-chip-main">{keyword}</span>
-                    <span className="keyword-chip-status">{keywordEffectivenessLabel(effectiveness)}</span>
-                    <button type="button" onClick={() => removeExtraKeyword(keyword)} title={`移除 ${keyword}`} aria-label={`移除 ${keyword}`}>
-                      <X size={13} aria-hidden="true" />
-                    </button>
-                  </span>
-                );
-              })}
-            </div>
-          ) : null}
+            <span>关键词</span>
+            {activeExtraKeywords.length ? <b>{activeExtraKeywords.length}</b> : null}
+          </button>
+          <div className="keyword-summary" aria-label="关键词摘要">
+            <strong>{keywordSummary.primary}</strong>
+            <span>{keywordSummary.secondary}</span>
+          </div>
         </div>
       </section>
+
+      {keywordPanelOpen ? (
+        <div className="keyword-panel-backdrop" role="presentation" onMouseDown={() => setKeywordPanelOpen(false)}>
+          <section
+            id="keyword-panel"
+            className="keyword-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="keyword-panel-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <header className="keyword-panel-head">
+              <div>
+                <p className="eyebrow">补充词池</p>
+                <h2 id="keyword-panel-title">关键词管理</h2>
+              </div>
+              <button className="icon-button" type="button" onClick={() => setKeywordPanelOpen(false)} title="关闭" aria-label="关闭关键词管理">
+                <X size={18} aria-hidden="true" />
+              </button>
+            </header>
+            <div className="keyword-panel-summary">
+              <span>{keywordSummary.primary}</span>
+              <strong>{keywordSummary.secondary}</strong>
+            </div>
+            <form className="keyword-panel-add" onSubmit={addExtraKeywords}>
+              <label className="field">
+                <Tags size={16} aria-hidden="true" />
+                <span>添加</span>
+                <input
+                  name="supplemental-keywords"
+                  value={keywordInput}
+                  onChange={(event) => setKeywordInput(event.target.value)}
+                  placeholder="输入关键词，支持逗号分隔"
+                  autoComplete="off"
+                  autoFocus
+                />
+              </label>
+              <button className="keyword-add-button" type="submit">
+                <Plus size={16} aria-hidden="true" />
+                加入
+              </button>
+            </form>
+            {activeExtraKeywords.length ? (
+              <div className="keyword-panel-list">
+                {activeExtraKeywords.map((keyword) => {
+                  const effectiveness = keywordEffectivenessByKeyword.get(keyword.toLowerCase());
+                  return (
+                    <div className={`keyword-row ${effectiveness?.status || "pending"}`} key={keyword}>
+                      <div className="keyword-row-name">
+                        <strong>{keyword}</strong>
+                        <span>{keywordEffectivenessLabel(effectiveness)}</span>
+                      </div>
+                      <div className="keyword-row-meta">
+                        <span>{keywordEffectivenessSourceText(effectiveness)}</span>
+                        <span>{keywordRiskSummary(effectiveness)}</span>
+                      </div>
+                      <button type="button" onClick={() => removeExtraKeyword(keyword)} title={`移除 ${keyword}`} aria-label={`移除 ${keyword}`}>
+                        <X size={15} aria-hidden="true" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="keyword-empty">暂无补充关键词</p>
+            )}
+            {activeExtraKeywords.length ? (
+              <div className="keyword-panel-actions">
+                <button type="button" onClick={clearExtraKeywords}>清空全部</button>
+              </div>
+            ) : null}
+          </section>
+        </div>
+      ) : null}
 
       {error || searchError ? <div className="error-strip" role="alert" aria-live="polite">{error || searchError}</div> : null}
 
@@ -2728,6 +2794,29 @@ function searchOriginText(origin: SearchResult["origin"]) {
   return origin === "mindspider-douyin-db" ? "MindSpider DB" : "历史记录";
 }
 
+function makeKeywordSummary(keywords: string[], effectiveness: KeywordEffectiveness[]) {
+  if (!keywords.length) return { primary: "未添加补充词", secondary: "点击管理" };
+  const byKeyword = new Map(effectiveness.map((entry) => [entry.keyword.toLowerCase(), entry]));
+  const counts = keywords.reduce(
+    (summary, keyword) => {
+      const status: KeywordEffectiveness["status"] | "pending" = byKeyword.get(keyword.toLowerCase())?.status || "pending";
+      summary[status] += 1;
+      return summary;
+    },
+    { effective: 0, weak: 0, no_match: 0, pending: 0 } as Record<KeywordEffectiveness["status"] | "pending", number>
+  );
+  const parts = [
+    counts.effective ? `有效 ${counts.effective}` : "",
+    counts.weak ? `弱 ${counts.weak}` : "",
+    counts.no_match ? `未命中 ${counts.no_match}` : "",
+    counts.pending ? `待评估 ${counts.pending}` : ""
+  ].filter(Boolean);
+  return {
+    primary: `${keywords.length} 个补充词`,
+    secondary: parts.join(" · ") || "等待刷新"
+  };
+}
+
 function keywordEffectivenessLabel(effectiveness: KeywordEffectiveness | undefined) {
   if (!effectiveness) return "待评估";
   if (effectiveness.status === "effective") return `${effectiveness.matchedItems} 条有效`;
@@ -2743,6 +2832,17 @@ function keywordEffectivenessTitle(keyword: string, effectiveness: KeywordEffect
     : "";
   const latest = effectiveness.latestAt ? `；最近 ${formatDateTime(effectiveness.latestAt)}` : "";
   return `${keyword}：命中 ${effectiveness.matchedItems} 条；${sources}${riskSummary}${latest}`;
+}
+
+function keywordEffectivenessSourceText(effectiveness: KeywordEffectiveness | undefined) {
+  if (!effectiveness) return "待评估";
+  return effectiveness.sources.length ? effectiveness.sources.map(sourceTypeText).join(" / ") : "暂无来源";
+}
+
+function keywordRiskSummary(effectiveness: KeywordEffectiveness | undefined) {
+  if (!effectiveness) return "等待刷新";
+  if (!effectiveness.matchedItems) return "0 条";
+  return `高 ${effectiveness.highRisk} · 中 ${effectiveness.mediumRisk}`;
 }
 
 function sourceTypeText(source: SourceType) {
