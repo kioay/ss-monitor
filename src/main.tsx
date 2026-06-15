@@ -16,9 +16,11 @@ import {
   RefreshCw,
   Search,
   ShieldAlert,
+  Tags,
   TestTube2,
   Video,
-  Waves
+  Waves,
+  X
 } from "lucide-react";
 import { currentAnalysisVersion } from "./shared";
 import type {
@@ -100,6 +102,7 @@ type InitialUiState = {
   sentiment: SentimentFilter;
   topic: string;
   query: string;
+  extraKeywords: string;
   trendOpen: boolean;
   trendSeries: TrendSeriesVisibility;
 };
@@ -124,6 +127,7 @@ function readInitialUiState(): InitialUiState {
     sentiment: readParamUnion(params, "sentiment", sentimentFilterValues, "all"),
     topic: params.get("topic") || "all",
     query: params.get("q") || "",
+    extraKeywords: normalizeSupplementalKeywordText(params.get("extraKeywords") || ""),
     trendOpen: params.get("trend") === "open",
     trendSeries: readTrendSeriesParam(params.get("series"))
   };
@@ -139,6 +143,7 @@ function makeDefaultUiState(): InitialUiState {
     sentiment: "all",
     topic: "all",
     query: "",
+    extraKeywords: "",
     trendOpen: false,
     trendSeries: defaultTrendSeriesVisibility
   };
@@ -365,8 +370,27 @@ const runtimeActionExplanations: Array<{ id: string; label: string; effect: stri
 
 type InteractionMode = "display" | "interactive" | "link";
 
-function monitorCacheKey(gameIds: GameId[], windowHours: number) {
-  return `ss-monitor:${[...gameIds].sort().join(",")}:${windowHours}`;
+function monitorCacheKey(gameIds: GameId[], windowHours: number, extraKeywords = "") {
+  const keywordScope = normalizeSupplementalKeywordText(extraKeywords) || "base";
+  return `ss-monitor:${[...gameIds].sort().join(",")}:${windowHours}:${keywordScope}`;
+}
+
+function normalizeSupplementalKeywordText(value: string) {
+  return splitSupplementalKeywords(value).join(",");
+}
+
+function splitSupplementalKeywords(value: string) {
+  const seen = new Set<string>();
+  const keywords: string[] = [];
+  for (const raw of value.split(/[\s,;|\uFF0C\u3001\uFF1B]+/)) {
+    const keyword = raw.trim();
+    const normalized = keyword.toLowerCase();
+    if (!keyword || seen.has(normalized)) continue;
+    seen.add(normalized);
+    keywords.push(keyword.slice(0, 40));
+    if (keywords.length >= 20) break;
+  }
+  return keywords;
 }
 
 function readCachedMonitor(key: string) {
@@ -426,6 +450,8 @@ function App() {
   const [sentiment, setSentiment] = React.useState<SentimentFilter>(initialUiState.sentiment);
   const [topic, setTopic] = React.useState(initialUiState.topic);
   const [query, setQuery] = React.useState(initialUiState.query);
+  const [extraKeywords, setExtraKeywords] = React.useState(initialUiState.extraKeywords);
+  const [extraKeywordDraft, setExtraKeywordDraft] = React.useState(initialUiState.extraKeywords);
   const [searchData, setSearchData] = React.useState<SearchResponse>();
   const [searchLoading, setSearchLoading] = React.useState(false);
   const [searchError, setSearchError] = React.useState("");
@@ -494,7 +520,8 @@ function App() {
     async (force = false) => {
       const requestId = latestRequestRef.current + 1;
       latestRequestRef.current = requestId;
-      const cacheKey = monitorCacheKey(selectedGames, windowHours);
+      const normalizedExtraKeywords = normalizeSupplementalKeywordText(extraKeywords);
+      const cacheKey = monitorCacheKey(selectedGames, windowHours, normalizedExtraKeywords);
       const cachedPayload = force ? undefined : readCachedMonitor(cacheKey);
       if (cachedPayload) setData(cachedPayload);
       setLoading(true);
@@ -505,6 +532,7 @@ function App() {
           windowHours: String(windowHours),
           limit: "1000",
           notify: "0",
+          ...(normalizedExtraKeywords ? { extraKeywords: normalizedExtraKeywords } : {}),
           ...(force ? { force: "1" } : {})
         });
         const response = await fetch(`${api.monitor}?${params.toString()}`);
@@ -526,7 +554,7 @@ function App() {
         if (latestRequestRef.current === requestId) setLoading(false);
       }
     },
-    [loadDouyinStatus, selectedGames, windowHours]
+    [extraKeywords, loadDouyinStatus, selectedGames, windowHours]
   );
 
   React.useEffect(() => {
@@ -605,6 +633,7 @@ function App() {
     if (sentiment !== "all") params.set("sentiment", sentiment);
     if (topic !== "all") params.set("topic", topic);
     if (query.trim()) params.set("q", query.trim());
+    if (extraKeywords) params.set("extraKeywords", extraKeywords);
     if (trendOpen) params.set("trend", "open");
 
     const activeTrendSeries = trendSeriesOrder.filter((series) => trendSeries[series]);
@@ -618,7 +647,7 @@ function App() {
     if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
       window.history.replaceState(null, "", nextUrl);
     }
-  }, [query, risk, selectedGames, sentiment, source, topic, trendOpen, trendSeries, windowHours]);
+  }, [extraKeywords, query, risk, selectedGames, sentiment, source, topic, trendOpen, trendSeries, windowHours]);
 
   React.useEffect(() => {
     const target = controlSentinelRef.current;
@@ -646,6 +675,32 @@ function App() {
     setTopic("all");
     setQuery("");
   }, []);
+
+  const applyExtraKeywords = React.useCallback(
+    (event?: React.FormEvent<HTMLFormElement>) => {
+      event?.preventDefault();
+      const normalized = normalizeSupplementalKeywordText(extraKeywordDraft);
+      setExtraKeywordDraft(normalized);
+      clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, normalized));
+      if (extraKeywords && normalized !== extraKeywords) {
+        clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords));
+      }
+      if (normalized === extraKeywords) {
+        void load(true);
+        return;
+      }
+      setExtraKeywords(normalized);
+    },
+    [extraKeywordDraft, extraKeywords, load, selectedGames, windowHours]
+  );
+
+  const clearExtraKeywords = React.useCallback(() => {
+    setExtraKeywordDraft("");
+    if (!extraKeywords) return;
+    clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords));
+    clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, ""));
+    setExtraKeywords("");
+  }, [extraKeywords, selectedGames, windowHours]);
 
   const filteredItems = React.useMemo(() => {
     const keyword = query.trim().toLowerCase();
@@ -681,7 +736,7 @@ function App() {
 
   React.useEffect(() => {
     setVisibleItemLimit(feedInitialLimit);
-  }, [data?.generatedAt, query, risk, searchActive, searchData?.generatedAt, sentiment, source, topic]);
+  }, [data?.generatedAt, extraKeywords, query, risk, searchActive, searchData?.generatedAt, sentiment, source, topic]);
 
   React.useEffect(() => {
     if (selectedAlertId && data?.alerts && !data.alerts.some((alert) => alert.id === selectedAlertId)) {
@@ -725,14 +780,14 @@ function App() {
     (gameIds: GameId[]) => {
       const sameSelection = sameGameSelection(selectedGames, gameIds);
       resetFeedFilters();
-      clearCachedMonitor(monitorCacheKey(gameIds, windowHours));
+      clearCachedMonitor(monitorCacheKey(gameIds, windowHours, extraKeywords));
       if (sameSelection) {
         void load(true);
         return;
       }
       setSelectedGames(gameIds);
     },
-    [load, resetFeedFilters, selectedGames, windowHours]
+    [extraKeywords, load, resetFeedFilters, selectedGames, windowHours]
   );
   const selectWindowHours = React.useCallback(
     (hours: number) => {
@@ -828,6 +883,25 @@ function App() {
             autoComplete="off"
           />
         </label>
+        <form className="field keyword-field" onSubmit={applyExtraKeywords}>
+          <Tags size={16} aria-hidden="true" />
+          <span>补词</span>
+          <input
+            name="supplemental-keywords"
+            value={extraKeywordDraft}
+            onChange={(event) => setExtraKeywordDraft(event.target.value)}
+            placeholder="补充关键词，逗号分隔"
+            autoComplete="off"
+          />
+          <button className="keyword-icon-button" type="submit" title="应用补充关键词" aria-label="应用补充关键词">
+            <CheckCircle2 size={16} aria-hidden="true" />
+          </button>
+          {extraKeywords ? (
+            <button className="keyword-icon-button" type="button" onClick={clearExtraKeywords} title="清空补充关键词" aria-label="清空补充关键词">
+              <X size={16} aria-hidden="true" />
+            </button>
+          ) : null}
+        </form>
       </section>
 
       {error || searchError ? <div className="error-strip" role="alert" aria-live="polite">{error || searchError}</div> : null}

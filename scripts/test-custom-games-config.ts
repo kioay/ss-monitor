@@ -28,3 +28,21 @@ assert.deepEqual(defaultQuery.selectedGames.map((game) => game.id), ["out-of-con
 
 const unknownQuery = parseMonitorQuery({ games: "ss1,ss2" });
 assert.deepEqual(unknownQuery.selectedGames.map((game) => game.id), ["out-of-control"]);
+
+const supplementalQuery = parseMonitorQuery({
+  games: "out-of-control",
+  extraKeywords: "\u5931\u63a7\u8fdb\u5316\u624b\u6e38,\u516c\u6d4b \u516c\u6d4b;\u62db\u4eba"
+});
+assert.deepEqual(supplementalQuery.extraKeywords, ["\u5931\u63a7\u8fdb\u5316\u624b\u6e38", "\u516c\u6d4b", "\u62db\u4eba"]);
+assert.deepEqual(supplementalQuery.selectedGames[0]?.bilibiliKeywords, [
+  "\u5931\u63a7\u8fdb\u5316",
+  "\u5931\u63a7\u8fdb\u5316\u624b\u6e38",
+  "\u516c\u6d4b",
+  "\u62db\u4eba"
+]);
+assert.deepEqual(supplementalQuery.selectedGames[0]?.douyinKeywords, [
+  "\u5931\u63a7\u8fdb\u5316",
+  "\u5931\u63a7\u8fdb\u5316\u624b\u6e38",
+  "\u516c\u6d4b",
+  "\u62db\u4eba"
+]);

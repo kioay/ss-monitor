@@ -511,6 +511,39 @@ h2 {
   width: 100%;
 }
 
+.keyword-field {
+  flex: 1 1 360px;
+}
+
+.keyword-field span:not(.sr-only) {
+  flex: 0 0 auto;
+  font-weight: 760;
+  color: var(--muted);
+}
+
+.keyword-field input {
+  min-width: 120px;
+  width: 100%;
+}
+
+.keyword-icon-button {
+  flex: 0 0 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--cyan);
+}
+
+.keyword-icon-button:hover:not(:disabled),
+.keyword-icon-button:focus-visible {
+  background: var(--cyan-soft);
+}
+
 .error-strip {
   margin-top: 14px;
   padding: 12px 14px;
