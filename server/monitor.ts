@@ -44,6 +44,14 @@ const querySchema = z.object({
     .string()
     .optional()
     .transform((value) => parseSupplementalKeywords(value || "")),
+  tiebaBars: z
+    .string()
+    .optional()
+    .transform((value) => parseSupplementalKeywords(value || "")),
+  tiebaKeywords: z
+    .string()
+    .optional()
+    .transform((value) => parseSupplementalKeywords(value || "")),
   force: z
     .string()
     .optional()
@@ -62,6 +70,7 @@ type CollectionEntry = {
   gameIds: GameId[];
   analysisVersion?: number;
   extraKeywords?: string[];
+  scopeKey?: string;
 };
 interface CollectionSnapshotFile {
   version: 1;
@@ -80,9 +89,17 @@ export function parseMonitorQuery(raw: unknown) {
   const query = querySchema.parse(raw);
   const selectedGames = query.games.map((id) => gameById.get(id as GameId)).filter((game): game is GameConfig => Boolean(game));
   const baseGames = selectedGames.length ? selectedGames : games;
+  const tiebaBarsOverride = rawParamProvided(raw, "tiebaBars") && query.tiebaBars.length ? query.tiebaBars : undefined;
+  const tiebaKeywordsOverride = rawParamProvided(raw, "tiebaKeywords") ? query.tiebaKeywords : undefined;
+  const scopeKey = collectionScopeKey(query.extraKeywords, tiebaBarsOverride, tiebaKeywordsOverride);
   return {
     ...query,
-    selectedGames: query.extraKeywords.length ? withSupplementalKeywords(baseGames, query.extraKeywords) : baseGames
+    scopeKey,
+    selectedGames: withMonitorScope(baseGames, {
+      extraKeywords: query.extraKeywords,
+      tiebaBarsOverride,
+      tiebaKeywordsOverride
+    })
   };
 }
 
@@ -100,12 +117,20 @@ function parseSupplementalKeywords(raw: string) {
   return keywords;
 }
 
-function withSupplementalKeywords(selectedGames: GameConfig[], extraKeywords: string[]): GameConfig[] {
+function withMonitorScope(
+  selectedGames: GameConfig[],
+  scope: {
+    extraKeywords: string[];
+    tiebaBarsOverride?: string[];
+    tiebaKeywordsOverride?: string[];
+  }
+): GameConfig[] {
   return selectedGames.map((game) => ({
     ...game,
-    bilibiliKeywords: mergeKeywordLists(game.bilibiliKeywords, extraKeywords),
-    douyinKeywords: mergeKeywordLists(game.douyinKeywords, extraKeywords),
-    tiebaKeywords: mergeKeywordLists(game.tiebaKeywords || [], extraKeywords)
+    tiebaBars: scope.tiebaBarsOverride || game.tiebaBars,
+    bilibiliKeywords: mergeKeywordLists(game.bilibiliKeywords, scope.extraKeywords),
+    douyinKeywords: mergeKeywordLists(game.douyinKeywords, scope.extraKeywords),
+    tiebaKeywords: mergeKeywordLists(scope.tiebaKeywordsOverride ?? game.tiebaKeywords ?? [], scope.extraKeywords)
   }));
 }
 
@@ -124,7 +149,7 @@ function mergeKeywordLists(baseKeywords: string[], extraKeywords: string[]) {
 export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResponse> {
   const query = parseMonitorQuery(rawQuery);
   const gameIds = query.selectedGames.map((game) => game.id);
-  const cacheKey = `${gameIds.join(",")}:${query.windowHours}:${query.limit}:${keywordScopeKey(query.extraKeywords)}`;
+  const cacheKey = `${gameIds.join(",")}:${query.windowHours}:${query.limit}:${query.scopeKey}`;
   const riskBacktest = await ensureRiskBacktest();
   const cached = cache.get(cacheKey);
   const now = Date.now();
@@ -145,7 +170,7 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
   const generatedAt = new Date();
   const updatePolicy = getUpdatePolicy(generatedAt, generatedAt);
   const cutoff = new Date(generatedAt.getTime() - query.windowHours * 3_600_000);
-  const collection = await getCollection(query.selectedGames, query.force, generatedAt, query.extraKeywords);
+  const collection = await getCollection(query.selectedGames, query.force, generatedAt, query.extraKeywords, query.scopeKey);
   const collectionAgeSeconds = Math.max(0, Math.round((generatedAt.getTime() - collection.createdAt) / 1000));
   const collectionIsStale = collectionAgeSeconds > updatePolicy.intervalSeconds;
   const responseUpdatePolicy = collectionIsStale
@@ -187,28 +212,28 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
   return response;
 }
 
-async function getCollection(selectedGames: GameConfig[], force: boolean, generatedAt: Date, extraKeywords: string[]) {
+async function getCollection(selectedGames: GameConfig[], force: boolean, generatedAt: Date, extraKeywords: string[], scopeKey: string) {
   const gameIds = selectedGames.map((game) => game.id);
-  const exactKey = collectionKey(gameIds, extraKeywords);
+  const exactKey = collectionKey(gameIds, scopeKey);
   const now = generatedAt.getTime();
-  const reusable = force ? undefined : findReusableCollection(gameIds, generatedAt, extraKeywords);
+  const reusable = force ? undefined : findReusableCollection(gameIds, generatedAt, scopeKey);
   if (reusable) return reusable;
 
   const inFlight = collectionInFlight.get(exactKey);
   if (!force && inFlight) return inFlight;
 
   if (!force) {
-    const snapshot = await findReusableSnapshotCollection(gameIds, generatedAt, extraKeywords);
+    const snapshot = await findReusableSnapshotCollection(gameIds, generatedAt, scopeKey);
     if (snapshot) {
       collectionCache.set(exactKey, snapshot);
-      refreshSnapshotInBackground(selectedGames, exactKey, generatedAt, extraKeywords);
+      refreshSnapshotInBackground(selectedGames, exactKey, generatedAt, extraKeywords, scopeKey);
       return snapshot;
     }
   }
 
   const task = collectAll(selectedGames, new Date(now - collectionWindowHours * 3_600_000)).then(async (collection) => {
     const items = await mergeMonitorHistory(collection.items, gameIds, generatedAt);
-    const entry = { createdAt: now, gameIds, items, health: collection.health, analysisVersion: analysisRulesVersion, extraKeywords };
+    const entry = { createdAt: now, gameIds, items, health: collection.health, analysisVersion: analysisRulesVersion, extraKeywords, scopeKey };
     collectionCache.set(exactKey, entry);
     void saveCollectionSnapshot();
     return entry;
@@ -220,23 +245,23 @@ async function getCollection(selectedGames: GameConfig[], force: boolean, genera
   return task;
 }
 
-function findReusableCollection(gameIds: GameId[], now: Date, extraKeywords: string[]) {
-  const exact = collectionCache.get(collectionKey(gameIds, extraKeywords));
+function findReusableCollection(gameIds: GameId[], now: Date, scopeKey: string) {
+  const exact = collectionCache.get(collectionKey(gameIds, scopeKey));
   if (exact && isFreshCollection(exact, now) && containsAllGames(exact.gameIds, gameIds)) return exact;
 
   for (const entry of collectionCache.values()) {
-    if (sameKeywordScope(entry.extraKeywords, extraKeywords) && isFreshCollection(entry, now) && containsAllGames(entry.gameIds, gameIds)) return entry;
+    if (entryScopeKey(entry) === scopeKey && isFreshCollection(entry, now) && containsAllGames(entry.gameIds, gameIds)) return entry;
   }
   return undefined;
 }
 
-async function findReusableSnapshotCollection(gameIds: GameId[], now: Date, extraKeywords: string[]) {
+async function findReusableSnapshotCollection(gameIds: GameId[], now: Date, scopeKey: string) {
   await loadCollectionSnapshot();
-  const exact = collectionCache.get(collectionKey(gameIds, extraKeywords));
+  const exact = collectionCache.get(collectionKey(gameIds, scopeKey));
   if (exact && isUsableSnapshot(exact, now) && containsAllGames(exact.gameIds, gameIds)) return collectionEntryWithHistory(exact, gameIds, now);
 
   const freshEntries = Array.from(collectionCache.values()).filter((entry) =>
-    sameKeywordScope(entry.extraKeywords, extraKeywords) && isUsableSnapshot(entry, now)
+    entryScopeKey(entry) === scopeKey && isUsableSnapshot(entry, now)
   );
   const covered = new Set<GameId>();
   const selectedEntries: CollectionEntry[] = [];
@@ -290,14 +315,15 @@ function mergeCollectionEntries(gameIds: GameId[], entries: CollectionEntry[]): 
     items,
     health,
     analysisVersion: analysisRulesVersion,
-    extraKeywords: entries[0]?.extraKeywords || []
+    extraKeywords: entries[0]?.extraKeywords || [],
+    scopeKey: entryScopeKey(entries[0])
   };
 }
 
-function refreshSnapshotInBackground(selectedGames: GameConfig[], exactKey: string, generatedAt: Date, extraKeywords: string[]) {
+function refreshSnapshotInBackground(selectedGames: GameConfig[], exactKey: string, generatedAt: Date, extraKeywords: string[], scopeKey: string) {
   if (backgroundSnapshotRefreshes.has(exactKey)) return;
   backgroundSnapshotRefreshes.add(exactKey);
-  void getCollection(selectedGames, true, generatedAt, extraKeywords).catch((error) => {
+  void getCollection(selectedGames, true, generatedAt, extraKeywords, scopeKey).catch((error) => {
     console.error("Background snapshot refresh failed", error);
   }).finally(() => {
     backgroundSnapshotRefreshes.delete(exactKey);
@@ -308,8 +334,8 @@ function containsAllGames(sourceIds: GameId[], targetIds: GameId[]) {
   return targetIds.every((id) => sourceIds.includes(id));
 }
 
-function collectionKey(gameIds: GameId[], extraKeywords: string[] = []) {
-  return `${[...gameIds].sort().join(",")}|${keywordScopeKey(extraKeywords)}`;
+function collectionKey(gameIds: GameId[], scopeKey = "base") {
+  return `${[...gameIds].sort().join(",")}|${scopeKey}`;
 }
 
 function keywordScopeKey(extraKeywords: string[] = []) {
@@ -317,12 +343,26 @@ function keywordScopeKey(extraKeywords: string[] = []) {
   return normalized.length ? normalized.join(",") : "base";
 }
 
-function sameKeywordScope(left: string[] = [], right: string[] = []) {
-  return keywordScopeKey(left) === keywordScopeKey(right);
-}
-
 function normalizeKeywordScope(keyword: string) {
   return keyword.trim().toLowerCase();
+}
+
+function collectionScopeKey(extraKeywords: string[] = [], tiebaBarsOverride?: string[], tiebaKeywordsOverride?: string[]) {
+  const parts = [
+    `kw=${keywordScopeKey(extraKeywords)}`,
+    tiebaBarsOverride ? `tb=${keywordScopeKey(tiebaBarsOverride)}` : "",
+    tiebaKeywordsOverride ? `tk=${keywordScopeKey(tiebaKeywordsOverride)}` : ""
+  ].filter(Boolean);
+  return parts.length === 1 && parts[0] === "kw=base" ? "base" : parts.join("|");
+}
+
+function entryScopeKey(entry: CollectionEntry | undefined) {
+  return entry?.scopeKey || collectionScopeKey(entry?.extraKeywords || []);
+}
+
+function rawParamProvided(raw: unknown, key: string) {
+  if (!raw || typeof raw !== "object") return false;
+  return Object.prototype.hasOwnProperty.call(raw, key);
 }
 
 async function loadCollectionSnapshot() {
@@ -334,7 +374,7 @@ async function loadCollectionSnapshot() {
     for (const entry of snapshot.entries || []) {
       if (!entry?.gameIds?.length) continue;
       if (entry.analysisVersion !== analysisRulesVersion) continue;
-      collectionCache.set(collectionKey(entry.gameIds, entry.extraKeywords || []), entry);
+      collectionCache.set(collectionKey(entry.gameIds, entryScopeKey(entry)), entry);
     }
   } catch {
     // Snapshot cache is an optional startup accelerator.

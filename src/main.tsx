@@ -105,6 +105,8 @@ type InitialUiState = {
   topic: string;
   query: string;
   extraKeywords: string;
+  tiebaBars: string;
+  tiebaKeywords: string;
   trendOpen: boolean;
   trendSeries: TrendSeriesVisibility;
 };
@@ -130,6 +132,8 @@ function readInitialUiState(): InitialUiState {
     topic: params.get("topic") || "all",
     query: params.get("q") || "",
     extraKeywords: normalizeSupplementalKeywordText(params.get("extraKeywords") || ""),
+    tiebaBars: normalizeSupplementalKeywordText(params.get("tiebaBars") || ""),
+    tiebaKeywords: normalizeSupplementalKeywordText(params.get("tiebaKeywords") || ""),
     trendOpen: params.get("trend") === "open",
     trendSeries: readTrendSeriesParam(params.get("series"))
   };
@@ -146,6 +150,8 @@ function makeDefaultUiState(): InitialUiState {
     topic: "all",
     query: "",
     extraKeywords: "",
+    tiebaBars: "",
+    tiebaKeywords: "",
     trendOpen: false,
     trendSeries: defaultTrendSeriesVisibility
   };
@@ -372,9 +378,12 @@ const runtimeActionExplanations: Array<{ id: string; label: string; effect: stri
 
 type InteractionMode = "display" | "interactive" | "link";
 
-function monitorCacheKey(gameIds: GameId[], windowHours: number, extraKeywords = "") {
+function monitorCacheKey(gameIds: GameId[], windowHours: number, extraKeywords = "", tiebaBars = "", tiebaKeywords = "") {
   const keywordScope = normalizeSupplementalKeywordText(extraKeywords) || "base";
-  return `ss-monitor:${[...gameIds].sort().join(",")}:${windowHours}:${keywordScope}`;
+  const barScope = normalizeSupplementalKeywordText(tiebaBars);
+  const tiebaKeywordScope = normalizeSupplementalKeywordText(tiebaKeywords);
+  const hasTiebaScopeOverride = Boolean(barScope || tiebaKeywordScope);
+  return `ss-monitor:${[...gameIds].sort().join(",")}:${windowHours}:${keywordScope}:tb=${barScope || "config"}:tk=${hasTiebaScopeOverride ? tiebaKeywordScope || "base" : "config"}`;
 }
 
 function normalizeSupplementalKeywordText(value: string) {
@@ -453,7 +462,11 @@ function App() {
   const [topic, setTopic] = React.useState(initialUiState.topic);
   const [query, setQuery] = React.useState(initialUiState.query);
   const [extraKeywords, setExtraKeywords] = React.useState(initialUiState.extraKeywords);
+  const [tiebaBarsOverride, setTiebaBarsOverride] = React.useState(initialUiState.tiebaBars);
+  const [tiebaKeywordsOverride, setTiebaKeywordsOverride] = React.useState(initialUiState.tiebaKeywords);
   const [keywordInput, setKeywordInput] = React.useState("");
+  const [scopeBarsInput, setScopeBarsInput] = React.useState("");
+  const [scopeKeywordsInput, setScopeKeywordsInput] = React.useState("");
   const [searchData, setSearchData] = React.useState<SearchResponse>();
   const [searchLoading, setSearchLoading] = React.useState(false);
   const [searchError, setSearchError] = React.useState("");
@@ -531,7 +544,10 @@ function App() {
       const requestId = latestRequestRef.current + 1;
       latestRequestRef.current = requestId;
       const normalizedExtraKeywords = normalizeSupplementalKeywordText(extraKeywords);
-      const cacheKey = monitorCacheKey(selectedGames, windowHours, normalizedExtraKeywords);
+      const normalizedTiebaBars = normalizeSupplementalKeywordText(tiebaBarsOverride);
+      const normalizedTiebaKeywords = normalizeSupplementalKeywordText(tiebaKeywordsOverride);
+      const hasTiebaScopeOverride = Boolean(normalizedTiebaBars || normalizedTiebaKeywords);
+      const cacheKey = monitorCacheKey(selectedGames, windowHours, normalizedExtraKeywords, normalizedTiebaBars, normalizedTiebaKeywords);
       const cachedPayload = force ? undefined : readCachedMonitor(cacheKey);
       if (cachedPayload) setData(cachedPayload);
       setLoading(true);
@@ -543,6 +559,8 @@ function App() {
           limit: "1000",
           notify: "0",
           ...(normalizedExtraKeywords ? { extraKeywords: normalizedExtraKeywords } : {}),
+          ...(normalizedTiebaBars ? { tiebaBars: normalizedTiebaBars } : {}),
+          ...(hasTiebaScopeOverride ? { tiebaKeywords: normalizedTiebaKeywords } : {}),
           ...(force ? { force: "1" } : {})
         });
         const response = await fetch(`${api.monitor}?${params.toString()}`);
@@ -564,7 +582,7 @@ function App() {
         if (latestRequestRef.current === requestId) setLoading(false);
       }
     },
-    [extraKeywords, loadDouyinStatus, selectedGames, windowHours]
+    [extraKeywords, loadDouyinStatus, selectedGames, tiebaBarsOverride, tiebaKeywordsOverride, windowHours]
   );
 
   React.useEffect(() => {
@@ -644,6 +662,12 @@ function App() {
     if (topic !== "all") params.set("topic", topic);
     if (query.trim()) params.set("q", query.trim());
     if (extraKeywords) params.set("extraKeywords", extraKeywords);
+    if (tiebaBarsOverride) {
+      params.set("tiebaBars", tiebaBarsOverride);
+      params.set("tiebaKeywords", tiebaKeywordsOverride);
+    } else if (tiebaKeywordsOverride) {
+      params.set("tiebaKeywords", tiebaKeywordsOverride);
+    }
     if (trendOpen) params.set("trend", "open");
 
     const activeTrendSeries = trendSeriesOrder.filter((series) => trendSeries[series]);
@@ -657,7 +681,7 @@ function App() {
     if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
       window.history.replaceState(null, "", nextUrl);
     }
-  }, [extraKeywords, query, risk, selectedGames, sentiment, source, topic, trendOpen, trendSeries, windowHours]);
+  }, [extraKeywords, query, risk, selectedGames, sentiment, source, tiebaBarsOverride, tiebaKeywordsOverride, topic, trendOpen, trendSeries, windowHours]);
 
   React.useEffect(() => {
     const target = controlSentinelRef.current;
@@ -703,21 +727,21 @@ function App() {
       const normalized = normalizeSupplementalKeywordText(`${extraKeywords},${additions.join(",")}`);
       setKeywordInput("");
       if (normalized === extraKeywords) return;
-      clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, normalized));
+      clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, normalized, tiebaBarsOverride, tiebaKeywordsOverride));
       if (extraKeywords) {
-        clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords));
+        clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords, tiebaBarsOverride, tiebaKeywordsOverride));
       }
       setExtraKeywords(normalized);
     },
-    [extraKeywords, keywordInput, selectedGames, windowHours]
+    [extraKeywords, keywordInput, selectedGames, tiebaBarsOverride, tiebaKeywordsOverride, windowHours]
   );
 
   const clearExtraKeywords = React.useCallback(() => {
     if (!extraKeywords) return;
-    clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords));
-    clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, ""));
+    clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords, tiebaBarsOverride, tiebaKeywordsOverride));
+    clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, "", tiebaBarsOverride, tiebaKeywordsOverride));
     setExtraKeywords("");
-  }, [extraKeywords, selectedGames, windowHours]);
+  }, [extraKeywords, selectedGames, tiebaBarsOverride, tiebaKeywordsOverride, windowHours]);
 
   const removeExtraKeyword = React.useCallback(
     (keyword: string) => {
@@ -725,11 +749,11 @@ function App() {
       const remaining = splitSupplementalKeywords(extraKeywords).filter((item) => item.toLowerCase() !== normalizedKeyword);
       const normalized = normalizeSupplementalKeywordText(remaining.join(","));
       if (normalized === extraKeywords) return;
-      clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords));
-      clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, normalized));
+      clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords, tiebaBarsOverride, tiebaKeywordsOverride));
+      clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, normalized, tiebaBarsOverride, tiebaKeywordsOverride));
       setExtraKeywords(normalized);
     },
-    [extraKeywords, selectedGames, windowHours]
+    [extraKeywords, selectedGames, tiebaBarsOverride, tiebaKeywordsOverride, windowHours]
   );
 
   const filteredItems = React.useMemo(() => {
@@ -766,7 +790,7 @@ function App() {
 
   React.useEffect(() => {
     setVisibleItemLimit(feedInitialLimit);
-  }, [data?.generatedAt, extraKeywords, query, risk, searchActive, searchData?.generatedAt, sentiment, source, topic]);
+  }, [data?.generatedAt, extraKeywords, query, risk, searchActive, searchData?.generatedAt, sentiment, source, tiebaBarsOverride, tiebaKeywordsOverride, topic]);
 
   React.useEffect(() => {
     if (selectedAlertId && data?.alerts && !data.alerts.some((alert) => alert.id === selectedAlertId)) {
@@ -800,6 +824,8 @@ function App() {
     ];
   }, [config?.games, configuredGameIds]);
   const activeExtraKeywords = React.useMemo(() => splitSupplementalKeywords(extraKeywords), [extraKeywords]);
+  const activeTiebaBarsOverride = React.useMemo(() => normalizeSupplementalKeywordText(tiebaBarsOverride), [tiebaBarsOverride]);
+  const activeTiebaKeywordsOverride = React.useMemo(() => normalizeSupplementalKeywordText(tiebaKeywordsOverride), [tiebaKeywordsOverride]);
   const keywordEffectivenessByKeyword = React.useMemo(
     () => new Map((data?.keywordEffectiveness || []).map((entry) => [entry.keyword.toLowerCase(), entry])),
     [data?.keywordEffectiveness]
@@ -808,6 +834,17 @@ function App() {
     () => makeKeywordSummary(activeExtraKeywords, data?.keywordEffectiveness || []),
     [activeExtraKeywords, data?.keywordEffectiveness]
   );
+  const tiebaScopeSummary = React.useMemo(
+    () => makeTiebaScopeSummary(selectedGameConfigs, activeExtraKeywords, activeTiebaBarsOverride, activeTiebaKeywordsOverride),
+    [activeExtraKeywords, activeTiebaBarsOverride, activeTiebaKeywordsOverride, selectedGameConfigs]
+  );
+  const keywordScopeSummary = React.useMemo(
+    () => makeKeywordScopeSummary(keywordSummary, tiebaScopeSummary),
+    [keywordSummary, tiebaScopeSummary]
+  );
+  const keywordEntryActive = activeExtraKeywords.length > 0 || tiebaScopeSummary.overridden;
+  const keywordEntryBadgeCount = activeExtraKeywords.length + (tiebaScopeSummary.overridden ? 1 : 0);
+  const canApplyScope = Boolean(normalizeSupplementalKeywordText(scopeBarsInput));
   const topicOptions = React.useMemo(() => makeTopicOptions(data?.items || []), [data?.items]);
   const maxTopicCount = React.useMemo(
     () => Math.max(0, ...(data?.topicStats || []).map((topic) => topic.count)),
@@ -817,14 +854,14 @@ function App() {
     (gameIds: GameId[]) => {
       const sameSelection = sameGameSelection(selectedGames, gameIds);
       resetFeedFilters();
-      clearCachedMonitor(monitorCacheKey(gameIds, windowHours, extraKeywords));
+      clearCachedMonitor(monitorCacheKey(gameIds, windowHours, extraKeywords, activeTiebaBarsOverride, activeTiebaKeywordsOverride));
       if (sameSelection) {
         void load(true);
         return;
       }
       setSelectedGames(gameIds);
     },
-    [extraKeywords, load, resetFeedFilters, selectedGames, windowHours]
+    [activeTiebaBarsOverride, activeTiebaKeywordsOverride, extraKeywords, load, resetFeedFilters, selectedGames, windowHours]
   );
   const selectWindowHours = React.useCallback(
     (hours: number) => {
@@ -861,6 +898,38 @@ function App() {
     setQuery("");
     window.requestAnimationFrame(() => document.getElementById("risk-alerts")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }, []);
+
+  const openKeywordPanel = React.useCallback(() => {
+    const hasScopeOverride = Boolean(activeTiebaBarsOverride || activeTiebaKeywordsOverride);
+    setScopeBarsInput(activeTiebaBarsOverride || scopeListForGames(selectedGameConfigs, "tiebaBars").join(","));
+    setScopeKeywordsInput(hasScopeOverride ? activeTiebaKeywordsOverride : scopeListForGames(selectedGameConfigs, "tiebaKeywords").join(","));
+    setKeywordPanelOpen(true);
+  }, [activeTiebaBarsOverride, activeTiebaKeywordsOverride, selectedGameConfigs]);
+
+  const applyScopePanel = React.useCallback(
+    (event?: React.FormEvent<HTMLFormElement>) => {
+      event?.preventDefault();
+      const nextBars = normalizeSupplementalKeywordText(scopeBarsInput);
+      const nextKeywords = normalizeSupplementalKeywordText(scopeKeywordsInput);
+      if (!nextBars) return;
+      clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords, activeTiebaBarsOverride, activeTiebaKeywordsOverride));
+      clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords, nextBars, nextKeywords));
+      resetFeedFilters();
+      setTiebaBarsOverride(nextBars);
+      setTiebaKeywordsOverride(nextKeywords);
+      setKeywordPanelOpen(false);
+    },
+    [activeTiebaBarsOverride, activeTiebaKeywordsOverride, extraKeywords, resetFeedFilters, scopeBarsInput, scopeKeywordsInput, selectedGames, windowHours]
+  );
+
+  const restoreConfiguredScope = React.useCallback(() => {
+    clearCachedMonitor(monitorCacheKey(selectedGames, windowHours, extraKeywords, activeTiebaBarsOverride, activeTiebaKeywordsOverride));
+    setTiebaBarsOverride("");
+    setTiebaKeywordsOverride("");
+    setScopeBarsInput("");
+    setScopeKeywordsInput("");
+    setKeywordPanelOpen(false);
+  }, [activeTiebaBarsOverride, activeTiebaKeywordsOverride, extraKeywords, selectedGames, windowHours]);
 
   return (
     <>
@@ -922,25 +991,24 @@ function App() {
         </label>
         <div className="keyword-entry">
           <button
-            className={`keyword-entry-button ${activeExtraKeywords.length ? "active" : ""}`}
+            className={`keyword-entry-button ${keywordEntryActive ? "active" : ""}`}
             type="button"
-            onClick={() => setKeywordPanelOpen(true)}
+            onClick={openKeywordPanel}
             aria-haspopup="dialog"
             aria-controls="keyword-panel"
             aria-expanded={keywordPanelOpen}
-            title="管理补充关键词"
+            title="管理关键词和贴吧采集范围"
           >
             <Tags size={16} aria-hidden="true" />
-            <span>关键词</span>
-            {activeExtraKeywords.length ? <b>{activeExtraKeywords.length}</b> : null}
+            <span>关键词 / 范围</span>
+            {keywordEntryBadgeCount ? <b>{keywordEntryBadgeCount}</b> : null}
           </button>
-          <div className="keyword-summary" aria-label="关键词摘要">
-            <strong>{keywordSummary.primary}</strong>
-            <span>{keywordSummary.secondary}</span>
+          <div className="keyword-summary" aria-label="关键词和采集范围摘要">
+            <strong>{keywordScopeSummary.primary}</strong>
+            <span>{keywordScopeSummary.secondary}</span>
           </div>
         </div>
       </section>
-      <ScopeRail games={selectedGameConfigs} extraKeywords={activeExtraKeywords} />
 
       {keywordPanelOpen ? (
         <div className="keyword-panel-backdrop" role="presentation" onMouseDown={() => setKeywordPanelOpen(false)}>
@@ -954,64 +1022,117 @@ function App() {
           >
             <header className="keyword-panel-head">
               <div>
-                <p className="eyebrow">补充词池</p>
-                <h2 id="keyword-panel-title">关键词管理</h2>
+                <p className="eyebrow">采集条件</p>
+                <h2 id="keyword-panel-title">关键词与贴吧范围</h2>
               </div>
-              <button className="icon-button" type="button" onClick={() => setKeywordPanelOpen(false)} title="关闭" aria-label="关闭关键词管理">
+              <button className="icon-button" type="button" onClick={() => setKeywordPanelOpen(false)} title="关闭" aria-label="关闭关键词与贴吧范围">
                 <X size={18} aria-hidden="true" />
               </button>
             </header>
             <div className="keyword-panel-summary">
-              <span>{keywordSummary.primary}</span>
-              <strong>{keywordSummary.secondary}</strong>
+              <span>{keywordSummary.primary} · {keywordSummary.secondary}</span>
+              <strong>{tiebaScopeSummary.secondary}</strong>
             </div>
-            <form className="keyword-panel-add" onSubmit={addExtraKeywords}>
-              <label className="field">
-                <Tags size={16} aria-hidden="true" />
-                <span>添加</span>
-                <input
-                  name="supplemental-keywords"
-                  value={keywordInput}
-                  onChange={(event) => setKeywordInput(event.target.value)}
-                  placeholder="输入关键词，支持逗号分隔"
-                  autoComplete="off"
-                  autoFocus
+            <div className="keyword-panel-body">
+              <form className="keyword-panel-add" onSubmit={addExtraKeywords}>
+                <label className="field">
+                  <Tags size={16} aria-hidden="true" />
+                  <span>添加</span>
+                  <input
+                    name="supplemental-keywords"
+                    value={keywordInput}
+                    onChange={(event) => setKeywordInput(event.target.value)}
+                    placeholder="输入关键词，支持逗号分隔"
+                    autoComplete="off"
+                    autoFocus
+                  />
+                </label>
+                <button className="keyword-add-button" type="submit">
+                  <Plus size={16} aria-hidden="true" />
+                  加入
+                </button>
+              </form>
+              {activeExtraKeywords.length ? (
+                <div className="keyword-panel-list">
+                  {activeExtraKeywords.map((keyword) => {
+                    const effectiveness = keywordEffectivenessByKeyword.get(keyword.toLowerCase());
+                    return (
+                      <div className={`keyword-row ${effectiveness?.status || "pending"}`} key={keyword}>
+                        <div className="keyword-row-name">
+                          <strong>{keyword}</strong>
+                          <span>{keywordEffectivenessLabel(effectiveness)}</span>
+                        </div>
+                        <div className="keyword-row-meta">
+                          <span>{keywordEffectivenessSourceText(effectiveness)}</span>
+                          <span>{keywordRiskSummary(effectiveness)}</span>
+                        </div>
+                        <button type="button" onClick={() => removeExtraKeyword(keyword)} title={`移除 ${keyword}`} aria-label={`移除 ${keyword}`}>
+                          <X size={15} aria-hidden="true" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="keyword-empty">暂无补充关键词</p>
+              )}
+              {activeExtraKeywords.length ? (
+                <div className="keyword-panel-actions">
+                  <button type="button" onClick={clearExtraKeywords}>清空全部</button>
+                </div>
+              ) : null}
+
+              <section className="keyword-scope-section" aria-label="贴吧采集范围">
+                <div className="keyword-section-head">
+                  <div>
+                    <p className="eyebrow">贴吧采集范围</p>
+                    <h3>来源和过滤词</h3>
+                  </div>
+                  <span className={`scope-status-chip ${tiebaScopeSummary.overridden ? "temporary" : ""}`}>
+                    {tiebaScopeSummary.overridden ? "临时范围" : "配置范围"}
+                  </span>
+                </div>
+                <ScopeRail
+                  games={selectedGameConfigs}
+                  extraKeywords={activeExtraKeywords}
+                  tiebaBarsOverride={activeTiebaBarsOverride}
+                  tiebaKeywordsOverride={activeTiebaKeywordsOverride}
                 />
-              </label>
-              <button className="keyword-add-button" type="submit">
-                <Plus size={16} aria-hidden="true" />
-                加入
-              </button>
-            </form>
-            {activeExtraKeywords.length ? (
-              <div className="keyword-panel-list">
-                {activeExtraKeywords.map((keyword) => {
-                  const effectiveness = keywordEffectivenessByKeyword.get(keyword.toLowerCase());
-                  return (
-                    <div className={`keyword-row ${effectiveness?.status || "pending"}`} key={keyword}>
-                      <div className="keyword-row-name">
-                        <strong>{keyword}</strong>
-                        <span>{keywordEffectivenessLabel(effectiveness)}</span>
-                      </div>
-                      <div className="keyword-row-meta">
-                        <span>{keywordEffectivenessSourceText(effectiveness)}</span>
-                        <span>{keywordRiskSummary(effectiveness)}</span>
-                      </div>
-                      <button type="button" onClick={() => removeExtraKeyword(keyword)} title={`移除 ${keyword}`} aria-label={`移除 ${keyword}`}>
-                        <X size={15} aria-hidden="true" />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="keyword-empty">暂无补充关键词</p>
-            )}
-            {activeExtraKeywords.length ? (
-              <div className="keyword-panel-actions">
-                <button type="button" onClick={clearExtraKeywords}>清空全部</button>
-              </div>
-            ) : null}
+                <form className="scope-panel-form" onSubmit={applyScopePanel}>
+                  <label className="field">
+                    <Database size={16} aria-hidden="true" />
+                    <span>贴吧来源</span>
+                    <input
+                      name="tieba-bars"
+                      value={scopeBarsInput}
+                      onChange={(event) => setScopeBarsInput(event.target.value)}
+                      placeholder="例如：逆战、火线精英"
+                      autoComplete="off"
+                    />
+                  </label>
+                  <label className="field">
+                    <Tags size={16} aria-hidden="true" />
+                    <span>贴吧过滤</span>
+                    <input
+                      name="tieba-keywords"
+                      value={scopeKeywordsInput}
+                      onChange={(event) => setScopeKeywordsInput(event.target.value)}
+                      placeholder="例如：生死狙击；留空则不过滤"
+                      autoComplete="off"
+                    />
+                  </label>
+                  <div className="scope-panel-actions">
+                    <button className="keyword-add-button" type="submit" disabled={!canApplyScope}>
+                      <Database size={16} aria-hidden="true" />
+                      应用范围
+                    </button>
+                    {tiebaScopeSummary.overridden ? (
+                      <button className="scope-restore-button" type="button" onClick={restoreConfiguredScope}>恢复配置</button>
+                    ) : null}
+                  </div>
+                </form>
+              </section>
+            </div>
           </section>
         </div>
       ) : null}
@@ -2771,27 +2892,46 @@ function Thumbnail({ item }: { item: MonitorItem }) {
   return <img src={imageUrl} alt="" width={320} height={180} loading="lazy" onError={() => setFailed(true)} />;
 }
 
-function ScopeRail({ games, extraKeywords }: { games: GameConfig[]; extraKeywords: string[] }) {
+function ScopeRail({
+  games,
+  extraKeywords,
+  tiebaBarsOverride,
+  tiebaKeywordsOverride
+}: {
+  games: GameConfig[];
+  extraKeywords: string[];
+  tiebaBarsOverride: string;
+  tiebaKeywordsOverride: string;
+}) {
   if (!games.length) return null;
+
+  const overrideBars = splitSupplementalKeywords(tiebaBarsOverride);
+  const overrideKeywords = splitSupplementalKeywords(tiebaKeywordsOverride);
+  const overridden = Boolean(tiebaBarsOverride || tiebaKeywordsOverride);
 
   return (
     <section className="scope-rail" aria-label="采集范围">
       <div className="scope-rail-head">
         <Database size={15} aria-hidden="true" />
         <span>采集范围</span>
+        <em>{overridden ? "临时" : "配置"}</em>
       </div>
       <div className="scope-rail-list">
-        {games.map((game) => (
-          <div className="scope-row" key={game.id}>
-            <strong>{game.shortName || game.name}</strong>
-            <ScopeGroup icon="source" label="贴吧来源" values={scopeValues(game.tiebaBars || [], "未配置")} />
-            <ScopeGroup
-              icon="keyword"
-              label="贴吧过滤"
-              values={scopeValues(mergeScopeKeywords(game.tiebaKeywords || [], extraKeywords), "不过滤")}
-            />
-          </div>
-        ))}
+        {games.map((game) => {
+          const tiebaBars = overridden && overrideBars.length ? overrideBars : game.tiebaBars || [];
+          const tiebaKeywords = overridden ? overrideKeywords : game.tiebaKeywords || [];
+          return (
+            <div className="scope-row" key={game.id}>
+              <strong>{game.shortName || game.name}</strong>
+              <ScopeGroup icon="source" label="贴吧来源" values={scopeValues(tiebaBars, "未配置")} />
+              <ScopeGroup
+                icon="keyword"
+                label="贴吧过滤"
+                values={scopeValues(mergeScopeKeywords(tiebaKeywords, extraKeywords), "不过滤")}
+              />
+            </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -2842,6 +2982,58 @@ function mergeScopeKeywords(baseKeywords: string[], extraKeywords: string[]) {
     merged.push(keyword.trim());
   }
   return merged;
+}
+
+function scopeListForGames(games: GameConfig[], key: "tiebaBars" | "tiebaKeywords") {
+  const seen = new Set<string>();
+  const values: string[] = [];
+  for (const game of games) {
+    for (const value of game[key] || []) {
+      const trimmed = value.trim();
+      const normalized = trimmed.toLowerCase();
+      if (!trimmed || seen.has(normalized)) continue;
+      seen.add(normalized);
+      values.push(trimmed);
+    }
+  }
+  return values;
+}
+
+function makeTiebaScopeSummary(
+  games: GameConfig[],
+  extraKeywords: string[],
+  tiebaBarsOverride: string,
+  tiebaKeywordsOverride: string
+) {
+  const overridden = Boolean(tiebaBarsOverride || tiebaKeywordsOverride);
+  const overrideBars = splitSupplementalKeywords(tiebaBarsOverride);
+  const overrideKeywords = splitSupplementalKeywords(tiebaKeywordsOverride);
+  const sourceValues = overrideBars.length ? overrideBars : scopeListForGames(games, "tiebaBars");
+  const baseFilterValues = overridden ? overrideKeywords : scopeListForGames(games, "tiebaKeywords");
+  const filterValues = mergeScopeKeywords(baseFilterValues, extraKeywords);
+
+  return {
+    overridden,
+    primary: `${overridden ? "临时范围" : "配置范围"} · ${sourceValues.length || 0} 个贴吧`,
+    secondary: `来源 ${summarizeScopeList(sourceValues, "未配置")} · 过滤 ${summarizeScopeList(filterValues, "不过滤")}`
+  };
+}
+
+function makeKeywordScopeSummary(
+  keywordSummary: { primary: string; secondary: string },
+  scopeSummary: { primary: string; secondary: string }
+) {
+  return {
+    primary: `${keywordSummary.primary} · ${scopeSummary.primary}`,
+    secondary: scopeSummary.secondary
+  };
+}
+
+function summarizeScopeList(values: string[], emptyLabel: string) {
+  const cleaned = values.map((value) => value.trim()).filter(Boolean);
+  if (!cleaned.length) return emptyLabel;
+  if (cleaned.length <= 2) return cleaned.join("、");
+  return `${cleaned.slice(0, 2).join("、")} 等 ${cleaned.length} 项`;
 }
 
 function searchOriginText(origin: SearchResult["origin"]) {
