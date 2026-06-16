@@ -279,7 +279,7 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
     stats: makeStats(windowItems),
     trends: makeTrends(windowItems, query.windowHours, cutoff, generatedAt),
     topicStats: makeTopicStats(windowItems),
-    alerts: makeAlerts(windowItems, cutoff),
+    alerts: makeAlerts(windowItems),
     health: responseHealth,
     keywordEffectiveness: makeKeywordEffectiveness(windowItems, query.extraKeywords),
     bettafishCapabilities: makeBettaFishPanelCapabilities(windowItems, responseHealth),
@@ -753,15 +753,14 @@ function makeTopicStats(items: MonitorItem[]): TopicStat[] {
     .slice(0, 10);
 }
 
-export function makeAlerts(items: MonitorItem[], freshnessCutoff?: Date): AlertItem[] {
+export function makeAlerts(items: MonitorItem[]): AlertItem[] {
   return items
-    .filter((item) => isRiskAlertCandidate(item, freshnessCutoff))
+    .filter(isRiskAlertCandidate)
     .sort((a, b) => {
       const riskDelta = riskRank(b.riskLevel) - riskRank(a.riskLevel);
       if (riskDelta) return riskDelta;
       return riskAlertTime(b) - riskAlertTime(a);
     })
-    .slice(0, 12)
     .map((item) => ({
       id: item.id,
       title: item.title,
@@ -770,19 +769,17 @@ export function makeAlerts(items: MonitorItem[], freshnessCutoff?: Date): AlertI
       riskLevel: item.riskLevel,
       reasons: item.riskReasons,
       url: item.url,
-      publishedAt: item.riskSignalAt || item.publishedAt,
+      publishedAt: item.publishedAt,
       riskSignalSource: item.riskSignalSource
     }));
 }
 
-function isRiskAlertCandidate(item: MonitorItem, freshnessCutoff?: Date) {
-  if (item.riskLevel === "low") return false;
-  if (freshnessCutoff && item.riskSignalAt && new Date(item.riskSignalAt) < freshnessCutoff) return false;
-  return item.riskSignalSource !== "stale_thread" || item.riskLevel === "high";
+function isRiskAlertCandidate(item: MonitorItem) {
+  return item.riskLevel !== "low";
 }
 
 function riskAlertTime(item: MonitorItem) {
-  return +new Date(item.riskSignalAt || item.publishedAt);
+  return +new Date(item.publishedAt);
 }
 
 function riskRank(level: MonitorItem["riskLevel"]) {

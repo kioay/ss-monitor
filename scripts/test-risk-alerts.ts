@@ -45,12 +45,13 @@ const mediumStaleThread = makeItem({
   publishedAt: "2026-06-11T11:45:00.000Z"
 });
 
-const alerts = makeAlerts([staleThread, explicitlyStaleThread, mediumStaleThread, newReplyRisk, freshThreadRisk], new Date("2026-06-08T12:00:00.000Z"));
+const alerts = makeAlerts([staleThread, explicitlyStaleThread, mediumStaleThread, newReplyRisk, freshThreadRisk]);
 
-assert.deepEqual(alerts.map((alert) => alert.id), ["tieba:explicitly-stale-thread", "tieba:fresh-thread-risk", "tieba:new-reply-risk"]);
+assert.deepEqual(alerts.map((alert) => alert.id), ["tieba:explicitly-stale-thread", "tieba:stale-thread", "tieba:fresh-thread-risk", "tieba:medium-stale-thread", "tieba:new-reply-risk"]);
+assert.equal(alerts.find((alert) => alert.id === "tieba:stale-thread")?.publishedAt, "2026-06-11T10:00:00.000Z");
 assert.equal(alerts.find((alert) => alert.id === "tieba:new-reply-risk")?.reasons[0], "新回复带来风险");
 assert.equal(alerts.find((alert) => alert.id === "tieba:new-reply-risk")?.publishedAt, "2026-06-11T11:30:00.000Z");
-assert.equal(alerts.some((alert) => alert.id === "tieba:medium-stale-thread"), false);
+assert.equal(alerts.find((alert) => alert.id === "tieba:medium-stale-thread")?.publishedAt, "2026-06-11T11:45:00.000Z");
 
 function makeItem(input: {
   id: string;
