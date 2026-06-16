@@ -33,6 +33,7 @@ interface DingTalkSendResult {
 
 const monitorUrl = runtimeConfig.dingTalkMonitorUrl;
 const stateRetentionMs = 30 * 24 * 3_600_000;
+const dailyFocusDeduplicationMs = 72 * 3_600_000;
 const dailyReportHour = 9;
 const dailyReportMinute = 30;
 const highHeatScoreThreshold = 800;
@@ -70,7 +71,8 @@ export async function sendDingTalkTest(
   }
   const currentItems = gameItemsWithin72Hours(response, gameId).filter(isDingTalkRelevantItem);
   await sendMarkdownToRobots(robots, buildTestMarkdown(robot, currentItems, response));
-  await writeState(robot, { ...state, lastTestSentAt: new Date().toISOString() });
+  const sentAt = new Date();
+  await writeState(robot, { ...state, lastTestSentAt: sentAt.toISOString() }, sentAt);
   return { ok: true, sent: currentItems.length, mode: "test" };
 }
 
@@ -91,14 +93,16 @@ export async function sendDingTalkDailyReport(
 
   const reportStart = dailyReportWindowStart(state, now);
   const items = gameItemsForTimeRange(response, gameId, reportStart, now);
-  await sendMarkdownToRobots(robots, buildDailyReportMarkdown(robot, items, { start: reportStart, end: now }, now));
+  const focusSelection = selectDailyFocusItems(items, state, now);
+  await sendMarkdownToRobots(robots, buildDailyReportMarkdown(robot, items, focusSelection, { start: reportStart, end: now }, now));
   await writeState(robot, {
     ...state,
     initialized: true,
     lastDailyReportDate: reportDate,
-    lastDailyReportSentAt: now.toISOString()
-  });
-  return { ok: true, sent: items.length, mode: "daily" };
+    lastDailyReportSentAt: now.toISOString(),
+    seen: markSeenDailyFocusItems(state.seen, focusSelection.items, now)
+  }, now);
+  return { ok: true, sent: items.length, existing: focusSelection.suppressedCount, mode: "daily" };
 }
 
 function getRobotConfigs(gameId: GameId): DingTalkRobotConfig[] {
@@ -302,12 +306,12 @@ function buildTestMarkdown(robot: DingTalkRobotConfig, items: MonitorItem[], res
 function buildDailyReportMarkdown(
   robot: DingTalkRobotConfig,
   items: MonitorItem[],
+  focusSelection: DailyFocusSelection,
   reportWindow: { start: Date; end: Date },
   sentAt: Date
 ) {
   const reportRange = formatReportWindow(reportWindow.start, reportWindow.end);
   const title = `${robot.shortName}舆情日报 ${reportRange}`;
-  const focusItems = items.filter(isDailyFocusItem).sort(compareDingTalkItems).slice(0, 8);
   const lines = [
     `## ${title}`,
     "",
@@ -319,7 +323,7 @@ function buildDailyReportMarkdown(
     "",
     "### 重点关注",
     "",
-    buildDailyFocusTable(focusItems),
+    buildDailyFocusTable(focusSelection.items, focusSelection.suppressedCount),
     "",
     `[打开舆情平台](${monitorUrl})`
   ];
@@ -365,15 +369,20 @@ function buildDailySourceTable(items: MonitorItem[]) {
   ].join("\n");
 }
 
-function buildDailyFocusTable(items: MonitorItem[]) {
-  if (!items.length) return "本期无高风险、高热度或明显负面舆情。";
-  return [
+function buildDailyFocusTable(items: MonitorItem[], suppressedCount = 0) {
+  if (!items.length) {
+    return suppressedCount
+      ? `本期 ${suppressedCount} 条重点舆情已在近 72 小时内推送，本次不重复列出。`
+      : "本期无高风险、高热度或明显负面舆情。";
+  }
+  const table = [
     "| 舆情 | 触发/情绪 | 简报 |",
     "| --- | --- | --- |",
     ...items
       .map((item) => [linkCell(item), `${pushReasonName(item)} / ${sentimentName(item.sentiment)}`, shortDigest(item)].join(" | "))
       .map((row) => `| ${row} |`)
   ].join("\n");
+  return suppressedCount ? `${table}\n\n> 已剔除近 72 小时内推送过的 ${suppressedCount} 条重点舆情。` : table;
 }
 
 function buildHighRiskSection(items: MonitorItem[], title = "高风险舆情") {
@@ -473,10 +482,10 @@ async function readState(robot: DingTalkRobotConfig): Promise<DingTalkState> {
   }
 }
 
-async function writeState(robot: DingTalkRobotConfig, state: DingTalkState) {
+async function writeState(robot: DingTalkRobotConfig, state: DingTalkState, writtenAt = new Date()) {
   const target = statePath(robot);
   await fs.mkdir(path.dirname(target), { recursive: true });
-  await fs.writeFile(target, JSON.stringify(pruneState({ ...state, lastSentAt: new Date().toISOString() }), null, 2));
+  await fs.writeFile(target, JSON.stringify(pruneState({ ...state, lastSentAt: writtenAt.toISOString() }, writtenAt), null, 2));
 }
 
 function statePath(robot: DingTalkRobotConfig) {
@@ -504,16 +513,51 @@ function isDailyFocusItem(item: MonitorItem) {
   return item.riskLevel !== "low" || Boolean(dingTalkPushReason(item));
 }
 
-function pruneState(state: DingTalkState): DingTalkState {
-  const cutoff = Date.now() - stateRetentionMs;
-  const seen = Object.fromEntries(Object.entries(state.seen).filter(([, value]) => seenPublishedAt(value) >= cutoff));
+interface DailyFocusSelection {
+  items: MonitorItem[];
+  suppressedCount: number;
+}
+
+function selectDailyFocusItems(items: MonitorItem[], state: DingTalkState, now: Date): DailyFocusSelection {
+  const candidates = items.filter(isDailyFocusItem).sort(compareDingTalkItems);
+  const unseen = candidates.filter((item) => !hasRecentlySeenDailyFocusItem(state, item, now));
+  return {
+    items: unseen.slice(0, 8),
+    suppressedCount: candidates.length - unseen.length
+  };
+}
+
+function hasRecentlySeenDailyFocusItem(state: DingTalkState, item: MonitorItem, now: Date) {
+  const recordedAt = seenRecordedAt(state.seen[dailyFocusSeenKey(item)]);
+  return Boolean(recordedAt && now.getTime() - recordedAt.getTime() < dailyFocusDeduplicationMs);
+}
+
+function markSeenDailyFocusItems(seen: DingTalkState["seen"], items: MonitorItem[], sentAt: Date) {
+  const next = { ...seen };
+  for (const item of items) {
+    next[dailyFocusSeenKey(item)] = [sentAt.toISOString(), item.publishedAt, item.riskLevel].join("|");
+  }
+  return next;
+}
+
+function dailyFocusSeenKey(item: MonitorItem) {
+  return `${item.gameId}:${item.id}`;
+}
+
+function pruneState(state: DingTalkState, now = new Date()): DingTalkState {
+  const cutoff = now.getTime() - stateRetentionMs;
+  const seen = Object.fromEntries(Object.entries(state.seen).filter(([, value]) => {
+    const recordedAt = seenRecordedAt(value);
+    return recordedAt ? recordedAt.getTime() >= cutoff : false;
+  }));
   return { ...state, seen };
 }
 
-function seenPublishedAt(value: string) {
+function seenRecordedAt(value: string | undefined) {
+  if (!value) return undefined;
   const timestamp = value.split("|", 1)[0];
   const time = new Date(timestamp).getTime();
-  return Number.isFinite(time) ? time : 0;
+  return Number.isFinite(time) ? new Date(time) : undefined;
 }
 
 function countBy(items: MonitorItem[], getKey: (item: MonitorItem) => string) {

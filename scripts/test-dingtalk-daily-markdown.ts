@@ -13,7 +13,9 @@ await fs.writeFile(process.env.DINGTALK_STATE_PATH, JSON.stringify({
   initialized: true,
   lastDailyReportDate: "2026-06-10",
   lastDailyReportSentAt: "2026-06-10T01:30:00.000Z",
-  seen: {}
+  seen: {
+    "ss1:tieba:previously-pushed": "2026-06-10T02:00:00.000Z|2026-06-10T03:00:00.000Z|high"
+  }
 }));
 
 const payloads: Array<{ markdown?: { title?: string; text?: string } }> = [];
@@ -29,6 +31,7 @@ try {
   const { sendDingTalkDailyReport } = await import("../server/dingtalk");
   const response = makeResponse([
     makeItem("tieba:before-window", "high", "2026-06-10T01:29:00.000Z"),
+    makeItem("tieba:previously-pushed", "high", "2026-06-10T03:00:00.000Z"),
     makeItem("tieba:risk", "high", "2026-06-10T02:30:00.000Z"),
     makeItem("tieba:medium", "medium", "2026-06-11T01:59:00.000Z"),
     makeItem("tieba:at-send-time", "high", "2026-06-11T02:00:00.000Z"),
@@ -38,7 +41,8 @@ try {
 
   assert.equal(result.ok, true);
   assert.equal(result.mode, "daily");
-  assert.equal(result.sent, 2);
+  assert.equal(result.sent, 3);
+  assert.equal(result.existing, 1);
   assert.equal(payloads.length, 3);
 
   for (const payload of payloads) {
@@ -48,6 +52,8 @@ try {
     assert.equal(text.includes("统计范围"), true);
     assert.equal(text.includes("tieba:risk"), true);
     assert.equal(text.includes("tieba:medium"), true);
+    assert.equal(text.includes("tieba:previously-pushed"), false);
+    assert.equal(text.includes("已剔除近 72 小时内推送过的 1 条重点舆情"), true);
     assert.equal(text.includes("tieba:before-window"), false);
     assert.equal(text.includes("tieba:at-send-time"), false);
     assert.equal(text.includes("tieba:ss2-risk"), false);
@@ -59,9 +65,13 @@ try {
   const state = JSON.parse(await fs.readFile(process.env.DINGTALK_STATE_PATH, "utf-8")) as {
     lastDailyReportDate?: string;
     lastDailyReportSentAt?: string;
+    seen?: Record<string, string>;
   };
   assert.equal(state.lastDailyReportDate, "2026-06-11");
   assert.equal(state.lastDailyReportSentAt, "2026-06-11T02:00:00.000Z");
+  assert.equal(Boolean(state.seen?.["ss1:tieba:previously-pushed"]), true);
+  assert.equal(state.seen?.["ss1:tieba:risk"]?.startsWith("2026-06-11T02:00:00.000Z|"), true);
+  assert.equal(state.seen?.["ss1:tieba:medium"]?.startsWith("2026-06-11T02:00:00.000Z|"), true);
 } finally {
   await fs.rm(tempDir, { recursive: true, force: true });
 }
