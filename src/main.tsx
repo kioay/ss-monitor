@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { dashboardGameOptions, normalizeDashboardGameSelection } from "./dashboardGames";
 import { currentAnalysisVersion } from "./shared";
+import { sourceHealthWarningText } from "./sourceHealth";
 import { feedSourceOptionsForGames, primarySourceOptionsForGames, sourceMetricCount, sourceMetricLabel, sourceTypeText } from "./sourceDisplay";
 import type {
   BettaFishActionResponse,
@@ -970,6 +971,10 @@ function App() {
     () => (selectedAlert ? (data?.items || []).find((item) => item.id === selectedAlert.id) : undefined),
     [data?.items, selectedAlert]
   );
+  const sourceWarningText = React.useMemo(
+    () => (monitorJudgementPending ? "" : sourceHealthWarningText(data?.health || [])),
+    [data?.health, monitorJudgementPending]
+  );
 
   React.useEffect(() => {
     setVisibleItemLimit(feedInitialLimit);
@@ -1353,6 +1358,15 @@ function App() {
       ) : null}
 
       {error || searchError ? <div className="error-strip" role="alert" aria-live="polite">{error || searchError}</div> : null}
+      {sourceWarningText ? (
+        <div className="source-health-strip" role="alert" aria-live="polite">
+          <AlertTriangle size={17} aria-hidden="true" />
+          <div>
+            <strong>来源采集需检查</strong>
+            <span>{sourceWarningText}</span>
+          </div>
+        </div>
+      ) : null}
 
       <section className="metrics-grid">
         <Metric label="总声量" value={monitorJudgementPending ? "回测中" : data?.stats.total ?? 0} tone="green" hint={monitorJudgementPending ? "回测完成后显示" : "跳到全部条目"} onClick={monitorJudgementPending ? undefined : () => jumpToFeed()} />

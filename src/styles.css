@@ -1681,6 +1681,38 @@ h2 {
   border-radius: 0 8px 8px 0;
 }
 
+.source-health-strip {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-left: 4px solid var(--gold);
+  border-radius: 0 8px 8px 0;
+  background: rgba(246, 235, 207, 0.72);
+  color: #765313;
+}
+
+.source-health-strip svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.source-health-strip div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.source-health-strip strong {
+  font-size: 13px;
+}
+
+.source-health-strip span {
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 .lab-page {
   padding-top: 10px;
 }
