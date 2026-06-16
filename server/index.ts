@@ -10,7 +10,7 @@ import { sendDingTalkDailyReport, sendDingTalkTest } from "./dingtalk";
 import { getBettaFishLabResponse, runBettaFishLabAction } from "./bettafishLab";
 import { getDouyinCrawlStatus, startDouyinRemoteLogin } from "./douyinStatus";
 import { getMonitorResponse } from "./monitor";
-import { getRiskBacktestStatus } from "./riskBacktest";
+import { getRiskBacktestStatus, warmRiskBacktest } from "./riskBacktest";
 import { getSearchResponse } from "./search";
 import type { GameId } from "../src/shared";
 
@@ -189,6 +189,7 @@ app.get(/^(?!\/api).*/, (_request, response) => {
 
 app.listen(runtimeConfig.port, runtimeConfig.host, () => {
   console.log(`Sentiment monitor listening on http://${runtimeConfig.host}:${runtimeConfig.port}`);
+  warmRiskBacktest();
   startBackgroundMonitor();
   startDailyReportScheduler();
 });

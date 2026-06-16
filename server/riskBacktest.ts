@@ -22,6 +22,13 @@ export async function ensureRiskBacktest() {
   return inFlight;
 }
 
+export function warmRiskBacktest() {
+  if (currentStatus.status === "passed") return;
+  void ensureRiskBacktest().catch((error) => {
+    console.error("Risk backtest warmup failed", error instanceof Error ? error.message : error);
+  });
+}
+
 function runRiskBacktest() {
   const startedAt = new Date();
   currentStatus = {

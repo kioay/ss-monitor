@@ -571,6 +571,7 @@ function App() {
   const [searchLoading, setSearchLoading] = React.useState(false);
   const [searchError, setSearchError] = React.useState("");
   const [data, setData] = React.useState<MonitorResponse>();
+  const [dataCacheKey, setDataCacheKey] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
   const [douyinStatus, setDouyinStatus] = React.useState<DouyinCrawlStatus>();
@@ -620,6 +621,17 @@ function App() {
   );
   const activeTiebaBarsOverride = React.useMemo(() => scopeTextMapCacheKey(activeTiebaBarsByGame), [activeTiebaBarsByGame]);
   const activeTiebaKeywordsOverride = React.useMemo(() => scopeTextMapCacheKey(activeTiebaKeywordsByGame), [activeTiebaKeywordsByGame]);
+  const activeMonitorCacheKey = React.useMemo(
+    () => monitorCacheKey(
+      selectedGames,
+      windowHours,
+      normalizeSupplementalKeywordText(extraKeywords),
+      activeTiebaBarsOverride,
+      activeTiebaKeywordsOverride,
+      tiebaScopeOverrideActive
+    ),
+    [activeTiebaBarsOverride, activeTiebaKeywordsOverride, extraKeywords, selectedGames, tiebaScopeOverrideActive, windowHours]
+  );
 
   const loadDouyinStatus = React.useCallback(async (force = false) => {
     try {
@@ -665,11 +677,12 @@ function App() {
       const requestId = latestRequestRef.current + 1;
       latestRequestRef.current = requestId;
       const normalizedExtraKeywords = normalizeSupplementalKeywordText(extraKeywords);
-      const normalizedTiebaBars = activeTiebaBarsOverride;
-      const normalizedTiebaKeywords = activeTiebaKeywordsOverride;
-      const cacheKey = monitorCacheKey(selectedGames, windowHours, normalizedExtraKeywords, normalizedTiebaBars, normalizedTiebaKeywords, tiebaScopeOverrideActive);
+      const cacheKey = activeMonitorCacheKey;
       const cachedPayload = force ? undefined : readCachedMonitor(cacheKey);
-      if (cachedPayload) setData(cachedPayload);
+      if (cachedPayload) {
+        setData(cachedPayload);
+        setDataCacheKey(cacheKey);
+      }
       setLoading(true);
       setError("");
       try {
@@ -690,22 +703,25 @@ function App() {
         const payload = (await response.json()) as MonitorResponse;
         if (latestRequestRef.current !== requestId) return;
         setData(payload);
+        setDataCacheKey(cacheKey);
         writeCachedMonitor(cacheKey, payload);
         void loadDouyinStatus(force);
       } catch (reason) {
         if (latestRequestRef.current !== requestId) return;
         const message = reason instanceof Error ? reason.message : String(reason);
         setError(message);
-        if (message.includes("风险回测失败")) setData(undefined);
+        if (message.includes("风险回测失败")) {
+          setData(undefined);
+          setDataCacheKey("");
+        }
       } finally {
         if (latestRequestRef.current === requestId) setLoading(false);
       }
     },
     [
       activeTiebaBarsByGame,
-      activeTiebaBarsOverride,
       activeTiebaKeywordsByGame,
-      activeTiebaKeywordsOverride,
+      activeMonitorCacheKey,
       extraKeywords,
       loadDouyinStatus,
       selectedGames,
@@ -937,7 +953,8 @@ function App() {
     });
   }, [data?.items, query, risk, sentiment, source, topic]);
   const searchActive = query.trim().length > 0;
-  const monitorJudgementPending = loading && !searchActive;
+  const hasCurrentMonitorData = data?.riskBacktest?.status === "passed" && dataCacheKey === activeMonitorCacheKey;
+  const monitorJudgementPending = loading && !searchActive && !hasCurrentMonitorData;
   const visibleRiskBacktest: MonitorResponse["riskBacktest"] | undefined = monitorJudgementPending
     ? { status: "running", message: "回测中" }
     : data?.riskBacktest;
