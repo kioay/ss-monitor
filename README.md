@@ -304,9 +304,9 @@ npm run test:semantic-guard
 
 ### 风险判定回测
 
-`npm run test:risk-backtest` 使用 `scripts/fixtures/risk-backtest-cases.json` 中的黄金样本回测风险判定。样本同时覆盖误伤保护、真实风险召回和 BettaFish 融合场景；脚本会固定读取 `scripts/fixtures/risk-backtest-current-version-focus.json`，不依赖生产 Confluence 或本地 `data/` 缓存。新增或修正错判后，应把最小复现样本加入回测集，再调整规则。
+`npm run test:risk-backtest` 使用 `scripts/fixtures/risk-backtest-cases.json` 中的黄金回测用例验证风险判定。用例同时覆盖误伤保护、真实风险召回和 BettaFish 融合场景；脚本会固定读取 `scripts/fixtures/risk-backtest-current-version-focus.json`，不依赖生产 Confluence 或本地 `data/` 缓存。新增或修正错判后，应把最小复现样本加入回测集，再调整规则。
 
-当前回测集包含 12 条样本，其中 6 条是误伤保护。`v0.1.7` 新增了“终于到达这里了 / 不准！我们一起继续刷”这类玩家玩笑式回复的回测保护，避免把“不准继续刷”误判成负面或中风险。
+当前回测集包含 12 条固定用例，其中 6 条是误伤保护；页面风险回测徽标里的用例数来自这套固定回测集，不代表本次监控抓取到的样本数。`v0.1.7` 新增了“终于到达这里了 / 不准！我们一起继续刷”这类玩家玩笑式回复的回测保护，避免把“不准继续刷”误判成负面或中风险。
 
 生产服务的 `/api/monitor` 会先执行同一套风险回测，回测通过后才返回舆情判定。网页等待期间会显示“回测中”；如果回测失败，接口会返回错误，前端会清空旧判定，避免继续展示可能错误的缓存结果。
 

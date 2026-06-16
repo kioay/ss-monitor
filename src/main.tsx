@@ -2614,14 +2614,14 @@ function riskBacktestTitle(status?: MonitorResponse["riskBacktest"]) {
   if (!status) return "";
   return [
     status.message,
-    status.caseCount ? `${status.caseCount} 个样本` : "",
+    status.caseCount ? `${status.caseCount} 个固定回测用例（不是本次抓取样本数）` : "",
     status.durationMs ? `${status.durationMs} ms` : "",
     status.details || ""
   ].filter(Boolean).join(" · ");
 }
 
 function riskBacktestCaseText(status?: MonitorResponse["riskBacktest"]) {
-  return status?.caseCount ? `${status.caseCount} 样本` : "";
+  return status?.caseCount ? `${status.caseCount} 用例` : "";
 }
 
 function RiskBacktestBadge({ status }: { status?: MonitorResponse["riskBacktest"] }) {
