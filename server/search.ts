@@ -34,7 +34,7 @@ const searchQuerySchema = z.object({
     ),
   windowHours: z.coerce.number().int().min(1).max(24 * 30).default(24 * 30),
   limit: z.coerce.number().int().min(1).max(300).default(120),
-  source: z.enum(["all", "bilibili", "tieba", "douyin", "bettafish"]).default("all"),
+  source: z.enum(["all", "bilibili", "tieba", "douyin", "forum4399", "bettafish"]).default("all"),
   risk: z.enum(["all", "low", "medium", "high"]).default("all"),
   sentiment: z.enum(["all", "positive", "neutral", "negative", "mixed"]).default("all"),
   topic: z.string().max(100).default("all"),

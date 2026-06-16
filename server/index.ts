@@ -26,7 +26,7 @@ app.get("/api/config", (_request, response) => {
     games,
     defaultWindowHours: runtimeConfig.defaultWindowHours,
     updatePolicy: getUpdatePolicy(),
-    sources: ["bilibili", "tieba", "douyin", "bettafish"]
+    sources: ["bilibili", "tieba", "douyin", "forum4399", "bettafish"]
   });
 });
 
@@ -38,6 +38,8 @@ app.get("/api/health", (_request, response) => {
     riskBacktest: getRiskBacktestStatus(),
     hasBilibiliCookie: Boolean(runtimeConfig.bilibiliCookie),
     hasBaiduCookie: Boolean(runtimeConfig.baiduCookie),
+    hasForum4399Cookie: Boolean(runtimeConfig.forum4399Cookie),
+    hasForum4399CredentialFile: Boolean(runtimeConfig.forum4399CredentialFile),
     hasBettaFishBaseUrl: Boolean(runtimeConfig.bettaFishBaseUrl)
   });
 });
@@ -255,6 +257,8 @@ function isAllowedImageHost(hostname: string) {
     hostname.endsWith(".baidu.com") ||
     hostname.endsWith(".bdstatic.com") ||
     hostname.endsWith(".douyinpic.com") ||
+    hostname.endsWith(".img4399.com") ||
+    hostname === "img4399.com" ||
     hostname.endsWith(".sogoucdn.com")
   );
 }
@@ -262,6 +266,7 @@ function isAllowedImageHost(hostname: string) {
 function imageReferer(hostname: string) {
   if (hostname.includes("hdslb.com")) return "https://www.bilibili.com/";
   if (hostname.includes("douyinpic.com")) return "https://www.douyin.com/";
+  if (hostname.includes("img4399.com")) return "https://my.4399.com/";
   if (hostname.includes("sogoucdn.com")) return "https://www.sogou.com/";
   return "https://tieba.baidu.com/";
 }

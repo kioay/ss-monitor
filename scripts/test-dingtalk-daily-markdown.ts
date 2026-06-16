@@ -108,6 +108,7 @@ function makeResponse(items: MonitorItem[]): MonitorResponse {
       bilibili: 0,
       tieba: items.length,
       douyin: 0,
+      forum4399: 0,
       bettafish: 0
     },
     trends: [],

@@ -88,7 +88,7 @@ const trendLineMaxY = 30;
 const trendLineClipHeight = 32;
 const defaultWindowHours = 72;
 const windowHourOptions = [24, 72, 168, 336, 720];
-const sourceFilterValues = ["all", "bilibili", "tieba", "douyin", "bettafish"] as const;
+const sourceFilterValues = ["all", "bilibili", "tieba", "douyin", "forum4399", "bettafish"] as const;
 const riskFilterValues = ["all", "high", "medium", "low"] as const;
 const sentimentFilterValues = ["all", "negative", "mixed", "neutral", "positive"] as const;
 
@@ -1365,7 +1365,7 @@ function App() {
           onClick={monitorJudgementPending ? undefined : () => jumpToFeed({ sentiment: "negative" })}
         />
         <Metric
-          label="B站 / 贴吧 / 抖音"
+          label="B站 / 贴吧 / 抖音 / 4399"
           tone="blue"
           hint={monitorJudgementPending ? "回测完成后显示" : "分别跳到来源条目"}
           value={
@@ -1375,6 +1375,8 @@ function App() {
               <button type="button" aria-label="筛选贴吧条目" onClick={() => jumpToFeed({ source: "tieba" })}>{data?.stats.tieba ?? 0}</button>
               <i>/</i>
               <button type="button" aria-label="筛选抖音条目" onClick={() => jumpToFeed({ source: "douyin" })}>{data?.stats.douyin ?? 0}</button>
+              <i>/</i>
+              <button type="button" aria-label="筛选4399论坛条目" onClick={() => jumpToFeed({ source: "forum4399" })}>{data?.stats.forum4399 ?? 0}</button>
             </span>
           }
         />
@@ -1481,6 +1483,7 @@ function App() {
             <option value="bilibili">B站</option>
             <option value="tieba">贴吧</option>
             <option value="douyin">抖音</option>
+            <option value="forum4399">4399论坛</option>
             <option value="bettafish">BettaFish</option>
           </select>
           <select name="risk-filter" aria-label="筛选风险" value={risk} onChange={(event) => setRisk(event.target.value as RiskFilter)}>
@@ -3195,7 +3198,7 @@ function Thumbnail({ item }: { item: MonitorItem }) {
   if (!imageUrl || failed) {
     return (
       <div className="fallback-thumb">
-        {item.source === "tieba" ? <Waves aria-hidden="true" /> : <Video aria-hidden="true" />}
+        {item.source === "tieba" || item.source === "forum4399" ? <Waves aria-hidden="true" /> : <Video aria-hidden="true" />}
       </div>
     );
   }
@@ -3580,6 +3583,7 @@ function sourceTypeText(source: SourceType) {
   if (source === "bilibili") return "B站";
   if (source === "tieba") return "贴吧";
   if (source === "douyin") return "抖音";
+  if (source === "forum4399") return "4399论坛";
   return "BettaFish";
 }
 
@@ -3596,6 +3600,9 @@ function metricLine(item: MonitorItem) {
   }
   if (item.source === "bettafish") {
     return "授权导入";
+  }
+  if (item.source === "forum4399") {
+    return `${formatNumber(item.metrics.views)} 浏览 · ${formatNumber(item.metrics.comments)} 回复`;
   }
   return `${formatNumber(item.metrics.replies)} 回复`;
 }

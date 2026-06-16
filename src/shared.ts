@@ -1,5 +1,5 @@
 export type GameId = string;
-export type SourceType = "bilibili" | "tieba" | "douyin" | "bettafish";
+export type SourceType = "bilibili" | "tieba" | "douyin" | "forum4399" | "bettafish";
 export type Sentiment = "positive" | "neutral" | "negative" | "mixed";
 export type RiskLevel = "low" | "medium" | "high";
 export type RiskSignalSource = "thread" | "new_reply" | "stale_thread";
@@ -15,6 +15,8 @@ export interface GameConfig {
   tiebaBars: string[];
   tiebaKeywords: string[];
   tiebaBarKeywords?: Record<string, string[]>;
+  forum4399Tags?: string[];
+  forum4399Keywords?: string[];
 }
 
 export interface ContentPart {
@@ -82,6 +84,7 @@ export interface MonitorStats {
   bilibili: number;
   tieba: number;
   douyin: number;
+  forum4399: number;
   bettafish: number;
   freshestAt?: string;
 }

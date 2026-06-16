@@ -12,7 +12,9 @@ const defaultGames: GameConfig[] = [
     bilibiliKeywords: ["生死狙击", "生死狙击1", "4399生死狙击", "生死狙击页游"],
     douyinKeywords: ["生死狙击", "生死狙击1", "4399生死狙击", "生死狙击页游"],
     tiebaBars: ["生死狙击"],
-    tiebaKeywords: []
+    tiebaKeywords: [],
+    forum4399Tags: ["81899"],
+    forum4399Keywords: []
   },
   {
     id: "ss2",
@@ -21,7 +23,9 @@ const defaultGames: GameConfig[] = [
     bilibiliKeywords: ["生死狙击2", "生死狙击2热油"],
     douyinKeywords: ["生死狙击2", "生死狙击2热油"],
     tiebaBars: ["生死狙击2"],
-    tiebaKeywords: []
+    tiebaKeywords: [],
+    forum4399Tags: [],
+    forum4399Keywords: []
   }
 ];
 
@@ -126,7 +130,15 @@ export const runtimeConfig = {
   minTiebaListPages: Math.max(1, Number(process.env.MIN_TIEBA_LIST_PAGES || 4)),
   tiebaThreadsPerPage: Math.max(1, Number(process.env.TIEBA_THREADS_PER_PAGE || 30)),
   maxTiebaThreadsPerBar: Math.max(1, Number(process.env.MAX_TIEBA_THREADS_PER_BAR || 150)),
-  maxTiebaThreadsToDeepParse: 8
+  maxTiebaThreadsToDeepParse: 8,
+  forum4399Cookie: process.env.FORUM_4399_COOKIE || "",
+  forum4399CredentialFile:
+    process.env.FORUM_4399_CREDENTIAL_FILE ||
+    process.env.FORUM4399_CREDENTIAL_FILE ||
+    defaultForum4399CredentialFile(),
+  maxForum4399ListPages: Math.max(1, Number(process.env.MAX_4399_FORUM_LIST_PAGES || 3)),
+  maxForum4399ThreadsPerGame: Math.max(1, Number(process.env.MAX_4399_FORUM_THREADS_PER_GAME || 120)),
+  maxForum4399ThreadsToDeepParse: Math.max(0, Number(process.env.MAX_4399_FORUM_THREADS_TO_DEEP_PARSE || 10))
 };
 
 export function getUpdatePolicy(now = new Date(), baseTime = now) {
@@ -175,6 +187,11 @@ function parseBoolean(value: string) {
   return /^(1|true|yes|on)$/i.test(value.trim());
 }
 
+function defaultForum4399CredentialFile() {
+  const home = process.env.USERPROFILE || process.env.HOME || "";
+  return home ? path.join(home, "Desktop", "4399论坛.txt") : "";
+}
+
 function loadConfiguredGames() {
   try {
     const fromJson = parseGamesJson(process.env.MONITOR_GAMES_JSON || "");
@@ -216,6 +233,8 @@ function normalizeGameConfig(value: unknown): GameConfig | undefined {
   const douyinKeywords = stringList(value.douyinKeywords || value.douyin_keywords, bilibiliKeywords);
   const tiebaBars = stringList(value.tiebaBars || value.tieba_bars, [name]);
   const tiebaKeywords = stringList(value.tiebaKeywords || value.tieba_keywords, []);
+  const forum4399Tags = stringList(value.forum4399Tags || value.forum4399_tags || value.forum4399TagIds || value.forum4399_tag_ids, []);
+  const forum4399Keywords = stringList(value.forum4399Keywords || value.forum4399_keywords, []);
 
   return {
     id,
@@ -224,7 +243,9 @@ function normalizeGameConfig(value: unknown): GameConfig | undefined {
     bilibiliKeywords,
     douyinKeywords,
     tiebaBars,
-    tiebaKeywords
+    tiebaKeywords,
+    forum4399Tags,
+    forum4399Keywords
   };
 }
 

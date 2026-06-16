@@ -261,6 +261,8 @@ sudo nano /opt/ss-monitor/data/monitor-games.json
 - `douyinKeywords`：抖音授权数据、MindSpider 数据和公开搜索的匹配关键词。
 - `tiebaBars`：贴吧来源吧名，不带“吧”字；可填多个相关吧名，服务会逐个采集。
 - `tiebaKeywords`：项目配置层面的贴吧内容过滤关键词；配置后只保留来源吧里命中这些词的帖子。不配置时保留来源吧最新主题。默认 SS1 / SS2 为空，页面新增的补充来源会单独使用“默认全平台关键词 + 补充来源匹配词”过滤。
+- `forum4399Tags`：4399 游戏吧论坛 tag id。内置 SS1 使用 `81899`，自定义项目不配置时跳过该来源。
+- `forum4399Keywords`：4399 论坛内容过滤关键词；不配置时读取该 tag 的最新主题。
 
 改完重启：
 
@@ -286,6 +288,7 @@ sudo systemctl restart ss-monitor
 ```powershell
 npm ci
 npm run lint
+npm run test:4399-forum
 npm run test:search
 npm run test:topic-bars
 npm run test:monitor-history
@@ -328,7 +331,7 @@ npm run test:semantic-guard
 
 ## 数据源说明
 
-### B 站和贴吧
+### B 站、贴吧和 4399 论坛
 
 默认尝试公开页面和接口。若触发安全验证，可在服务器本地 `.env` 中配置对应站点 cookie 后重启服务。cookie 是敏感信息，不要写进文档、代码、Release note 或聊天记录。
 
@@ -337,6 +340,8 @@ npm run test:semantic-guard
 默认贴吧来源会保持广泛读取，再交给系统做舆情分析；新增补充来源时才会启用来源内过滤。例如看板默认全平台关键词是“失控进化”，再给这个看板补充 `rust` 吧和来源匹配词“手游、rust手游”，服务会在 `rust` 吧里保留命中“失控进化 / 手游 / rust手游”的主题。这样可以去相邻贴吧找本项目讨论，但不会把相邻贴吧自己的泛舆情全部带进来。
 
 页面里的“补充全平台关注词”会影响 B 站、抖音等全平台搜索，不会自动新增贴吧来源；贴吧来源需要在“贴吧采集范围”里单独添加。分享链接和接口也支持按看板传参，例如 `tiebaBars.ss1=逆战`、`tiebaKeywords.ss1=生死狙击`。
+
+4399 论坛采集用于 SS1 生死狙击官方论坛。默认读取本机桌面 `4399论坛.txt`，也可通过 `FORUM_4399_CREDENTIAL_FILE` 指向服务器本地忽略文件；文件中放账号和密码两行即可。若账号登录触发验证码，先手动登录 4399 后把已登录 cookie 放到服务器本地 `FORUM_4399_COOKIE`，不要提交到 Git。生产环境仍以 `/opt/ss-monitor/.env` 为基线，并在重启前同步到 `/opt/ss-monitor/current/.env`。
 
 ### Confluence 当前版本重点
 

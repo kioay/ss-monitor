@@ -4,6 +4,7 @@ import path from "node:path";
 import { collectBilibili } from "./collectors/bilibili";
 import { collectBettaFish } from "./collectors/bettafish";
 import { collectDouyin } from "./collectors/douyin";
+import { collectForum4399 } from "./collectors/forum4399";
 import { collectTieba } from "./collectors/tieba";
 import { gameById, games, getUpdatePolicy, runtimeConfig } from "./config";
 import { analysisRulesVersion } from "./analyze";
@@ -492,6 +493,7 @@ async function collectAll(selectedGames: GameConfig[], cutoff: Date) {
     { source: "bilibili" as const, game, run: () => collectBilibili(game, cutoff) },
     { source: "tieba" as const, game, run: () => collectTieba(game, cutoff) },
     { source: "douyin" as const, game, run: () => collectDouyin(game, cutoff) },
+    ...(game.forum4399Tags?.length ? [{ source: "forum4399" as const, game, run: () => collectForum4399(game, cutoff) }] : []),
     { source: "bettafish" as const, game, run: () => collectBettaFish(game, cutoff) }
   ]);
   const results = await Promise.allSettled(tasks.map((task) => task.run()));
@@ -524,6 +526,7 @@ async function collectAll(selectedGames: GameConfig[], cutoff: Date) {
 function sourceLabel(source: SourceType) {
   if (source === "bilibili") return "B站视频";
   if (source === "douyin") return "抖音视频";
+  if (source === "forum4399") return "4399论坛";
   if (source === "bettafish") return "BettaFish导入";
   return "百度贴吧";
 }
@@ -548,6 +551,7 @@ function makeStats(items: MonitorItem[]): MonitorStats {
     bilibili: items.filter((item) => item.source === "bilibili").length,
     tieba: items.filter((item) => item.source === "tieba").length,
     douyin: items.filter((item) => item.source === "douyin").length,
+    forum4399: items.filter((item) => item.source === "forum4399").length,
     bettafish: items.filter((item) => item.source === "bettafish").length,
     freshestAt: items[0]?.publishedAt
   };
@@ -594,7 +598,7 @@ function keywordStatus(matchedItems: number): KeywordEffectiveness["status"] {
 }
 
 function sourceSort(left: SourceType, right: SourceType) {
-  const order: SourceType[] = ["bilibili", "tieba", "douyin", "bettafish"];
+  const order: SourceType[] = ["bilibili", "tieba", "douyin", "forum4399", "bettafish"];
   return order.indexOf(left) - order.indexOf(right);
 }
 
