@@ -24,7 +24,9 @@ import {
   Waves,
   X
 } from "lucide-react";
+import { dashboardGameOptions, normalizeDashboardGameSelection } from "./dashboardGames";
 import { currentAnalysisVersion } from "./shared";
+import { feedSourceOptionsForGames, primarySourceOptionsForGames, sourceMetricCount, sourceMetricLabel, sourceTypeText } from "./sourceDisplay";
 import type {
   BettaFishActionResponse,
   BettaFishCapability,
@@ -592,19 +594,13 @@ function App() {
       .then((payload) => {
         setConfig(payload);
         if (!initialUiState.hasWindowHours) setWindowHours(payload.defaultWindowHours || defaultWindowHours);
-        const configuredIds = (payload.games || []).map((game: GameConfig) => game.id);
         setSelectedGames((current) => {
-          const retained = current.filter((id) => configuredIds.includes(id));
-          return retained.length ? retained : configuredIds;
+          return normalizeDashboardGameSelection(current, payload.games || []);
         });
       })
       .catch((reason) => setError(reason instanceof Error ? reason.message : String(reason)));
   }, []);
 
-  const configuredGameIds = React.useMemo(() => {
-    const configuredGames = config?.games || [];
-    return configuredGames.map((game) => game.id);
-  }, [config?.games]);
   const selectedGameConfigs = React.useMemo(() => {
     const configuredGames = config?.games || [];
     if (!configuredGames.length) return [];
@@ -619,6 +615,8 @@ function App() {
     () => activeTiebaScopeMapForGames(selectedGameConfigs, tiebaKeywordsByGameOverride, legacyTiebaKeywordsOverride, tiebaScopeOverrideActive),
     [legacyTiebaKeywordsOverride, selectedGameConfigs, tiebaKeywordsByGameOverride, tiebaScopeOverrideActive]
   );
+  const primarySourceOptions = React.useMemo(() => primarySourceOptionsForGames(selectedGameConfigs), [selectedGameConfigs]);
+  const feedSourceOptions = React.useMemo(() => feedSourceOptionsForGames(selectedGameConfigs), [selectedGameConfigs]);
   const activeTiebaBarsOverride = React.useMemo(() => scopeTextMapCacheKey(activeTiebaBarsByGame), [activeTiebaBarsByGame]);
   const activeTiebaKeywordsOverride = React.useMemo(() => scopeTextMapCacheKey(activeTiebaKeywordsByGame), [activeTiebaKeywordsByGame]);
   const activeMonitorCacheKey = React.useMemo(
@@ -739,8 +737,9 @@ function App() {
   }, [loadDouyinStatus]);
 
   React.useEffect(() => {
-    load(false);
-  }, [load]);
+    if (!config || !selectedGames.length) return;
+    void load(false);
+  }, [config, load, selectedGames.length]);
 
   React.useEffect(() => {
     const keyword = query.trim();
@@ -977,6 +976,11 @@ function App() {
   }, [activeTiebaBarsOverride, activeTiebaKeywordsOverride, data?.generatedAt, extraKeywords, query, risk, searchActive, searchData?.generatedAt, sentiment, source, topic]);
 
   React.useEffect(() => {
+    if (!selectedGameConfigs.length || source === "all" || feedSourceOptions.includes(source)) return;
+    setSource("all");
+  }, [feedSourceOptions, selectedGameConfigs.length, source]);
+
+  React.useEffect(() => {
     if (selectedAlertId && data?.alerts && !data.alerts.some((alert) => alert.id === selectedAlertId)) {
       setSelectedAlertId("");
     }
@@ -988,15 +992,8 @@ function App() {
     document.title = monitorTitle;
   }, [monitorTitle]);
   const gameOptions = React.useMemo(() => {
-    const configuredGames = config?.games || [];
-    if (configuredGames.length <= 1) {
-      return configuredGames.map((game) => ({ key: game.id, label: game.shortName, ids: [game.id] }));
-    }
-    return [
-      { key: "all", label: "全部", ids: configuredGameIds },
-      ...configuredGames.map((game) => ({ key: game.id, label: game.shortName, ids: [game.id] }))
-    ];
-  }, [config?.games, configuredGameIds]);
+    return dashboardGameOptions(config?.games || []);
+  }, [config?.games]);
   const activeExtraKeywords = React.useMemo(() => splitSupplementalKeywords(extraKeywords), [extraKeywords]);
   const defaultKeywordGroups = React.useMemo(() => defaultKeywordGroupsForGames(selectedGameConfigs), [selectedGameConfigs]);
   const keywordEffectivenessByKeyword = React.useMemo(
@@ -1365,18 +1362,19 @@ function App() {
           onClick={monitorJudgementPending ? undefined : () => jumpToFeed({ sentiment: "negative" })}
         />
         <Metric
-          label="B站 / 贴吧 / 抖音 / 4399"
+          label={sourceMetricLabel(primarySourceOptions)}
           tone="blue"
           hint={monitorJudgementPending ? "回测完成后显示" : "分别跳到来源条目"}
           value={
             monitorJudgementPending ? "回测中" : <span className="split-metric">
-              <button type="button" aria-label="筛选 B站条目" onClick={() => jumpToFeed({ source: "bilibili" })}>{data?.stats.bilibili ?? 0}</button>
-              <i>/</i>
-              <button type="button" aria-label="筛选贴吧条目" onClick={() => jumpToFeed({ source: "tieba" })}>{data?.stats.tieba ?? 0}</button>
-              <i>/</i>
-              <button type="button" aria-label="筛选抖音条目" onClick={() => jumpToFeed({ source: "douyin" })}>{data?.stats.douyin ?? 0}</button>
-              <i>/</i>
-              <button type="button" aria-label="筛选4399论坛条目" onClick={() => jumpToFeed({ source: "forum4399" })}>{data?.stats.forum4399 ?? 0}</button>
+              {primarySourceOptions.map((sourceName, index) => (
+                <React.Fragment key={sourceName}>
+                  {index > 0 ? <i>/</i> : null}
+                  <button type="button" aria-label={`筛选${sourceTypeText(sourceName)}条目`} onClick={() => jumpToFeed({ source: sourceName })}>
+                    {sourceMetricCount(data?.stats, sourceName)}
+                  </button>
+                </React.Fragment>
+              ))}
             </span>
           }
         />
@@ -1480,11 +1478,9 @@ function App() {
         <div className="filters">
           <select name="source-filter" aria-label="筛选来源" value={source} onChange={(event) => setSource(event.target.value as SourceFilter)}>
             <option value="all">全部来源</option>
-            <option value="bilibili">B站</option>
-            <option value="tieba">贴吧</option>
-            <option value="douyin">抖音</option>
-            <option value="forum4399">4399论坛</option>
-            <option value="bettafish">BettaFish</option>
+            {feedSourceOptions.map((sourceName) => (
+              <option value={sourceName} key={sourceName}>{sourceTypeText(sourceName)}</option>
+            ))}
           </select>
           <select name="risk-filter" aria-label="筛选风险" value={risk} onChange={(event) => setRisk(event.target.value as RiskFilter)}>
             <option value="all">全部风险</option>
@@ -3577,14 +3573,6 @@ function keywordRiskSummary(effectiveness: KeywordEffectiveness | undefined) {
   if (!effectiveness) return "等待刷新";
   if (!effectiveness.matchedItems) return "暂未产生条目";
   return `高 ${effectiveness.highRisk} · 中 ${effectiveness.mediumRisk}`;
-}
-
-function sourceTypeText(source: SourceType) {
-  if (source === "bilibili") return "B站";
-  if (source === "tieba") return "贴吧";
-  if (source === "douyin") return "抖音";
-  if (source === "forum4399") return "4399论坛";
-  return "BettaFish";
 }
 
 function metricLine(item: MonitorItem) {

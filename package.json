@@ -12,6 +12,7 @@
     "lint": "tsc --noEmit",
     "test:search": "tsx scripts/test-search.ts",
     "test:4399-forum": "tsx scripts/test-4399-forum.ts",
+    "test:dashboard-source-options": "tsx scripts/test-dashboard-source-options.ts",
     "test:topic-bars": "tsx scripts/test-topic-bars.ts",
     "test:monitor-history": "tsx scripts/test-monitor-history.ts",
     "test:custom-games-config": "tsx scripts/test-custom-games-config.ts",
