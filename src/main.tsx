@@ -1048,15 +1048,6 @@ function App() {
     setQuery("");
     scrollToSearchResults();
   }, []);
-  const jumpToAlerts = React.useCallback(() => {
-    setRisk("high");
-    setSource("all");
-    setSentiment("all");
-    setTopic("all");
-    setQuery("");
-    window.requestAnimationFrame(() => document.getElementById("risk-alerts")?.scrollIntoView({ behavior: "smooth", block: "start" }));
-  }, []);
-
   const openKeywordPanel = React.useCallback(() => {
     setScopeBarsInputByGame(Object.fromEntries(selectedGameConfigs.map((game) => {
       const editableBars = mergeScopeValues(game.tiebaBars || [], splitSupplementalKeywords(activeTiebaBarsByGame[game.id] || ""));
@@ -1348,7 +1339,7 @@ function App() {
 
       <section className="metrics-grid">
         <Metric label="总声量" value={monitorJudgementPending ? "回测中" : data?.stats.total ?? 0} tone="green" hint={monitorJudgementPending ? "回测完成后显示" : "跳到全部条目"} onClick={monitorJudgementPending ? undefined : () => jumpToFeed()} />
-        <Metric label="高风险" value={monitorJudgementPending ? "回测中" : data?.stats.highRisk ?? 0} tone="red" hint={monitorJudgementPending ? "回测完成后显示" : "跳到高风险预警"} onClick={monitorJudgementPending ? undefined : jumpToAlerts} />
+        <Metric label="高风险" value={monitorJudgementPending ? "回测中" : data?.stats.highRisk ?? 0} tone="red" hint={monitorJudgementPending ? "回测完成后显示" : "筛选高风险条目"} onClick={monitorJudgementPending ? undefined : () => jumpToFeed({ risk: "high" })} />
         <Metric
           label="负面占比"
           value={monitorJudgementPending ? "回测中" : `${Math.round((data?.stats.negativeRate ?? 0) * 100)}%`}
