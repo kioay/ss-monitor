@@ -341,7 +341,7 @@ npm run test:semantic-guard
 
 页面里的“补充全平台关注词”会影响 B 站、抖音等全平台搜索，不会自动新增贴吧来源；贴吧来源需要在“贴吧采集范围”里单独添加。分享链接和接口也支持按看板传参，例如 `tiebaBars.ss1=逆战`、`tiebaKeywords.ss1=生死狙击`。
 
-4399 论坛采集用于 SS1 生死狙击官方论坛。默认读取本机桌面 `4399论坛.txt`，也可通过 `FORUM_4399_CREDENTIAL_FILE` 指向服务器本地忽略文件；文件中放账号和密码两行即可。若账号登录触发验证码，先手动登录 4399 后把已登录 cookie 放到服务器本地 `FORUM_4399_COOKIE`，不要提交到 Git。生产环境仍以 `/opt/ss-monitor/.env` 为基线，并在重启前同步到 `/opt/ss-monitor/current/.env`。
+4399 论坛采集用于 SS1 生死狙击官方论坛。默认读取本机桌面 `4399论坛.txt`，也可通过 `FORUM_4399_CREDENTIAL_FILE` 指向服务器本地忽略文件；文件中放账号和密码两行即可。生产服务发现登录态失效时会自动清理当前 session，并用该凭据文件重新登录后重试采集。若账号登录触发验证码，先手动登录 4399 后把已登录 cookie 放到服务器本地 `FORUM_4399_COOKIE`，不要提交到 Git。生产环境仍以 `/opt/ss-monitor/.env` 为基线，并在重启前同步到 `/opt/ss-monitor/current/.env`。
 
 ### Confluence 当前版本重点
 

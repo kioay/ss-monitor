@@ -42,6 +42,7 @@ const userAgent =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36";
 
 let sessionCache: { jar: CookieJar; expiresAt: number; source: "cookie" | "credentials" } | undefined;
+let configuredCookieRejected = false;
 
 export async function collectForum4399(game: GameConfig, cutoff: Date) {
   const started = Date.now();
@@ -386,6 +387,15 @@ export function parseForum4399Date(raw: string, now = new Date()) {
 
 async function fetchForum4399Text(url: string, options: { referer?: string } = {}) {
   const session = await getForum4399Session();
+  return fetchForum4399TextWithSession(url, options, session, true);
+}
+
+async function fetchForum4399TextWithSession(
+  url: string,
+  options: { referer?: string },
+  session: { jar: CookieJar; expiresAt: number; source: "cookie" | "credentials" },
+  retryOnAuthFailure: boolean
+) {
   const response = await fetchWithJar(session.jar, url, {
     headers: {
       "User-Agent": userAgent,
@@ -395,23 +405,36 @@ async function fetchForum4399Text(url: string, options: { referer?: string } = {
     }
   });
   const text = await response.text();
-  if (!response.ok) throw new SourceError(`4399论坛 HTTP ${response.status}: ${text.slice(0, 80)}`, response.status === 401 || response.status === 403);
-  if (looksLikeLoginPage(text) || response.headers.get("location")?.includes("/account/login")) {
+
+  if (looksLikeAuthInvalidResponse(response, text)) {
+    if (retryOnAuthFailure) {
+      const refreshed = await refreshForum4399SessionAfterAuthFailure(session);
+      return fetchForum4399TextWithSession(url, options, refreshed, false);
+    }
     sessionCache = undefined;
-    throw new SourceError(
-      session.source === "cookie"
-        ? "4399论坛 Cookie 已失效，请更新 FORUM_4399_COOKIE"
-        : "4399论坛登录态失效，请检查 FORUM_4399_CREDENTIAL_FILE",
-      true
-    );
+    throw new SourceError("4399论坛登录态失效，自动重登后仍无法访问", true);
+  }
+
+  if (!response.ok) {
+    if ((response.status === 401 || response.status === 403) && retryOnAuthFailure) {
+      const refreshed = await refreshForum4399SessionAfterAuthFailure(session);
+      return fetchForum4399TextWithSession(url, options, refreshed, false);
+    }
+    throw new SourceError(`4399论坛 HTTP ${response.status}: ${text.slice(0, 80)}`, response.status === 401 || response.status === 403);
   }
   return text;
 }
 
-async function getForum4399Session() {
-  if (sessionCache && sessionCache.expiresAt > Date.now()) return sessionCache;
+async function refreshForum4399SessionAfterAuthFailure(session: { source: "cookie" | "credentials" }) {
+  sessionCache = undefined;
+  if (session.source === "cookie") configuredCookieRejected = true;
+  return getForum4399Session({ forceRefresh: true, preferCredentials: true });
+}
 
-  if (runtimeConfig.forum4399Cookie.trim()) {
+async function getForum4399Session(options: { forceRefresh?: boolean; preferCredentials?: boolean } = {}) {
+  if (!options.forceRefresh && sessionCache && sessionCache.expiresAt > Date.now()) return sessionCache;
+
+  if (!options.preferCredentials && !configuredCookieRejected && runtimeConfig.forum4399Cookie.trim()) {
     const jar = CookieJar.fromCookieHeader(runtimeConfig.forum4399Cookie);
     sessionCache = { jar, expiresAt: Date.now() + 30 * 60_000, source: "cookie" };
     return sessionCache;
@@ -594,6 +617,10 @@ class CookieJar {
 
 function splitSetCookieHeader(value: string) {
   return value.split(/,(?=\s*[^;,\s]+=)/g).map((item) => item.trim()).filter(Boolean);
+}
+
+function looksLikeAuthInvalidResponse(response: Response, text: string) {
+  return looksLikeLoginPage(text) || response.headers.get("location")?.includes("/account/login");
 }
 
 function looksLikeLoginPage(text: string) {
