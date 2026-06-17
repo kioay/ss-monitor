@@ -55,6 +55,50 @@ const refinedRental = fuseBettaFishSignal(rentalItem, {
 assert.equal(refinedRental.riskLevel, "medium");
 assert.ok(refinedRental.riskReasons.includes("账号租赁/交易导流"));
 
+const accountSharingComplaintTitle = "dy生死狙击表妹是zpf！";
+const accountSharingComplaintParts: ContentPart[] = [
+  { type: "title", text: accountSharingComplaintTitle, count: 1 },
+  {
+    type: "description",
+    text: "2025年10月12日，我和网名为生死狙击表妹的用户协商游戏账号共用，对方承诺永久共号，我累计转账3308元。收款后对方拒不履约，多次联系均无回应，随后将微信删除拉黑，既不提供服务也不退款，还刻意歪曲事实。期间多次说谎诱导转账。",
+    count: 1
+  },
+  { type: "post", text: "共号的一律骗子知道不", count: 1 },
+  { type: "post", text: "共号你也信?", count: 1 },
+  { type: "post", text: "666", count: 1 },
+  { type: "post", text: "正常，这种都是骗子", count: 1 },
+  { type: "post", text: "我咋碰不上这位好兄弟 我是真心共号的", count: 1 },
+  { type: "post", text: "就当作乱斗为了争第一，怒氪3308买王者祝福抢榜，结果还是没能争过第一，钱全打水漂了", count: 1 }
+];
+const accountSharingComplaintAnalysis = analyzeItem({
+  title: accountSharingComplaintTitle,
+  gameId: "ss1",
+  contentParts: accountSharingComplaintParts,
+  metrics: { replies: 10, comments: 10 }
+});
+const accountSharingComplaint = makeItem({
+  title: accountSharingComplaintTitle,
+  contentParts: accountSharingComplaintParts,
+  analysis: {
+    ...accountSharingComplaintAnalysis,
+    sentiment: "positive",
+    sentimentScore: 0.725,
+    riskLevel: "medium",
+    riskReasons: ["命中治理类风险词"]
+  }
+});
+const refinedComplaint = fuseBettaFishSignal(accountSharingComplaint, {
+  id: "semantic:account-sharing-complaint",
+  label: "negative",
+  score: -1,
+  confidence: 1,
+  positiveProbability: 0
+});
+
+assert.notEqual(accountSharingComplaintAnalysis.sentiment, "positive");
+assert.equal(refinedComplaint.sentiment, "negative");
+assert.equal(refinedComplaint.summary.includes("正面反馈较多"), false);
+
 function makeItem(input: {
   title: string;
   contentParts: ContentPart[];

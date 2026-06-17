@@ -221,7 +221,9 @@ function blendScore(baseScore: number, bettaFishScore: number, confidence: numbe
 function chooseSentiment(base: Sentiment, baseScore: number, signal: BettaFishSemanticSignal, adjustedScore: number): Sentiment {
   if (base === "mixed") return Math.abs(adjustedScore) < 0.35 ? base : adjustedScore > 0 ? "positive" : "negative";
   if (signal.confidence < runtimeConfig.bettaFishSemanticOverrideConfidence) return base;
-  if (Math.abs(baseScore) > 0.45 && Math.sign(baseScore) !== Math.sign(signal.score)) return base;
+  const decisiveNegativeOverride = signal.label === "negative" && signal.confidence >= 0.95 && signal.score <= -0.9;
+  if (Math.abs(baseScore) > 0.45 && Math.sign(baseScore) !== Math.sign(signal.score) && !decisiveNegativeOverride) return base;
+  if (decisiveNegativeOverride && adjustedScore < 0.2) return "negative";
   if (adjustedScore > 0.2) return "positive";
   if (adjustedScore < -0.2) return "negative";
   return base === "positive" || base === "negative" ? "mixed" : "neutral";
@@ -249,9 +251,19 @@ function hasAccountRentalLeadReason(item: MonitorItem) {
 
 function appendSemanticSummary(summary: string, signal: BettaFishSemanticSignal, sentiment: Sentiment) {
   const label = signal.label === "positive" ? "正向" : signal.label === "negative" ? "负向" : "中性";
+  const alignedSummary = alignSummarySentiment(summary, sentiment);
   if (summary.includes("BettaFish模型")) return summary;
-  if (sentiment === "neutral" || signal.confidence < runtimeConfig.bettaFishSemanticRiskConfidence) return summary;
-  return `${summary} BettaFish模型辅助判断为${label}，置信度${Math.round(signal.confidence * 100)}%。`;
+  if (sentiment === "neutral" || signal.confidence < runtimeConfig.bettaFishSemanticRiskConfidence) return alignedSummary;
+  return `${alignedSummary} BettaFish模型辅助判断为${label}，置信度${Math.round(signal.confidence * 100)}%。`;
+}
+
+function alignSummarySentiment(summary: string, sentiment: Sentiment) {
+  const sentimentText =
+    sentiment === "negative" ? "负面倾向明显" : sentiment === "positive" ? "正面反馈较多" : sentiment === "mixed" ? "正负反馈混合" : "情绪相对中性";
+  return summary.replace(
+    /，(?:正面反馈较多|负面倾向明显|正负反馈混合|情绪相对中性)(?:，评论\/回复(?:偏正面|偏负面|分歧不大))?。/,
+    `，${sentimentText}。`
+  );
 }
 
 function clampScore(value: number) {
