@@ -168,6 +168,27 @@
       "expectedSentiment": "negative"
     },
     {
+      "id": "ss1-runaway-trade-complaint",
+      "kind": "true_positive_catch",
+      "gameId": "ss1",
+      "title": "为了100块，直接跑路了",
+      "contentParts": [
+        { "type": "title", "text": "为了100块，直接跑路了", "count": 1 },
+        {
+          "type": "description",
+          "text": "刚回归，弄了点交易货币，把ASOUL的联动武器除刀雷外都买好了，走鱼的时候其他购买都没问题，就ak这把，卖家等我买了之后，他直接就退款拉黑跑路了，为了100块，没看懂它",
+          "count": 1
+        },
+        { "type": "post", "text": "咸鱼也有骗子？", "count": 1 },
+        { "type": "post", "text": "骗子哪都有", "count": 1 },
+        { "type": "post", "text": "为了100块跑路真离谱", "count": 1 }
+      ],
+      "metrics": { "replies": 12, "comments": 12 },
+      "minRiskLevel": "medium",
+      "expectedSentiment": "negative",
+      "requiredRiskReasons": ["命中治理类风险词"]
+    },
+    {
       "id": "ss1-cheat-promotion",
       "kind": "true_positive_catch",
       "gameId": "ss1",
