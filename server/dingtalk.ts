@@ -528,20 +528,66 @@ function selectDailyFocusItems(items: MonitorItem[], state: DingTalkState, now: 
 }
 
 function hasRecentlySeenDailyFocusItem(state: DingTalkState, item: MonitorItem, now: Date) {
-  const recordedAt = seenRecordedAt(state.seen[dailyFocusSeenKey(item)]);
-  return Boolean(recordedAt && now.getTime() - recordedAt.getTime() < dailyFocusDeduplicationMs);
+  return dailyFocusSeenKeys(item).some((key) => {
+    const recordedAt = seenRecordedAt(state.seen[key]);
+    return Boolean(recordedAt && now.getTime() - recordedAt.getTime() < dailyFocusDeduplicationMs);
+  });
 }
 
 function markSeenDailyFocusItems(seen: DingTalkState["seen"], items: MonitorItem[], sentAt: Date) {
   const next = { ...seen };
   for (const item of items) {
-    next[dailyFocusSeenKey(item)] = [sentAt.toISOString(), item.publishedAt, item.riskLevel].join("|");
+    const value = [sentAt.toISOString(), item.publishedAt, item.riskLevel].join("|");
+    for (const key of dailyFocusSeenKeys(item)) next[key] = value;
   }
   return next;
 }
 
 function dailyFocusSeenKey(item: MonitorItem) {
   return `${item.gameId}:${item.id}`;
+}
+
+function dailyFocusSeenKeys(item: MonitorItem) {
+  const keys = [dailyFocusSeenKey(item)];
+  const sourceItemId = item.sourceItemId.trim();
+  if (sourceItemId) keys.push(`${item.gameId}:${item.source}:${sourceItemId}`);
+  const urlKey = normalizeSeenUrl(item.url);
+  if (urlKey) keys.push(`${item.gameId}:${item.source}:url:${urlKey}`);
+  const titleKey = titleSeenFingerprint(item);
+  if (titleKey) keys.push(`${item.gameId}:${item.source}:title:${titleKey}`);
+  return Array.from(new Set(keys));
+}
+
+function normalizeSeenUrl(rawUrl: string) {
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return "";
+  try {
+    const parsed = new URL(trimmed.startsWith("//") ? `https:${trimmed}` : trimmed);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+      parsed.protocol = "https:";
+      parsed.username = "";
+      parsed.password = "";
+      parsed.hash = "";
+      parsed.search = "";
+      parsed.hostname = parsed.hostname.toLowerCase();
+      parsed.pathname = parsed.pathname.replace(/\/+$/, "") || "/";
+      return parsed.toString().replace(/\/$/, "");
+    }
+  } catch {
+    return trimmed.replace(/\s+/g, "");
+  }
+  return trimmed.replace(/\s+/g, "");
+}
+
+function titleSeenFingerprint(item: MonitorItem) {
+  const title = normalizeSeenText(item.title);
+  if (title.length < 8) return "";
+  const author = normalizeSeenText(item.author);
+  return crypto.createHash("md5").update(`${author}|${title}`).digest("hex").slice(0, 16);
+}
+
+function normalizeSeenText(value: string) {
+  return value.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
 function pruneState(state: DingTalkState, now = new Date()): DingTalkState {

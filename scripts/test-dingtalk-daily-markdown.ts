@@ -32,6 +32,11 @@ try {
   const response = makeResponse([
     makeItem("tieba:before-window", "high", "2026-06-10T01:29:00.000Z"),
     makeItem("tieba:previously-pushed", "high", "2026-06-10T03:00:00.000Z"),
+    makeItem("tieba:previously-pushed-refreshed", "high", "2026-06-10T03:05:00.000Z", "ss1", {
+      sourceItemId: "previously-pushed",
+      title: "tieba:previously-pushed",
+      url: "https://tieba.baidu.com/p/previously-pushed?see_lz=1"
+    }),
     makeItem("tieba:risk", "high", "2026-06-10T02:30:00.000Z"),
     makeItem("tieba:medium", "medium", "2026-06-11T01:59:00.000Z"),
     makeItem("tieba:at-send-time", "high", "2026-06-11T02:00:00.000Z"),
@@ -41,8 +46,8 @@ try {
 
   assert.equal(result.ok, true);
   assert.equal(result.mode, "daily");
-  assert.equal(result.sent, 3);
-  assert.equal(result.existing, 1);
+  assert.equal(result.sent, 4);
+  assert.equal(result.existing, 2);
   assert.equal(payloads.length, 3);
 
   for (const payload of payloads) {
@@ -53,7 +58,7 @@ try {
     assert.equal(text.includes("tieba:risk"), true);
     assert.equal(text.includes("tieba:medium"), true);
     assert.equal(text.includes("tieba:previously-pushed"), false);
-    assert.equal(text.includes("已剔除近 72 小时内推送过的 1 条重点舆情"), true);
+    assert.equal(text.includes("已剔除近 72 小时内推送过的 2 条重点舆情"), true);
     assert.equal(text.includes("tieba:before-window"), false);
     assert.equal(text.includes("tieba:at-send-time"), false);
     assert.equal(text.includes("tieba:ss2-risk"), false);
@@ -71,6 +76,7 @@ try {
   assert.equal(state.lastDailyReportSentAt, "2026-06-11T02:00:00.000Z");
   assert.equal(Boolean(state.seen?.["ss1:tieba:previously-pushed"]), true);
   assert.equal(state.seen?.["ss1:tieba:risk"]?.startsWith("2026-06-11T02:00:00.000Z|"), true);
+  assert.equal(state.seen?.["ss1:tieba:url:https://tieba.baidu.com/p/risk"]?.startsWith("2026-06-11T02:00:00.000Z|"), true);
   assert.equal(state.seen?.["ss1:tieba:medium"]?.startsWith("2026-06-11T02:00:00.000Z|"), true);
 } finally {
   await fs.rm(tempDir, { recursive: true, force: true });
@@ -124,23 +130,26 @@ function makeItem(
   id: string,
   riskLevel: MonitorItem["riskLevel"],
   publishedAt: string,
-  gameId: MonitorItem["gameId"] = "ss1"
+  gameId: MonitorItem["gameId"] = "ss1",
+  overrides: Partial<Pick<MonitorItem, "sourceItemId" | "title" | "url" | "author">> = {}
 ): MonitorItem {
+  const sourceItemId = overrides.sourceItemId || id.split(":")[1];
+  const title = overrides.title || id;
   return {
     id,
     gameId,
     gameName: gameId === "ss1" ? "生死狙击1" : "生死狙击2",
     source: "tieba",
     sourceLabel: "百度贴吧",
-    sourceItemId: id.split(":")[1],
-    title: id,
-    author: "tester",
-    url: `https://tieba.baidu.com/p/${id}`,
+    sourceItemId,
+    title,
+    author: overrides.author || "tester",
+    url: overrides.url || `https://tieba.baidu.com/p/${sourceItemId}`,
     publishedAt,
     collectedAt: "2026-06-11T01:00:00.000Z",
     freshnessHours: 22,
     metrics: { replies: 10, comments: 10 },
-    contentParts: [{ type: "title", text: id, count: 1 }],
+    contentParts: [{ type: "title", text: title, count: 1 }],
     parsedContentCount: 1,
     summary: id,
     keywords: [],
