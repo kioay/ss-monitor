@@ -158,6 +158,7 @@ export function parseForum4399ListItems(html: string, tagId: string, now = new D
       const category = stripHtml(row.find(".type").first().text());
       const author = stripHtml(row.find(".listtitle .author a").first().attr("title") || row.find(".listtitle .author a").first().text());
       const abstractText = stripHtml(row.find("> .content .text").first().text());
+      if (isOfficialForum4399Candidate(title, author)) return;
       const thumbnail = normalizeForum4399Url(row.find("> .imglist img").first().attr("src") || "");
       const views = parseCompactNumber(row.find("> .lastline .view").last().text());
       const replyCount = parseCompactNumber(row.find("> .lastline .comment").last().text());
@@ -180,6 +181,34 @@ export function parseForum4399ListItems(html: string, tagId: string, now = new D
     });
 
   return candidates;
+}
+
+function isOfficialForum4399Candidate(title: string, author: string) {
+  const normalizedTitle = normalizeForum4399OfficialText(title);
+  const normalizedAuthor = normalizeForum4399OfficialText(author);
+  const officialAuthorPatterns = [
+    /^(4399)?生死狙击$/,
+    /^(4399)?生死狙击(官方|运营|客服|小助手|管理员|版主)/,
+    /^(4399)?游戏小助手$/,
+    /^4399官方/,
+    /^官方(客服|小助手|运营|管理员|版主)/
+  ];
+  const officialTitlePatterns = [
+    /^(4399)?生死狙击官方/,
+    /^官方(水楼|群组水贴管理说明|管理说明)/,
+    /^4399生死狙击(水楼|公告|活动|通知|维护|更新|规则|管理说明)/
+  ];
+  return (
+    officialAuthorPatterns.some((pattern) => pattern.test(normalizedAuthor)) ||
+    officialTitlePatterns.some((pattern) => pattern.test(normalizedTitle))
+  );
+}
+
+function normalizeForum4399OfficialText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[【】\[\]（）()《》<>「」『』"'“”‘’\s:：·._-]+/g, "")
+    .trim();
 }
 
 async function buildForum4399MonitorItem(game: GameConfig, candidate: Forum4399Candidate, deepParse: boolean): Promise<MonitorItem> {

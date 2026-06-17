@@ -28,6 +28,46 @@ const listHtml = `
   </li>
   <li>
     <div class="listtitle ">
+      <div class="author"><a title="生死狙击版务">生死狙击版务</a></div>
+      <div class="title">
+        <a class="type" href="/forums/mtag-81899-1001">[公告]</a>
+        <a href="/forums/thread-64548555" class="thread_link">4399生死狙击 官方水楼&群组水贴管理说明</a>
+      </div>
+    </div>
+    <div class="content clearfix">
+      <div class="rtime"><span class="date">4分钟前</span><a class="comment" title="玩家A">玩家A</a></div>
+      <p class="text">主题集中在匹配平衡和群组管理。</p>
+    </div>
+    <div class="lastline"><div class="about"><span class="hot">热度(8)</span><span class="view">299</span><span class="comment">6</span></div></div>
+  </li>
+  <li>
+    <div class="listtitle ">
+      <div class="author"><a title="玩家甲">玩家甲</a></div>
+      <div class="title">
+        <a class="type" href="/forums/mtag-81899-1042">[玩家交流]</a>
+        <a href="/forums/thread-64548666" class="thread_link">官方能不能处理一下外挂</a>
+      </div>
+    </div>
+    <div class="content clearfix">
+      <div class="rtime"><span class="date">12分钟前</span><a class="comment" title="玩家B">玩家B</a></div>
+      <p class="text">举报了几次都没反馈。</p>
+    </div>
+    <div class="lastline"><div class="about"><span class="hot">热度(3)</span><span class="view">45</span><span class="comment">2</span></div></div>
+  </li>
+  <li>
+    <div class="listtitle ">
+      <div class="author"><a title="游戏小助手">游戏小助手</a></div>
+      <div class="title">
+        <a href="/forums/thread-64548777" class="thread_link">游戏防诈骗提醒</a>
+      </div>
+    </div>
+    <div class="content clearfix">
+      <div class="rtime"><span class="date">15分钟前</span></div>
+      <p class="text">请注意账号安全。</p>
+    </div>
+  </li>
+  <li>
+    <div class="listtitle ">
       <div class="author"><a title="游戏小助手">游戏小助手</a></div>
       <div class="title">
         <a href="/forums/thread-63603125"><span class="totop s4">顶</span></a>
@@ -38,7 +78,8 @@ const listHtml = `
 </ul>`;
 
 const candidates = parseForum4399ListItems(listHtml, "81899", now);
-assert.equal(candidates.length, 1);
+assert.equal(candidates.length, 2);
+assert.deepEqual(candidates.map((candidate) => candidate.tid), ["64548496", "64548666"]);
 assert.equal(candidates[0]?.tid, "64548496");
 assert.equal(candidates[0]?.author, "纯爱雾霭");
 assert.equal(candidates[0]?.category, "[玩家交流]");
@@ -46,6 +87,8 @@ assert.equal(candidates[0]?.views, 102);
 assert.equal(candidates[0]?.replyCount, 1);
 assert.equal(candidates[0]?.heat, 4);
 assert.equal(candidates[0]?.latestAt?.getTime(), now.getTime() - 8 * 60_000);
+assert.equal(candidates[1]?.author, "玩家甲");
+assert.equal(candidates[1]?.title, "官方能不能处理一下外挂");
 
 const threadHtml = `
 <div class="single_post j-single-post mainPost">
