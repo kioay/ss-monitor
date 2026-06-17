@@ -1,12 +1,19 @@
 import assert from "node:assert/strict";
 import {
+  forum4399TextMatchesGameContext,
   forum4399TextMatchesKeywords,
   parseForum4399Date,
   parseForum4399ListItems,
   parseForum4399ThreadPosts
 } from "../server/collectors/forum4399";
+import type { GameConfig } from "../src/shared";
 
 const now = new Date(2026, 5, 16, 16, 30, 0);
+const ss1Game: Pick<GameConfig, "id" | "name" | "shortName"> = {
+  id: "ss1",
+  name: "生死狙击1",
+  shortName: "SS1"
+};
 
 const listHtml = `
 <ul>
@@ -121,3 +128,10 @@ assert.equal(parseForum4399Date("刚刚", now)?.getTime(), now.getTime());
 assert.equal(parseForum4399Date("昨天 12:00", now)?.getDate(), 15);
 assert.equal(forum4399TextMatchesKeywords("逆战吧里提到生死狙击", ["生死狙击"]), true);
 assert.equal(forum4399TextMatchesKeywords("普通论坛日常", ["生死狙击"]), false);
+assert.equal(
+  forum4399TextMatchesGameContext("空悲切，小号五把定级赛输4把\n简介：最后就定了个b+\n正文：高手", ss1Game),
+  false
+);
+assert.equal(forum4399TextMatchesGameContext("滚利这块但感觉还不够还清未来商城的，从不常玩开始只是签到滚利", ss1Game), true);
+assert.equal(forum4399TextMatchesGameContext("生死狙击高手\n直播切片", ss1Game), true);
+assert.equal(forum4399TextMatchesGameContext("排位定级赛输4把，破鸿怎么打", ss1Game), true);

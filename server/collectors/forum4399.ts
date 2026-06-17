@@ -51,6 +51,7 @@ export async function collectForum4399(game: GameConfig, cutoff: Date) {
   let blocked = false;
   let staleDropped = 0;
   let keywordDropped = 0;
+  let offTopicDropped = 0;
   const byTid = new Map<string, Forum4399Candidate>();
   const tagIds = normalizeForum4399Tags(game.forum4399Tags || []);
   const keywords = normalizeForum4399KeywordList(game.forum4399Keywords || []);
@@ -85,6 +86,10 @@ export async function collectForum4399(game: GameConfig, cutoff: Date) {
           }
           if (!candidateMatchesKeywords(candidate, keywords)) {
             keywordDropped += 1;
+            continue;
+          }
+          if (!candidateMatchesGameContext(candidate, game)) {
+            offTopicDropped += 1;
             continue;
           }
           byTid.set(candidate.tid, candidate);
@@ -124,8 +129,8 @@ export async function collectForum4399(game: GameConfig, cutoff: Date) {
     blocked,
     message:
       errors.length === 0
-        ? `已读取 ${tagIds.length} 个 4399 论坛 tag，按最新回复时间过滤；深解析 ${deepSet.size} 个主题。`
-        : `4399论坛采集受限：${errors.slice(0, 2).join("；")}${keywordDropped ? `；过滤 ${keywordDropped} 条未命中关键词主题` : ""}`
+        ? `已读取 ${tagIds.length} 个 4399 论坛 tag，按最新回复时间过滤；深解析 ${deepSet.size} 个主题${offTopicDropped ? `；剔除 ${offTopicDropped} 条疑似其它游戏主题` : ""}。`
+        : `4399论坛采集受限：${errors.slice(0, 2).join("；")}${keywordDropped ? `；过滤 ${keywordDropped} 条未命中关键词主题` : ""}${offTopicDropped ? `；剔除 ${offTopicDropped} 条疑似其它游戏主题` : ""}`
   };
 
   return { items, health };
@@ -341,6 +346,33 @@ function needsPostContext(candidate: Forum4399Candidate) {
 function candidateMatchesKeywords(candidate: Forum4399Candidate, normalizedKeywords: string[]) {
   if (!normalizedKeywords.length) return true;
   return forum4399TextMatchesKeywords(`${candidate.title}\n${candidate.category || ""}\n${candidate.abstractText}`, normalizedKeywords);
+}
+
+function candidateMatchesGameContext(candidate: Forum4399Candidate, game: GameConfig) {
+  return forum4399TextMatchesGameContext(
+    [candidate.title, candidate.category || "", candidate.abstractText].filter(Boolean).join("\n"),
+    game
+  );
+}
+
+export function forum4399TextMatchesGameContext(text: string, game: Pick<GameConfig, "id" | "name" | "shortName">) {
+  if (game.id !== "ss1") return true;
+  const normalized = normalizeForum4399Keyword(text);
+  if (!normalized) return false;
+  if (!hasForum4399OtherGameSignal(normalized)) return true;
+  return hasForum4399Ss1Context(normalized);
+}
+
+function hasForum4399OtherGameSignal(text: string) {
+  return (
+    /(定级赛|定位赛).{0,12}(输|赢|连胜|连败|\d+\s*把|[一二三四五六七八九十]\s*把)/i.test(text) ||
+    /(?:^|[^a-z])(?:c|b|a|s)\s*\+.{0,10}(定级|定位|段位|高手|排位|赛)/i.test(text) ||
+    /(王者荣耀|和平精英|原神|崩坏|星穹铁道|明日方舟|第五人格|蛋仔派对|迷你世界|我的世界|赛尔号|洛克王国|火影忍者|逆战|穿越火线|cf|无畏契约|瓦罗兰特|三角洲|暗区突围|地铁逃生|dnf|英雄联盟|lol)/i.test(text)
+  );
+}
+
+function hasForum4399Ss1Context(text: string) {
+  return /(生死狙击|4399生死|死狙|ss1|页游|冒险|变异|爆破|刀战|军费|战火|战队|联通|电信|英雄级|典藏|武器|皮肤|晶核|破鸿|瑶光|以太交易行|交易行|外挂|开挂|封号|客服|策划|更新|充值|氪金|骗氪|退款|账号|租号|匹配|排位|狙击)/i.test(text);
 }
 
 export function forum4399TextMatchesKeywords(text: string, keywords: string[]) {
