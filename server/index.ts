@@ -10,7 +10,6 @@ import { sendDingTalkDailyReport, sendDingTalkTest } from "./dingtalk";
 import { getBettaFishLabResponse, runBettaFishLabAction } from "./bettafishLab";
 import { getDouyinCrawlStatus, startDouyinRemoteLogin } from "./douyinStatus";
 import { getMonitorResponse } from "./monitor";
-import { markMonitorItemRead, viewerNameFromRequest } from "./readState";
 import { getRiskBacktestStatus, warmRiskBacktest } from "./riskBacktest";
 import { getSearchResponse } from "./search";
 import type { GameId } from "../src/shared";
@@ -122,18 +121,6 @@ app.get("/api/monitor", async (request, response) => {
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "未知错误"
-    });
-  }
-});
-
-app.post("/api/read-mark", async (request, response) => {
-  try {
-    const itemId = typeof request.body?.itemId === "string" ? request.body.itemId : "";
-    const result = await markMonitorItemRead(itemId, viewerNameFromRequest(request));
-    response.json(result);
-  } catch (error) {
-    response.status(400).json({
-      message: error instanceof Error ? error.message : "已读标记失败"
     });
   }
 });

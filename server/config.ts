@@ -62,7 +62,6 @@ export const runtimeConfig = {
   currentVersionFocusCachePath: process.env.CURRENT_VERSION_FOCUS_CACHE_PATH || "data/current-version-focus.json",
   monitorSnapshotPath: process.env.MONITOR_SNAPSHOT_PATH || "data/monitor-snapshot.json",
   monitorHistoryPath: process.env.MONITOR_HISTORY_PATH || "data/monitor-history.json",
-  monitorReadStatePath: process.env.MONITOR_READ_STATE_PATH || "data/monitor-read-state.json",
   monitorHistoryRetentionHours: Math.max(24, Number(process.env.MONITOR_HISTORY_RETENTION_HOURS || 24 * 30)),
   monitorHistoryMaxItems: Math.max(100, Number(process.env.MONITOR_HISTORY_MAX_ITEMS || 5000)),
   douyinImportDir: process.env.DOUYIN_IMPORT_DIR || "data/douyin-imports",

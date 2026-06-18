@@ -2,7 +2,6 @@ import { spawn } from "node:child_process";
 import { z } from "zod";
 import { games, gameById, runtimeConfig } from "./config";
 import { readMonitorHistoryItems } from "./monitorHistory";
-import { applyReadMarksToSearchResponse } from "./readState";
 import { loadMindSpiderDbConfig, type MindSpiderDbConfig } from "./collectors/mindspiderDouyin";
 import { rowsToDouyinMonitorItems, type ImportedRow } from "./collectors/douyinImport";
 import { stripHtml, uniq } from "./utils";
@@ -136,7 +135,7 @@ export async function getSearchResponse(rawQuery: unknown): Promise<SearchRespon
   const merged = mergeSearchResults([...historyResults, ...dbResults]);
   const items = merged.slice(0, query.limit);
 
-  return applyReadMarksToSearchResponse({
+  return {
     generatedAt: now.toISOString(),
     query: query.q.trim(),
     terms,
@@ -155,7 +154,7 @@ export async function getSearchResponse(rawQuery: unknown): Promise<SearchRespon
     ],
     items,
     errors
-  });
+  };
 }
 
 export function searchMonitorItems(items: MonitorItem[], options: SearchOptions): SearchResult[] {
