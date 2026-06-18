@@ -2902,13 +2902,14 @@ function RiskAlertCard({
   onShowDetails: () => void;
 }) {
   const detailId = alertDetailId(alert.id);
+  const reasonText = alert.reasons.slice(0, 2).join(" / ");
 
   return (
     <article className={`alert-item ${alert.riskLevel} ${active ? "active" : ""}`}>
       <span className="alert-level">{riskText(alert.riskLevel)}</span>
-      <strong>{alert.title}</strong>
-      <small>{alert.gameName} · {formatAgo(alert.publishedAt)}</small>
-      {alert.reasons.length ? <small className="alert-reasons">{alert.reasons.slice(0, 2).join(" / ")}</small> : null}
+      <strong title={alert.title}>{alert.title}</strong>
+      <small className="alert-meta">{alert.gameName} · {formatAgo(alert.publishedAt)}</small>
+      {reasonText ? <small className="alert-reasons" title={reasonText}>{reasonText}</small> : null}
       <div className="alert-actions">
         <button type="button" className="alert-detail-button" aria-expanded={active} aria-controls={detailId} onClick={onShowDetails}>
           {active ? "收起详情" : "查看详情"}

@@ -3831,9 +3831,9 @@ button.metric:focus-visible {
   --alert-accent: var(--red);
   position: relative;
   overflow: hidden;
-  min-height: 98px;
-  display: grid;
-  align-content: start;
+  height: 188px;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
   padding: 14px;
   text-decoration: none;
@@ -3865,6 +3865,18 @@ button.metric:focus-visible {
   font-weight: 700;
 }
 
+.alert-item strong {
+  display: -webkit-box;
+  min-height: 46px;
+  overflow: hidden;
+  color: var(--ink-strong);
+  font-size: 16px;
+  font-weight: 860;
+  line-height: 1.42;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .alert-item.high {
   --alert-accent: var(--red);
 }
@@ -3881,9 +3893,21 @@ button.metric:focus-visible {
   color: var(--muted);
 }
 
+.alert-item .alert-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .alert-item .alert-reasons {
+  display: -webkit-box;
+  min-height: 34px;
+  overflow: hidden;
   color: #8b3023;
   font-weight: 650;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .alert-actions,
@@ -3895,7 +3919,7 @@ button.metric:focus-visible {
 }
 
 .alert-actions {
-  margin-top: 2px;
+  margin-top: auto;
 }
 
 .alert-actions button,
