@@ -43,6 +43,8 @@ import type {
   AlertItem,
   MonitorItem,
   MonitorResponse,
+  ReadMarker,
+  ReadMarkResponse,
   RiskLevel,
   SearchResponse,
   SearchResult,
@@ -57,6 +59,7 @@ const api = {
   config: "/api/config",
   monitor: "/api/monitor",
   search: "/api/search",
+  readMark: "/api/read-mark",
   douyinStatus: "/api/douyin/status",
   douyinRemoteLogin: "/api/douyin/remote-login",
   bettafishLab: "/api/bettafish/lab",
@@ -535,6 +538,28 @@ function clearCachedMonitor(key: string) {
   }
 }
 
+function applyReadByToMonitorResponse(response: MonitorResponse, itemId: string, readBy: ReadMarker[]): MonitorResponse {
+  return {
+    ...response,
+    alerts: response.alerts.map((alert) => applyReadByToRecord(alert, itemId, readBy)),
+    items: response.items.map((item) => applyReadByToRecord(item, itemId, readBy))
+  };
+}
+
+function applyReadByToSearchResponse(response: SearchResponse, itemId: string, readBy: ReadMarker[]): SearchResponse {
+  return {
+    ...response,
+    items: response.items.map((result) => ({
+      ...result,
+      item: applyReadByToRecord(result.item, itemId, readBy)
+    }))
+  };
+}
+
+function applyReadByToRecord<T extends { id: string; readBy?: ReadMarker[] }>(value: T, itemId: string, readBy: ReadMarker[]): T {
+  return value.id === itemId ? { ...value, readBy } : value;
+}
+
 function scrollToSearchResults() {
   window.requestAnimationFrame(() => {
     window.requestAnimationFrame(() => {
@@ -582,6 +607,7 @@ function App() {
   const [trendOpen, setTrendOpen] = React.useState(initialUiState.trendOpen);
   const [trendSeries, setTrendSeries] = React.useState<TrendSeriesVisibility>(initialUiState.trendSeries);
   const [selectedAlertId, setSelectedAlertId] = React.useState("");
+  const [readMarkPendingIds, setReadMarkPendingIds] = React.useState<Set<string>>(() => new Set());
   const [isControlFloating, setControlFloating] = React.useState(false);
   const [keywordPanelOpen, setKeywordPanelOpen] = React.useState(false);
   const controlSentinelRef = React.useRef<HTMLDivElement>(null);
@@ -727,6 +753,41 @@ function App() {
       tiebaScopeOverrideActive,
       windowHours
     ]
+  );
+
+  const markRead = React.useCallback(
+    async (itemId: string) => {
+      if (!itemId || readMarkPendingIds.has(itemId)) return;
+      setReadMarkPendingIds((current) => new Set(current).add(itemId));
+      try {
+        const response = await fetch(api.readMark, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ itemId })
+        });
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({})) as { message?: string };
+          throw new Error(payload.message || `API ${response.status}`);
+        }
+        const payload = (await response.json()) as ReadMarkResponse;
+        setData((current) => {
+          if (!current) return current;
+          const next = applyReadByToMonitorResponse(current, payload.itemId, payload.readBy);
+          if (dataCacheKey) writeCachedMonitor(dataCacheKey, next);
+          return next;
+        });
+        setSearchData((current) => (current ? applyReadByToSearchResponse(current, payload.itemId, payload.readBy) : current));
+      } catch (reason) {
+        setError(reason instanceof Error ? reason.message : String(reason));
+      } finally {
+        setReadMarkPendingIds((current) => {
+          const next = new Set(current);
+          next.delete(itemId);
+          return next;
+        });
+      }
+    },
+    [dataCacheKey, readMarkPendingIds]
   );
 
   React.useEffect(() => {
@@ -1463,6 +1524,8 @@ function App() {
                 alert={alert}
                 active={selectedAlertId === alert.id}
                 onShowDetails={() => setSelectedAlertId((current) => (current === alert.id ? "" : alert.id))}
+                onMarkRead={() => markRead(alert.id)}
+                readPending={readMarkPendingIds.has(alert.id)}
                 key={alert.id}
               />
             ))
@@ -1471,7 +1534,13 @@ function App() {
           )}
         </div>
         {selectedAlert ? (
-          <RiskAlertDetail alert={selectedAlert} item={selectedAlertItem} onClose={() => setSelectedAlertId("")} />
+          <RiskAlertDetail
+            alert={selectedAlert}
+            item={selectedAlertItem}
+            onClose={() => setSelectedAlertId("")}
+            onMarkRead={() => markRead(selectedAlert.id)}
+            readPending={readMarkPendingIds.has(selectedAlert.id)}
+          />
         ) : null}
       </section>
 
@@ -1526,12 +1595,24 @@ function App() {
         {searchActive && searchLoading ? <p className="empty">检索中…</p> : null}
         {!monitorJudgementPending && searchActive
           ? visibleSearchResults.map((result, index) => (
-              <MonitorCard item={result.item} searchResult={result} highlightQuery={query} key={`${result.origin}-${result.item.id}-${index}`} />
+              <MonitorCard
+                item={result.item}
+                searchResult={result}
+                highlightQuery={query}
+                onMarkRead={() => markRead(result.item.id)}
+                readPending={readMarkPendingIds.has(result.item.id)}
+                key={`${result.origin}-${result.item.id}-${index}`}
+              />
             ))
           : null}
         {!monitorJudgementPending && !searchActive
           ? visibleFilteredItems.map((item) => (
-              <MonitorCard item={item} key={item.id} />
+              <MonitorCard
+                item={item}
+                onMarkRead={() => markRead(item.id)}
+                readPending={readMarkPendingIds.has(item.id)}
+                key={item.id}
+              />
             ))
           : null}
         {feedItemsTotal > visibleFeedCount ? (
@@ -2895,11 +2976,15 @@ function clampLineY(value: number) {
 function RiskAlertCard({
   alert,
   active,
-  onShowDetails
+  onShowDetails,
+  onMarkRead,
+  readPending
 }: {
   alert: AlertItem;
   active: boolean;
   onShowDetails: () => void;
+  onMarkRead: () => void;
+  readPending: boolean;
 }) {
   const detailId = alertDetailId(alert.id);
 
@@ -2909,7 +2994,12 @@ function RiskAlertCard({
       <strong>{alert.title}</strong>
       <small>{alert.gameName} · {formatAgo(alert.publishedAt)}</small>
       {alert.reasons.length ? <small className="alert-reasons">{alert.reasons.slice(0, 2).join(" / ")}</small> : null}
+      <ReadReceipt readBy={alert.readBy} />
       <div className="alert-actions">
+        <button type="button" className="read-mark-button" onClick={onMarkRead} disabled={readPending}>
+          <CheckCircle2 size={14} aria-hidden="true" />
+          {readPending ? "标记中" : "标为已读"}
+        </button>
         <button type="button" className="alert-detail-button" aria-expanded={active} aria-controls={detailId} onClick={onShowDetails}>
           {active ? "收起详情" : "查看详情"}
         </button>
@@ -2925,11 +3015,15 @@ function RiskAlertCard({
 function RiskAlertDetail({
   alert,
   item,
-  onClose
+  onClose,
+  onMarkRead,
+  readPending
 }: {
   alert: AlertItem;
   item?: MonitorItem;
   onClose: () => void;
+  onMarkRead: () => void;
+  readPending: boolean;
 }) {
   return (
     <div className={`alert-detail ${alert.riskLevel}`} id={alertDetailId(alert.id)} role="region" aria-label={`风险详情：${alert.title}`}>
@@ -2938,8 +3032,13 @@ function RiskAlertDetail({
           <span className="alert-level">{riskText(alert.riskLevel)}</span>
           <h3>{alert.title}</h3>
           <p>{alert.gameName} · {formatAgo(alert.publishedAt)}</p>
+          <ReadReceipt readBy={alert.readBy} />
         </div>
         <div className="alert-detail-actions">
+          <button type="button" className="read-mark-button" onClick={onMarkRead} disabled={readPending}>
+            <CheckCircle2 size={14} aria-hidden="true" />
+            {readPending ? "标记中" : "标为已读"}
+          </button>
           <a href={alert.url} target="_blank" rel="noreferrer">
             <ExternalLink size={14} aria-hidden="true" />
             打开原文
@@ -2982,11 +3081,15 @@ function RiskAlertDetail({
 function MonitorCard({
   item,
   searchResult,
-  highlightQuery = ""
+  highlightQuery = "",
+  onMarkRead,
+  readPending = false
 }: {
   item: MonitorItem;
   searchResult?: SearchResult;
   highlightQuery?: string;
+  onMarkRead?: () => void;
+  readPending?: boolean;
 }) {
   return (
     <article className={`monitor-card ${item.riskLevel}`}>
@@ -3034,6 +3137,13 @@ function MonitorCard({
       <div className="item-side">
         <span>{item.author}</span>
         <span>{metricLine(item)}</span>
+        <ReadReceipt readBy={item.readBy} />
+        {onMarkRead ? (
+          <button type="button" className="read-mark-button" onClick={onMarkRead} disabled={readPending}>
+            <CheckCircle2 size={15} aria-hidden="true" />
+            {readPending ? "标记中" : "已读"}
+          </button>
+        ) : null}
         <a href={item.url} target="_blank" rel="noreferrer" title="打开原文" aria-label={`打开原文：${item.title}`}>
           <ExternalLink size={18} aria-hidden="true" />
         </a>
@@ -3069,6 +3179,22 @@ function MonitorBrief({ item, highlightQuery = "" }: { item: MonitorItem; highli
         </div>
       ) : null}
     </dl>
+  );
+}
+
+function ReadReceipt({ readBy }: { readBy?: ReadMarker[] }) {
+  const readers = readBy || [];
+  const title = readers.length
+    ? readers.map((entry) => `${entry.userName} ${formatDateTime(entry.readAt)}`).join(" / ")
+    : "暂无已读标记";
+  const visibleNames = readers.slice(0, 3).map((entry) => entry.userName).join("、");
+  const hiddenCount = Math.max(0, readers.length - 3);
+
+  return (
+    <span className={`read-receipt ${readers.length ? "has-readers" : "empty-read"}`} title={title}>
+      <Eye size={13} aria-hidden="true" />
+      <span>{readers.length ? `已读：${visibleNames}${hiddenCount ? ` 等 ${readers.length} 人` : ""}` : "未标记已读"}</span>
+    </span>
   );
 }
 

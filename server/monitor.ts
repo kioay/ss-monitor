@@ -11,6 +11,7 @@ import { analysisRulesVersion } from "./analyze";
 import { refineItemsWithBettaFishSemantic } from "./bettafishSemantic";
 import { refreshCurrentVersionFocus } from "./currentVersion";
 import { mergeMonitorHistory } from "./monitorHistory";
+import { applyReadMarksToMonitorResponse } from "./readState";
 import { ensureRiskBacktest } from "./riskBacktest";
 import type {
   AlertItem,
@@ -234,7 +235,7 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
   const now = Date.now();
   const currentPolicy = getUpdatePolicy(new Date(now), new Date(cached?.createdAt || now));
   if (!query.force && cached && now - cached.createdAt < currentPolicy.intervalSeconds * 1000) {
-    return {
+    return applyReadMarksToMonitorResponse({
       ...cached.response,
       riskBacktest,
       updatePolicy: currentPolicy,
@@ -243,7 +244,7 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
         ageSeconds: Math.round((now - cached.createdAt) / 1000),
         ttlSeconds: currentPolicy.intervalSeconds
       }
-    };
+    });
   }
 
   const generatedAt = new Date();
@@ -288,7 +289,7 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
   };
 
   if (!collectionIsStale) cache.set(cacheKey, { createdAt: now, response });
-  return response;
+  return applyReadMarksToMonitorResponse(response);
 }
 
 async function getCollection(selectedGames: GameConfig[], force: boolean, generatedAt: Date, extraKeywords: string[], scopeKey: string) {

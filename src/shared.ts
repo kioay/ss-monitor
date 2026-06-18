@@ -6,6 +6,11 @@ export type RiskSignalSource = "thread" | "new_reply" | "stale_thread";
 
 export const currentAnalysisVersion = 3;
 
+export interface ReadMarker {
+  userName: string;
+  readAt: string;
+}
+
 export interface GameConfig {
   id: GameId;
   name: string;
@@ -61,6 +66,7 @@ export interface MonitorItem {
   riskReasons: string[];
   riskSignalSource?: RiskSignalSource;
   riskSignalAt?: string;
+  readBy?: ReadMarker[];
 }
 
 export interface SourceHealth {
@@ -115,6 +121,14 @@ export interface AlertItem {
   url: string;
   publishedAt: string;
   riskSignalSource?: RiskSignalSource;
+  readBy?: ReadMarker[];
+}
+
+export interface ReadMarkResponse {
+  itemId: string;
+  viewerName: string;
+  readAt: string;
+  readBy: ReadMarker[];
 }
 
 export interface BettaFishPanelCapability {
