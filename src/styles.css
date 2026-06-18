@@ -3823,6 +3823,7 @@ button.metric:focus-visible {
 .alert-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  align-items: start;
   gap: 12px;
 }
 
@@ -3832,6 +3833,7 @@ button.metric:focus-visible {
   overflow: hidden;
   min-height: 98px;
   display: grid;
+  align-content: start;
   gap: 8px;
   padding: 14px;
   text-decoration: none;
