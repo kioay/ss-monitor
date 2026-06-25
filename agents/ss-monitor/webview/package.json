@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node ./src/build.mjs",
+    "smoke": "node ./src/smoke.mjs && node ./src/state-layer-smoke.mjs"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

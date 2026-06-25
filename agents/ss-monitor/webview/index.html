@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SS Monitor</title>
+    <script src="./agent-app-sdk.js"></script>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #f4f7f8;
+        color: #18222f;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; background: #f4f7f8; }
+      button, input, select, textarea { font: inherit; }
+      .app { min-height: 100vh; display: grid; grid-template-rows: auto 1fr; }
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 22px 28px;
+        background: #ffffff;
+        border-bottom: 1px solid #d9e2e7;
+      }
+      .brand { min-width: 0; }
+      h1 { margin: 0; font-size: 24px; line-height: 1.18; letter-spacing: 0; }
+      .subtitle { margin: 6px 0 0; color: #65727c; font-size: 14px; }
+      .status {
+        flex: 0 0 auto;
+        min-width: 86px;
+        border: 1px solid #bfd0d8;
+        border-radius: 8px;
+        padding: 8px 12px;
+        background: #f8fbfc;
+        color: #23404b;
+        font-weight: 800;
+        text-align: center;
+        font-size: 13px;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(292px, 380px) minmax(0, 1fr);
+        gap: 18px;
+        padding: 20px 28px 28px;
+      }
+      .panel {
+        min-width: 0;
+        background: #ffffff;
+        border: 1px solid #d9e2e7;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .panel h2 {
+        margin: 0;
+        padding: 16px 18px;
+        border-bottom: 1px solid #e3ebef;
+        font-size: 16px;
+        line-height: 1.2;
+      }
+      .panel-body { padding: 18px; }
+      .field { display: grid; gap: 7px; margin-bottom: 14px; }
+      .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      label { color: #60707b; font-weight: 800; font-size: 13px; }
+      input, select, textarea {
+        width: 100%;
+        min-width: 0;
+        border: 1px solid #c8d5dc;
+        border-radius: 8px;
+        background: #fbfdfd;
+        color: #18222f;
+        outline: none;
+      }
+      input, select { height: 40px; padding: 0 11px; }
+      textarea { min-height: 140px; resize: vertical; padding: 11px; line-height: 1.52; }
+      input:focus, select:focus, textarea:focus {
+        border-color: #25765d;
+        box-shadow: 0 0 0 3px rgba(37, 118, 93, 0.14);
+      }
+      .toggle {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        min-height: 32px;
+        color: #40515b;
+        font-size: 13px;
+        font-weight: 800;
+      }
+      .toggle input { width: 16px; height: 16px; }
+      .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+      .action {
+        height: 42px;
+        border: 0;
+        border-radius: 8px;
+        color: #ffffff;
+        font-weight: 900;
+        cursor: pointer;
+      }
+      .action.primary { background: #176e56; }
+      .action.secondary { background: #365f89; }
+      .action:disabled { cursor: wait; opacity: 0.58; }
+      .notice {
+        min-height: 42px;
+        margin-top: 14px;
+        border-radius: 8px;
+        padding: 10px 12px;
+        border: 1px solid #ecd58c;
+        background: #fff9e8;
+        color: #705117;
+        font-size: 13px;
+        line-height: 1.45;
+      }
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 14px;
+        color: #61717b;
+        font-size: 13px;
+      }
+      .tag {
+        border: 1px solid #cfdde3;
+        border-radius: 8px;
+        padding: 5px 8px;
+        background: #f8fbfc;
+      }
+      .result {
+        min-height: 430px;
+        white-space: pre-wrap;
+        line-height: 1.68;
+        color: #24313d;
+      }
+      .empty {
+        display: grid;
+        place-items: center;
+        min-height: 430px;
+        border: 1px dashed #c5d2d9;
+        border-radius: 8px;
+        color: #6b7882;
+        text-align: center;
+        padding: 24px;
+      }
+      @media (max-width: 880px) {
+        .topbar { align-items: flex-start; flex-direction: column; padding: 20px; }
+        .status { width: 100%; }
+        .layout { grid-template-columns: 1fr; padding: 16px; }
+      }
+      @media (max-width: 520px) {
+        .field-row, .actions { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <header class="topbar">
+        <div class="brand">
+          <h1>SS Monitor</h1>
+          <p class="subtitle">舆情风险、来源健康和重点条目</p>
+        </div>
+        <div class="status" id="status">初始化</div>
+      </header>
+      <section class="layout">
+        <aside class="panel">
+          <h2>监控参数</h2>
+          <div class="panel-body">
+            <div class="field">
+              <label for="monitorBaseUrl">监控地址</label>
+              <input id="monitorBaseUrl" autocomplete="off" spellcheck="false" />
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="games">项目</label>
+                <input id="games" autocomplete="off" spellcheck="false" />
+              </div>
+              <div class="field">
+                <label for="windowHours">窗口</label>
+                <select id="windowHours">
+                  <option value="24">24 小时</option>
+                  <option value="72">72 小时</option>
+                  <option value="168">7 天</option>
+                  <option value="336">14 天</option>
+                  <option value="720">30 天</option>
+                </select>
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="limit">条目上限</label>
+                <input id="limit" inputmode="numeric" />
+              </div>
+              <label class="toggle" for="force">
+                <input id="force" type="checkbox" />
+                强制刷新
+              </label>
+            </div>
+            <div class="field">
+              <label for="extraKeywords">补充关键词</label>
+              <input id="extraKeywords" autocomplete="off" />
+            </div>
+            <div class="field">
+              <label for="question">问题</label>
+              <textarea id="question"></textarea>
+            </div>
+            <div class="actions">
+              <button class="action primary" id="summary" type="button">生成摘要</button>
+              <button class="action secondary" id="health" type="button">检查健康</button>
+            </div>
+            <div class="notice" id="notice">正在连接 Agent App SDK。</div>
+          </div>
+        </aside>
+        <section class="panel">
+          <h2>结果</h2>
+          <div class="panel-body">
+            <div class="meta" id="meta"></div>
+            <div class="result" id="result">
+              <div class="empty">等待 worker turn</div>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+    <script>
+      const defaults = {
+        monitorBaseUrl: "http://192.168.8.242:8787",
+        games: "ss1,ss2",
+        windowHours: "72",
+        limit: "200",
+        extraKeywords: "",
+        force: false,
+        question: "请判断当前窗口内是否有需要运营优先处理的舆情风险。",
+        lastResult: "",
+        taskRunId: "",
+        lastMode: ""
+      };
+
+      const appState = {
+        busy: false,
+        composing: false,
+        context: null,
+        permissions: { readOnly: false, scopes: [] },
+        sdk: null,
+        uiState: null
+      };
+
+      const els = {
+        extraKeywords: document.getElementById("extraKeywords"),
+        force: document.getElementById("force"),
+        games: document.getElementById("games"),
+        health: document.getElementById("health"),
+        limit: document.getElementById("limit"),
+        meta: document.getElementById("meta"),
+        monitorBaseUrl: document.getElementById("monitorBaseUrl"),
+        notice: document.getElementById("notice"),
+        question: document.getElementById("question"),
+        result: document.getElementById("result"),
+        status: document.getElementById("status"),
+        summary: document.getElementById("summary"),
+        windowHours: document.getElementById("windowHours")
+      };
+
+      init();
+
+      async function init() {
+        try {
+          if (!window.WDCloudAgentApp || typeof window.WDCloudAgentApp.connectAgentApp !== "function") {
+            throw new Error("Agent App SDK 未加载。");
+          }
+          appState.sdk = await window.WDCloudAgentApp.connectAgentApp({
+            clientEventIdPrefix: "ss-monitor-agent"
+          });
+          appState.context = await appState.sdk.context();
+          appState.permissions = await appState.sdk.permissions.load();
+          appState.uiState = await appState.sdk.state.create({
+            storageKey: `ss-monitor:${appState.context?.sessionId || "session"}`,
+            defaults,
+            fields: {
+              monitorBaseUrl: { sync: "persistent" },
+              games: { sync: "persistent" },
+              windowHours: { sync: "persistent" },
+              limit: { sync: "persistent" },
+              extraKeywords: { sync: "persistent" },
+              force: { sync: "local" },
+              question: { sync: "local" },
+              lastResult: { sync: "persistent" },
+              taskRunId: { sync: "persistent" },
+              lastMode: { sync: "persistent" }
+            }
+          });
+          appState.uiState.subscribe((next) => {
+            renderFromState(next);
+          });
+          bindEvents();
+          setStatus("已就绪");
+          const issue = submitPermissionIssue();
+          if (issue) {
+            showNotice(issue);
+            setButtonsDisabled(true);
+          } else {
+            showNotice("SDK 已连接。");
+          }
+        } catch (error) {
+          setStatus("加载失败");
+          showNotice(error.message || String(error));
+        }
+      }
+
+      function bindEvents() {
+        bindInput("monitorBaseUrl", { save: true });
+        bindInput("games", { save: true });
+        bindInput("limit", { save: true });
+        bindInput("extraKeywords", { save: true });
+        els.windowHours.addEventListener("change", () => appState.uiState?.set("windowHours", els.windowHours.value));
+        els.force.addEventListener("change", () => appState.uiState?.set("force", els.force.checked));
+        els.question.addEventListener("compositionstart", () => {
+          appState.composing = true;
+        });
+        els.question.addEventListener("compositionend", () => {
+          appState.composing = false;
+          appState.uiState?.set("question", els.question.value, { save: false });
+        });
+        els.question.addEventListener("input", () => appState.uiState?.set("question", els.question.value, { save: false }));
+        els.summary.addEventListener("click", () => submitTurn("monitor.summary"));
+        els.health.addEventListener("click", () => submitTurn("monitor.health"));
+      }
+
+      function bindInput(key, options = {}) {
+        els[key].addEventListener("input", () => {
+          appState.uiState?.set(key, els[key].value, { save: options.save !== false });
+        });
+      }
+
+      function submitPermissionIssue() {
+        if (appState.permissions.readOnly) {
+          return "当前共享页为只读权限。";
+        }
+        const scopes = Array.isArray(appState.permissions.scopes) ? appState.permissions.scopes : [];
+        const hasSubmitScope = ["session.turns.create", "session.actions.submit"].some((scope) =>
+          scopes.includes(scope) || appState.sdk?.permissions?.can(scope) === true
+        );
+        if (!hasSubmitScope) {
+          return `当前 WebView token 缺少提交权限：session.turns.create / session.actions.submit。`;
+        }
+        return "";
+      }
+
+      async function submitTurn(mode) {
+        if (appState.busy) return;
+        const issue = submitPermissionIssue();
+        if (issue) {
+          showNotice(issue);
+          return;
+        }
+        if (!appState.sdk?.session?.submitTurnAndWaitForResult) {
+          showNotice("当前 SDK 不支持 submitTurnAndWaitForResult。");
+          return;
+        }
+        setBusy(true);
+        try {
+          const input = readForm(mode);
+          appState.uiState?.patch({ ...input, lastMode: mode });
+          setStatus("worker 运行中");
+          showNotice("已提交 worker turn。");
+          const waited = await appState.sdk.session.submitTurnAndWaitForResult({
+            title: mode === "monitor.health" ? "SS Monitor health" : "SS Monitor summary",
+            content: input.question || "SS Monitor",
+            input,
+            idempotencyKey: `ss-monitor:${mode}:${Date.now()}:${Math.random().toString(36).slice(2)}`
+          }, {
+            intervalMs: 1600,
+            timeoutMs: 240000,
+            structuredMode: mode,
+            onSubmitted: (submitted) => {
+              const taskRunId = extractTaskRunId(submitted);
+              if (taskRunId) appState.uiState?.set("taskRunId", taskRunId);
+              renderMeta();
+            },
+            onPoll: (detail) => {
+              renderMeta(detail);
+            }
+          });
+          const structured = waited.structuredResult || {};
+          const lastResult = structured.resultMarkdown || structured.finalMessage || "worker 已完成。";
+          const taskRunId = extractTaskRunId(waited.submitResponse) || appState.uiState?.get("taskRunId") || "";
+          appState.uiState?.patch({ lastResult, taskRunId, lastMode: mode });
+          await appState.uiState?.flush();
+          setStatus("已完成");
+          showNotice("结果已保存。");
+        } catch (error) {
+          setStatus("失败");
+          showNotice(error.message || String(error));
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      function readForm(mode) {
+        return {
+          mode,
+          monitorBaseUrl: els.monitorBaseUrl.value.trim(),
+          games: els.games.value.trim() || "ss1,ss2",
+          windowHours: Number(els.windowHours.value) || 72,
+          limit: clampNumber(els.limit.value, 1, 1000, 200),
+          extraKeywords: els.extraKeywords.value.trim(),
+          force: els.force.checked,
+          question: els.question.value.trim()
+        };
+      }
+
+      function renderFromState(state) {
+        syncValue("monitorBaseUrl", state.monitorBaseUrl || defaults.monitorBaseUrl);
+        syncValue("games", state.games || defaults.games);
+        syncValue("limit", state.limit || defaults.limit);
+        syncValue("extraKeywords", state.extraKeywords || "");
+        if (els.windowHours.value !== String(state.windowHours || defaults.windowHours)) {
+          els.windowHours.value = String(state.windowHours || defaults.windowHours);
+        }
+        if (els.force.checked !== Boolean(state.force)) {
+          els.force.checked = Boolean(state.force);
+        }
+        if (document.activeElement !== els.question && !appState.composing && els.question.value !== (state.question || "")) {
+          els.question.value = state.question || defaults.question;
+        }
+        renderResult(state);
+      }
+
+      function syncValue(key, value) {
+        if (document.activeElement === els[key]) return;
+        if (els[key].value !== String(value)) els[key].value = String(value);
+      }
+
+      function renderResult(state = appState.uiState?.get() || {}) {
+        renderMeta();
+        if (!state.lastResult) {
+          els.result.innerHTML = '<div class="empty">等待 worker turn</div>';
+          return;
+        }
+        els.result.textContent = state.lastResult;
+      }
+
+      function renderMeta(detail) {
+        const state = appState.uiState?.get() || {};
+        const tags = [];
+        if (appState.context?.agentId) tags.push(`agent ${appState.context.agentId}`);
+        if (state.lastMode) tags.push(state.lastMode);
+        if (state.taskRunId) tags.push(`task ${shortId(state.taskRunId)}`);
+        if (detail?.turns?.length) tags.push(`${detail.turns.length} turns`);
+        els.meta.innerHTML = tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("");
+      }
+
+      function extractTaskRunId(value) {
+        if (!value || typeof value !== "object") return "";
+        return value.taskRunId || value.task?.taskRunId || value.turn?.taskRunId || "";
+      }
+
+      function clampNumber(value, min, max, fallback) {
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed)) return fallback;
+        return Math.max(min, Math.min(max, Math.trunc(parsed)));
+      }
+
+      function shortId(value) {
+        const text = String(value || "");
+        return text.length > 18 ? `${text.slice(0, 8)}...${text.slice(-6)}` : text;
+      }
+
+      function setBusy(nextBusy) {
+        appState.busy = nextBusy;
+        setButtonsDisabled(nextBusy || Boolean(submitPermissionIssue()));
+      }
+
+      function setButtonsDisabled(disabled) {
+        els.summary.disabled = disabled;
+        els.health.disabled = disabled;
+      }
+
+      function setStatus(text) {
+        els.status.textContent = text;
+      }
+
+      function showNotice(text) {
+        els.notice.textContent = text;
+      }
+
+      function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, (char) => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;"
+        })[char]);
+      }
+    </script>
+  </body>
+</html>

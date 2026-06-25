@@ -1,0 +1,67 @@
+id: ss-monitor
+name: SS Monitor
+version: 0.1.0
+summary: WDCloud Agent App entry for SS Monitor sentiment monitoring summaries.
+codexModel: gpt-5.5
+ownerTeam: self
+project: SS Monitor
+department: Operations
+tags:
+  - WDCloud
+  - Agent App
+  - Sentiment Monitor
+runtime:
+  mode: per-task-job
+  sessionBinding: task-run
+  sharingPolicy: task-isolated
+  workerCommand:
+    - python3
+    - /agent/worker/worker.py
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+jobPolicy:
+  timeoutMinutes: 10
+  retryLimit: 0
+  ttlAfterFinishedMinutes: 30
+  artifactRetentionDays: 7
+networkRequests:
+  - https://wdclaw-artifacts-dev.oss-cn-hangzhou.aliyuncs.com
+  - http://192.168.8.242:8787
+ui:
+  mode: web-view-app
+  entryArtifactId: webviewBundle
+  entry: index.html
+  defaultSurface: app
+  fallback: task-detail
+webView:
+  version: 1
+  sourceDir: webview
+  buildCommand: npm run build
+  entryArtifactId: webviewBundle
+  entry: index.html
+  bootstrap: app-scoped-token
+  transport: sdk
+  apiScopes:
+    - app.context.read
+    - task.status.read
+    - session.events.read
+    - session.presence.read
+    - session.presence.write
+    - session.actions.read
+    - session.actions.submit
+    - session.turns.create
+    - session.state.read
+    - session.state.write
+  maxBundleBytes: 10485760
+  maxRuntimeMemoryMb: 256
+smoke:
+  payload: smoke/payload.json
+  expectedArtifacts:
+    - webviewBundle
+    - manifest
+    - logs
