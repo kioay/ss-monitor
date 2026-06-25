@@ -2,7 +2,7 @@ id: ss-monitor
 name: SS Monitor
 version: 0.1.0
 summary: WDCloud Agent App entry for SS Monitor sentiment monitoring summaries.
-codexModel: gpt-5.5
+codexModel: gpt-5.4-mini
 ownerTeam: self
 project: SS Monitor
 department: Operations

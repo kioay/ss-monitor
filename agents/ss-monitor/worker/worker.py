@@ -22,6 +22,7 @@ from wdcloud_worker_sdk import (
 
 AGENT_ID = "ss-monitor"
 AGENT_NAME = "SS Monitor"
+DEFAULT_CODEX_MODEL = "gpt-5.4-mini"
 BUSINESS_MODES = {"monitor.summary", "monitor.health"}
 
 
@@ -53,6 +54,8 @@ def run(worker: WorkerClient) -> list[dict[str, Any]]:
     context = safe_session_context(worker)
     turn_input = current_turn_input(task_input, context)
     mode = str(turn_input.get("mode") or "").strip()
+    if mode == "monitor.health":
+        return run_health_turn(worker, output_dir, mode, turn_input)
     if mode in BUSINESS_MODES:
         return run_business_turn(worker, output_dir, mode, turn_input)
     return run_app_shell_turn(worker, output_dir, task_input)
@@ -70,7 +73,7 @@ def run_app_shell_turn(worker: WorkerClient, output_dir: Path, task_input: dict[
         "sessionId": os.environ.get("WDCLAW_AGENT_SESSION_ID") or os.environ.get("WDCLAW_SESSION_ID"),
         "createdAt": iso_now(),
         "mode": "app-shell",
-        "codexModel": os.environ.get("WDCLAW_CODEX_MODEL") or "gpt-5.5",
+        "codexModel": os.environ.get("WDCLAW_CODEX_MODEL") or DEFAULT_CODEX_MODEL,
         "ui": {"mode": "web-view-app", "entryArtifactId": "webviewBundle", "entry": "index.html"},
         "webView": {
             "version": 1,
@@ -161,10 +164,10 @@ def run_business_turn(worker: WorkerClient, output_dir: Path, mode: str, turn_in
             "agentId": os.environ.get("WDCLAW_AGENT_ID", AGENT_ID),
             "taskId": os.environ.get("WDCLAW_TASK_ID"),
             "mode": mode,
-            "codexModel": os.environ.get("WDCLAW_CODEX_MODEL") or "gpt-5.5",
+            "codexModel": os.environ.get("WDCLAW_CODEX_MODEL") or DEFAULT_CODEX_MODEL,
             "monitor": summarize_monitor_for_manifest(monitor_snapshot),
             "codex": {
-                "model": os.environ.get("WDCLAW_CODEX_MODEL", "gpt-5.5"),
+                "model": os.environ.get("WDCLAW_CODEX_MODEL", DEFAULT_CODEX_MODEL),
                 "finalMessageSource": codex_result.get("finalMessageSource"),
                 "usage": codex_result.get("usage"),
             },
@@ -200,6 +203,98 @@ def run_business_turn(worker: WorkerClient, output_dir: Path, mode: str, turn_in
         summary="SS Monitor analysis completed.",
     )
     return uploaded
+
+
+def run_health_turn(worker: WorkerClient, output_dir: Path, mode: str, turn_input: dict[str, Any]) -> list[dict[str, Any]]:
+    logs: list[str] = []
+    log = make_logger(worker, logs)
+    worker.status("running", phase_message="Collecting monitor health", progress=0.2, stage="collecting")
+    monitor_snapshot = collect_monitor_snapshot(turn_input, mode, log)
+    snapshot_path = write_json(output_dir / "monitor-snapshot.json", monitor_snapshot)
+
+    result_markdown = build_health_result_markdown(monitor_snapshot)
+    result_path = write_text(output_dir / "result.md", result_markdown)
+    manifest_path = write_json(
+        output_dir / "manifest.json",
+        {
+            "agentId": os.environ.get("WDCLAW_AGENT_ID", AGENT_ID),
+            "taskId": os.environ.get("WDCLAW_TASK_ID"),
+            "mode": mode,
+            "codexModel": os.environ.get("WDCLAW_CODEX_MODEL") or DEFAULT_CODEX_MODEL,
+            "monitor": summarize_monitor_for_manifest(monitor_snapshot),
+            "createdAt": iso_now(),
+        },
+    )
+    log_path = write_text(output_dir / "execution-log.md", build_log_file(logs, mode))
+
+    worker.status("running", phase_message="Uploading health artifacts", progress=0.82, stage="publishing_artifacts")
+    uploaded = upload_turn_artifacts(
+        worker,
+        [
+            ("result", result_path),
+            ("monitorSnapshot", snapshot_path),
+            ("manifest", manifest_path),
+            ("logs", log_path),
+        ],
+    )
+    structured_result = {
+        "mode": mode,
+        "monitorStatus": monitor_snapshot.get("status"),
+        "healthAvailable": bool(monitor_snapshot.get("health")),
+        "configAvailable": bool(monitor_snapshot.get("config")),
+        "resultMarkdown": result_markdown,
+        "finalMessage": result_markdown,
+        "artifactCount": len(uploaded),
+    }
+    write_result_optional(
+        worker,
+        artifact_files=uploaded,
+        structured_result=sanitize_for_manifest(structured_result),
+        summary="SS Monitor health check completed.",
+    )
+    return uploaded
+
+
+def build_health_result_markdown(snapshot: dict[str, Any]) -> str:
+    request = snapshot.get("request") if isinstance(snapshot.get("request"), dict) else {}
+    status = str(snapshot.get("status") or "unknown")
+    health_ok = bool(snapshot.get("health"))
+    config_ok = bool(snapshot.get("config"))
+    health_error = str(snapshot.get("healthError") or "").strip()
+    config_error = str(snapshot.get("configError") or "").strip()
+    origin = str(request.get("baseOrigin") or "").strip() or "未配置"
+    games = str(request.get("games") or "ss1,ss2")
+    window_hours = request.get("windowHours") or 72
+    conclusion = "监控服务可访问，健康接口和配置接口均已返回。" if health_ok and config_ok else (
+        "监控服务部分可访问，但仍有接口失败。" if health_ok or config_ok else "监控服务当前不可验证。"
+    )
+    lines = [
+        "结论",
+        conclusion,
+        "",
+        "检查结果",
+        f"- 状态: {status}",
+        f"- 监控地址: {origin}",
+        f"- 项目: {games}",
+        f"- 窗口: {window_hours} 小时",
+        f"- /api/health: {'可用' if health_ok else '不可用'}",
+        f"- /api/config: {'可用' if config_ok else '不可用'}",
+    ]
+    if health_error:
+        lines.append(f"- health 错误: {health_error}")
+    if config_error:
+        lines.append(f"- config 错误: {config_error}")
+    lines.extend(
+        [
+            "",
+            "建议",
+            "- 如果两个接口均可用，可以继续点击“生成摘要”读取监控窗口内的风险数据。",
+            "- 如果任一接口不可用，先确认 WDCloud runtime 能访问该监控地址，再检查服务是否监听内网地址。",
+            "",
+            f"_Generated at {iso_now()}_",
+        ]
+    )
+    return "\n".join(lines)
 
 
 def collect_monitor_snapshot(turn_input: dict[str, Any], mode: str, log) -> dict[str, Any]:
