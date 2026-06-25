@@ -64,6 +64,12 @@
       .field { display: grid; gap: 7px; margin-bottom: 14px; }
       .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
       label { color: #60707b; font-weight: 800; font-size: 13px; }
+      legend {
+        padding: 0;
+        color: #60707b;
+        font-weight: 800;
+        font-size: 13px;
+      }
       input, select, textarea {
         width: 100%;
         min-width: 0;
@@ -78,6 +84,42 @@
       input:focus, select:focus, textarea:focus {
         border-color: #25765d;
         box-shadow: 0 0 0 3px rgba(37, 118, 93, 0.14);
+      }
+      .project-picker {
+        border: 0;
+        margin: 0 0 14px;
+        padding: 0;
+      }
+      .check-group {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .check-option {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        min-height: 40px;
+        border: 1px solid #c8d5dc;
+        border-radius: 8px;
+        padding: 0 10px;
+        background: #fbfdfd;
+        color: #18222f;
+        cursor: pointer;
+      }
+      .check-option:focus-within {
+        border-color: #25765d;
+        box-shadow: 0 0 0 3px rgba(37, 118, 93, 0.14);
+      }
+      .check-option input {
+        width: 16px;
+        height: 16px;
+        margin: 0;
+        border: 1px solid #8ca3ae;
+        padding: 0;
+        accent-color: #176e56;
+        box-shadow: none;
       }
       .toggle {
         display: flex;
@@ -170,10 +212,19 @@
               <input id="monitorBaseUrl" autocomplete="off" spellcheck="false" />
             </div>
             <div class="field-row">
-              <div class="field">
-                <label for="games">项目</label>
-                <input id="games" autocomplete="off" spellcheck="false" />
-              </div>
+              <fieldset class="field project-picker" id="gamesGroup">
+                <legend>项目</legend>
+                <div class="check-group" role="group" aria-label="项目">
+                  <label class="check-option">
+                    <input class="game-option" data-game-option type="checkbox" name="games" value="ss1" />
+                    SS1
+                  </label>
+                  <label class="check-option">
+                    <input class="game-option" data-game-option type="checkbox" name="games" value="ss2" />
+                    SS2
+                  </label>
+                </div>
+              </fieldset>
               <div class="field">
                 <label for="windowHours">窗口</label>
                 <select id="windowHours">
@@ -247,7 +298,7 @@
       const els = {
         extraKeywords: document.getElementById("extraKeywords"),
         force: document.getElementById("force"),
-        games: document.getElementById("games"),
+        gameOptions: Array.from(document.querySelectorAll("[data-game-option]")),
         health: document.getElementById("health"),
         limit: document.getElementById("limit"),
         meta: document.getElementById("meta"),
@@ -308,7 +359,11 @@
 
       function bindEvents() {
         bindInput("monitorBaseUrl", { save: true });
-        bindInput("games", { save: true });
+        els.gameOptions.forEach((option) => {
+          option.addEventListener("change", () => {
+            appState.uiState?.set("games", selectedGames().join(","), { save: true });
+          });
+        });
         bindInput("limit", { save: true });
         bindInput("extraKeywords", { save: true });
         els.windowHours.addEventListener("change", () => appState.uiState?.set("windowHours", els.windowHours.value));
@@ -399,7 +454,7 @@
         return {
           mode,
           monitorBaseUrl: els.monitorBaseUrl.value.trim(),
-          games: els.games.value.trim() || "ss1,ss2",
+          games: selectedGames().join(",") || defaults.games,
           windowHours: Number(els.windowHours.value) || 72,
           limit: clampNumber(els.limit.value, 1, 1000, 200),
           extraKeywords: els.extraKeywords.value.trim(),
@@ -410,7 +465,7 @@
 
       function renderFromState(state) {
         syncValue("monitorBaseUrl", state.monitorBaseUrl || defaults.monitorBaseUrl);
-        syncValue("games", state.games || defaults.games);
+        syncGames(state.games || defaults.games);
         syncValue("limit", state.limit || defaults.limit);
         syncValue("extraKeywords", state.extraKeywords || "");
         if (els.windowHours.value !== String(state.windowHours || defaults.windowHours)) {
@@ -428,6 +483,21 @@
       function syncValue(key, value) {
         if (document.activeElement === els[key]) return;
         if (els[key].value !== String(value)) els[key].value = String(value);
+      }
+
+      function selectedGames() {
+        return els.gameOptions.filter((option) => option.checked).map((option) => option.value);
+      }
+
+      function syncGames(value) {
+        const selected = new Set(String(value || defaults.games).split(",").map((item) => item.trim().toLowerCase()).filter(Boolean));
+        if (!selected.size) {
+          for (const game of defaults.games.split(",")) selected.add(game);
+        }
+        els.gameOptions.forEach((option) => {
+          const nextChecked = selected.has(option.value);
+          if (option.checked !== nextChecked) option.checked = nextChecked;
+        });
       }
 
       function renderResult(state = appState.uiState?.get() || {}) {

@@ -13,9 +13,13 @@ const requiredHtmlMarkers = [
   "sdk.state.create",
   "submitTurnAndWaitForResult",
   "session.turns.create",
-  "session.actions.submit"
+  "session.actions.submit",
+  "data-game-option",
+  "selectedGames",
+  "syncGames"
 ];
 const forbiddenHtmlMarkers = [
+  'id="games"',
   "actions.submit({",
   "context.get(",
   "state.read(",
