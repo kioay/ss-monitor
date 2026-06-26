@@ -22,7 +22,8 @@ const requiredHtmlMarkers = [
   "id=\"runProgress\"",
   "setRunProgress",
   "renderSummaryReport",
-  "parseSummaryMarkdown"
+  "parseSummaryMarkdown",
+  "summary-list-text"
 ];
 const forbiddenHtmlMarkers = [
   'id="games"',

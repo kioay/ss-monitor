@@ -349,6 +349,8 @@
       .summary-list.ordered li {
         display: grid;
         grid-template-columns: 26px minmax(0, 1fr);
+        align-items: start;
+        column-gap: 6px;
         border-left: 0;
         padding-left: 0;
       }
@@ -364,6 +366,10 @@
         color: var(--signal);
         font-size: 11px;
         font-weight: 900;
+      }
+      .summary-list-text {
+        display: block;
+        min-width: 0;
       }
       .summary-badges {
         display: flex;
@@ -987,7 +993,7 @@
         if (!section || !sectionHasContent(section)) return "";
         const body = section.body.map((line) => `<p>${inlineMarkdown(line)}</p>`).join("");
         const items = section.items.length
-          ? `<ul class="summary-list${options.ordered ? " ordered" : ""}">${section.items.map((item) => `<li>${inlineMarkdown(item)}</li>`).join("")}</ul>`
+          ? `<ul class="summary-list${options.ordered ? " ordered" : ""}">${section.items.map((item) => `<li><span class="summary-list-text">${inlineMarkdown(item)}</span></li>`).join("")}</ul>`
           : "";
         return `
           <section class="summary-strip">
