@@ -16,10 +16,16 @@ const requiredHtmlMarkers = [
   "session.actions.submit",
   "data-game-option",
   "selectedGames",
-  "syncGames"
+  "syncGames",
+  "id=\"openMonitor\"",
+  "id=\"runProgress\"",
+  "setRunProgress",
+  "renderSummaryReport",
+  "parseSummaryMarkdown"
 ];
 const forbiddenHtmlMarkers = [
   'id="games"',
+  "els.result.textContent = state.lastResult",
   "actions.submit({",
   "context.get(",
   "state.read(",

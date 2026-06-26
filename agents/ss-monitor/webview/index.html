@@ -9,11 +9,26 @@
       :root {
         color-scheme: light;
         font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        background: #f4f7f8;
-        color: #18222f;
+        --paper: #f4f7f8;
+        --surface: #ffffff;
+        --ink: #17202a;
+        --muted: #62727d;
+        --line: #d9e2e7;
+        --line-strong: #bfd0d8;
+        --signal: #176e56;
+        --signal-soft: #e8f4ef;
+        --blue: #315f8a;
+        --blue-soft: #edf4fa;
+        --amber: #b46b15;
+        --amber-soft: #fff6e6;
+        --red: #b04444;
+        --red-soft: #fdeeee;
+        --code: #f7f2e7;
+        background: var(--paper);
+        color: var(--ink);
       }
       * { box-sizing: border-box; }
-      body { margin: 0; min-height: 100vh; background: #f4f7f8; }
+      body { margin: 0; min-height: 100vh; background: var(--paper); }
       button, input, select, textarea { font: inherit; }
       .app { min-height: 100vh; display: grid; grid-template-rows: auto 1fr; }
       .topbar {
@@ -22,16 +37,22 @@
         justify-content: space-between;
         gap: 18px;
         padding: 22px 28px;
-        background: #ffffff;
-        border-bottom: 1px solid #d9e2e7;
+        background: var(--surface);
+        border-bottom: 1px solid var(--line);
       }
       .brand { min-width: 0; }
       h1 { margin: 0; font-size: 24px; line-height: 1.18; letter-spacing: 0; }
-      .subtitle { margin: 6px 0 0; color: #65727c; font-size: 14px; }
+      .subtitle { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex: 0 0 auto;
+      }
       .status {
         flex: 0 0 auto;
         min-width: 86px;
-        border: 1px solid #bfd0d8;
+        border: 1px solid var(--line-strong);
         border-radius: 8px;
         padding: 8px 12px;
         background: #f8fbfc;
@@ -39,6 +60,27 @@
         font-weight: 800;
         text-align: center;
         font-size: 13px;
+      }
+      .link-action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        min-height: 38px;
+        border: 1px solid #b9cbd4;
+        border-radius: 8px;
+        padding: 0 12px;
+        background: #ffffff;
+        color: #1c4157;
+        font-weight: 900;
+        font-size: 13px;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      .link-action:hover { border-color: var(--blue); background: var(--blue-soft); }
+      .link-action[aria-disabled="true"] {
+        pointer-events: none;
+        opacity: 0.55;
       }
       .layout {
         display: grid;
@@ -48,8 +90,8 @@
       }
       .panel {
         min-width: 0;
-        background: #ffffff;
-        border: 1px solid #d9e2e7;
+        background: var(--surface);
+        border: 1px solid var(--line);
         border-radius: 8px;
         overflow: hidden;
       }
@@ -63,10 +105,10 @@
       .panel-body { padding: 18px; }
       .field { display: grid; gap: 7px; margin-bottom: 14px; }
       .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-      label { color: #60707b; font-weight: 800; font-size: 13px; }
+      label { color: var(--muted); font-weight: 800; font-size: 13px; }
       legend {
         padding: 0;
-        color: #60707b;
+        color: var(--muted);
         font-weight: 800;
         font-size: 13px;
       }
@@ -76,7 +118,7 @@
         border: 1px solid #c8d5dc;
         border-radius: 8px;
         background: #fbfdfd;
-        color: #18222f;
+        color: var(--ink);
         outline: none;
       }
       input, select { height: 40px; padding: 0 11px; }
@@ -105,7 +147,7 @@
         border-radius: 8px;
         padding: 0 10px;
         background: #fbfdfd;
-        color: #18222f;
+        color: var(--ink);
         cursor: pointer;
       }
       .check-option:focus-within {
@@ -154,6 +196,68 @@
         font-size: 13px;
         line-height: 1.45;
       }
+      .run-progress {
+        margin-bottom: 18px;
+        border-bottom: 1px solid #e3ebef;
+        padding-bottom: 16px;
+      }
+      .run-progress[data-state="idle"] { display: none; }
+      .progress-copy {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+      .progress-title {
+        color: var(--ink);
+        font-size: 14px;
+        font-weight: 900;
+      }
+      .progress-detail {
+        color: var(--muted);
+        font-size: 12px;
+        text-align: right;
+      }
+      .step-track {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+      }
+      .step {
+        position: relative;
+        min-width: 0;
+        border-top: 3px solid #d8e2e7;
+        padding-top: 8px;
+        color: #73818a;
+        font-size: 12px;
+        font-weight: 800;
+      }
+      .step::before {
+        content: "";
+        position: absolute;
+        top: -6px;
+        left: 0;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: #d8e2e7;
+      }
+      .step.is-active {
+        border-color: var(--blue);
+        color: #173f62;
+      }
+      .step.is-active::before { background: var(--blue); }
+      .step.is-done {
+        border-color: var(--signal);
+        color: #176e56;
+      }
+      .step.is-done::before { background: var(--signal); }
+      .run-progress[data-state="error"] .step.is-active {
+        border-color: var(--red);
+        color: var(--red);
+      }
+      .run-progress[data-state="error"] .step.is-active::before { background: var(--red); }
       .meta {
         display: flex;
         flex-wrap: wrap;
@@ -170,8 +274,8 @@
       }
       .result {
         min-height: 430px;
-        white-space: pre-wrap;
-        line-height: 1.68;
+        white-space: normal;
+        line-height: 1.58;
         color: #24313d;
       }
       .empty {
@@ -184,13 +288,139 @@
         text-align: center;
         padding: 24px;
       }
+      .summary-report {
+        display: grid;
+        gap: 18px;
+      }
+      .summary-hero {
+        border-left: 4px solid var(--signal);
+        padding: 2px 0 4px 14px;
+      }
+      .summary-eyebrow {
+        margin: 0 0 5px;
+        color: #547583;
+        font-size: 12px;
+        font-weight: 900;
+      }
+      .summary-hero p {
+        margin: 0;
+        color: #18222f;
+        font-size: 18px;
+        line-height: 1.56;
+        font-weight: 760;
+      }
+      .summary-strip {
+        display: grid;
+        grid-template-columns: minmax(94px, 132px) minmax(0, 1fr);
+        gap: 12px;
+        border-top: 1px solid #e3ebef;
+        padding-top: 14px;
+      }
+      .summary-strip h3 {
+        margin: 0;
+        color: #50646f;
+        font-size: 13px;
+        line-height: 1.35;
+      }
+      .summary-strip p {
+        margin: 0;
+        color: #263640;
+      }
+      .summary-list {
+        display: grid;
+        gap: 9px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .summary-list li {
+        border-left: 3px solid #cbd9df;
+        padding-left: 10px;
+      }
+      .summary-list.ordered {
+        counter-reset: action;
+      }
+      .summary-list.ordered li {
+        display: grid;
+        grid-template-columns: 26px minmax(0, 1fr);
+        border-left: 0;
+        padding-left: 0;
+      }
+      .summary-list.ordered li::before {
+        counter-increment: action;
+        content: counter(action);
+        display: inline-grid;
+        place-items: center;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--signal-soft);
+        color: var(--signal);
+        font-size: 11px;
+        font-weight: 900;
+      }
+      .summary-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .summary-badge {
+        display: inline-flex;
+        align-items: center;
+        min-height: 24px;
+        border: 1px solid #cfdde3;
+        border-radius: 999px;
+        padding: 0 9px;
+        background: #f8fbfc;
+        color: #40525d;
+        font-size: 12px;
+        font-weight: 900;
+      }
+      .summary-badge.risk-high { background: var(--red-soft); border-color: #efb8b8; color: var(--red); }
+      .summary-badge.risk-medium { background: var(--amber-soft); border-color: #edcc9d; color: var(--amber); }
+      .summary-badge.risk-low { background: var(--signal-soft); border-color: #b8d7c9; color: var(--signal); }
+      .raw-result {
+        border-top: 1px solid #e3ebef;
+        padding-top: 12px;
+      }
+      .raw-result summary {
+        cursor: pointer;
+        color: #50646f;
+        font-size: 13px;
+        font-weight: 900;
+      }
+      .raw-result pre {
+        max-height: 280px;
+        overflow: auto;
+        margin: 10px 0 0;
+        border: 1px solid #d9e2e7;
+        border-radius: 8px;
+        padding: 12px;
+        background: #fbfdfd;
+        color: #24313d;
+        white-space: pre-wrap;
+        line-height: 1.55;
+      }
+      code {
+        border-radius: 5px;
+        padding: 1px 4px;
+        background: var(--code);
+        color: #7c4d12;
+        font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+        font-size: 0.92em;
+      }
+      strong { font-weight: 900; }
       @media (max-width: 880px) {
         .topbar { align-items: flex-start; flex-direction: column; padding: 20px; }
-        .status { width: 100%; }
+        .header-actions { width: 100%; }
+        .status, .link-action { flex: 1; }
         .layout { grid-template-columns: 1fr; padding: 16px; }
       }
       @media (max-width: 520px) {
         .field-row, .actions { grid-template-columns: 1fr; }
+        .summary-strip { grid-template-columns: 1fr; }
+        .progress-copy { align-items: flex-start; flex-direction: column; }
+        .progress-detail { text-align: left; }
       }
     </style>
   </head>
@@ -201,7 +431,12 @@
           <h1>SS Monitor</h1>
           <p class="subtitle">舆情风险、来源健康和重点条目</p>
         </div>
-        <div class="status" id="status">初始化</div>
+        <div class="header-actions">
+          <a class="link-action" id="openMonitor" href="#" target="_blank" rel="noopener noreferrer" aria-disabled="true">
+            舆情网页 <span aria-hidden="true">↗</span>
+          </a>
+          <div class="status" id="status">初始化</div>
+        </div>
       </header>
       <section class="layout">
         <aside class="panel">
@@ -265,6 +500,18 @@
           <h2>结果</h2>
           <div class="panel-body">
             <div class="meta" id="meta"></div>
+            <div class="run-progress" id="runProgress" data-state="idle" aria-live="polite">
+              <div class="progress-copy">
+                <span class="progress-title" id="runPhase">等待任务</span>
+                <span class="progress-detail" id="runDetail">配置参数后生成摘要</span>
+              </div>
+              <div class="step-track" aria-label="生成进度">
+                <span class="step" data-run-step="submit">提交任务</span>
+                <span class="step" data-run-step="fetch">读取数据</span>
+                <span class="step" data-run-step="analyze">生成摘要</span>
+                <span class="step" data-run-step="publish">整理结果</span>
+              </div>
+            </div>
             <div class="result" id="result">
               <div class="empty">等待 worker turn</div>
             </div>
@@ -286,11 +533,31 @@
         lastMode: ""
       };
 
+      const runSteps = [
+        { key: "submit", label: "提交任务" },
+        { key: "fetch", label: "读取数据" },
+        { key: "analyze", label: "生成摘要" },
+        { key: "publish", label: "整理结果" }
+      ];
+
+      const summarySections = [
+        { key: "conclusion", title: "结论", aliases: ["结论"] },
+        { key: "risk", title: "风险", aliases: ["风险"] },
+        { key: "source", title: "来源健康", aliases: ["来源健康", "来源"] },
+        { key: "items", title: "重点条目", aliases: ["重点条目", "重点"] },
+        { key: "advice", title: "建议", aliases: ["建议"] },
+        { key: "checks", title: "检查结果", aliases: ["检查结果"] }
+      ];
+
       const appState = {
         busy: false,
         composing: false,
         context: null,
+        currentMode: "",
+        currentTaskRunId: "",
+        currentStep: "",
         permissions: { readOnly: false, scopes: [] },
+        progressTimers: [],
         sdk: null,
         uiState: null
       };
@@ -304,8 +571,13 @@
         meta: document.getElementById("meta"),
         monitorBaseUrl: document.getElementById("monitorBaseUrl"),
         notice: document.getElementById("notice"),
+        openMonitor: document.getElementById("openMonitor"),
         question: document.getElementById("question"),
         result: document.getElementById("result"),
+        runDetail: document.getElementById("runDetail"),
+        runPhase: document.getElementById("runPhase"),
+        runProgress: document.getElementById("runProgress"),
+        runSteps: Array.from(document.querySelectorAll("[data-run-step]")),
         status: document.getElementById("status"),
         summary: document.getElementById("summary"),
         windowHours: document.getElementById("windowHours")
@@ -359,6 +631,10 @@
 
       function bindEvents() {
         bindInput("monitorBaseUrl", { save: true });
+        els.monitorBaseUrl.addEventListener("input", updateMonitorLink);
+        els.openMonitor.addEventListener("click", (event) => {
+          if (els.openMonitor.getAttribute("aria-disabled") === "true") event.preventDefault();
+        });
         els.gameOptions.forEach((option) => {
           option.addEventListener("change", () => {
             appState.uiState?.set("games", selectedGames().join(","), { save: true });
@@ -414,6 +690,10 @@
         setBusy(true);
         try {
           const input = readForm(mode);
+          appState.currentMode = mode;
+          appState.currentTaskRunId = "";
+          setRunProgress("submit", "正在提交任务", "running");
+          scheduleProgressCues(mode);
           appState.uiState?.patch({ ...input, lastMode: mode });
           setStatus("worker 运行中");
           showNotice("已提交 worker turn。");
@@ -428,10 +708,15 @@
             structuredMode: mode,
             onSubmitted: (submitted) => {
               const taskRunId = extractTaskRunId(submitted);
-              if (taskRunId) appState.uiState?.set("taskRunId", taskRunId);
+              if (taskRunId) {
+                appState.currentTaskRunId = taskRunId;
+                appState.uiState?.set("taskRunId", taskRunId);
+              }
+              setRunProgress("fetch", taskRunId ? `任务 ${shortId(taskRunId)} 已创建` : "worker 正在排队", "running");
               renderMeta();
             },
             onPoll: (detail) => {
+              updateProgressFromDetail(detail, mode);
               renderMeta(detail);
             }
           });
@@ -440,9 +725,11 @@
           const taskRunId = extractTaskRunId(waited.submitResponse) || appState.uiState?.get("taskRunId") || "";
           appState.uiState?.patch({ lastResult, taskRunId, lastMode: mode });
           await appState.uiState?.flush();
+          setRunProgress("publish", "结果已整理完成", "done");
           setStatus("已完成");
           showNotice("结果已保存。");
         } catch (error) {
+          setRunProgress(appState.currentStep || "submit", error.message || String(error), "error");
           setStatus("失败");
           showNotice(error.message || String(error));
         } finally {
@@ -465,6 +752,7 @@
 
       function renderFromState(state) {
         syncValue("monitorBaseUrl", state.monitorBaseUrl || defaults.monitorBaseUrl);
+        updateMonitorLink();
         syncGames(state.games || defaults.games);
         syncValue("limit", state.limit || defaults.limit);
         syncValue("extraKeywords", state.extraKeywords || "");
@@ -485,6 +773,28 @@
         if (els[key].value !== String(value)) els[key].value = String(value);
       }
 
+      function updateMonitorLink() {
+        const href = monitorPageUrl();
+        if (!href) {
+          els.openMonitor.href = "#";
+          els.openMonitor.setAttribute("aria-disabled", "true");
+          return;
+        }
+        els.openMonitor.href = href;
+        els.openMonitor.removeAttribute("aria-disabled");
+      }
+
+      function monitorPageUrl() {
+        try {
+          const url = new URL((els.monitorBaseUrl.value || defaults.monitorBaseUrl).trim());
+          if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || !url.host) return "";
+          url.hash = "";
+          return url.href.replace(/\/$/, "");
+        } catch {
+          return "";
+        }
+      }
+
       function selectedGames() {
         return els.gameOptions.filter((option) => option.checked).map((option) => option.value);
       }
@@ -500,13 +810,239 @@
         });
       }
 
+      function setRunProgress(stepKey, detail, state = "running") {
+        const normalizedStep = runSteps.some((step) => step.key === stepKey) ? stepKey : "submit";
+        appState.currentStep = normalizedStep;
+        const activeIndex = stepIndex(normalizedStep);
+        els.runProgress.dataset.state = state;
+        els.runPhase.textContent = state === "done" ? "生成完成" : state === "error" ? "生成失败" : runSteps[activeIndex].label;
+        els.runDetail.textContent = detail || "";
+        els.runSteps.forEach((node, index) => {
+          node.classList.toggle("is-done", state === "done" || index < activeIndex);
+          node.classList.toggle("is-active", state !== "done" && index === activeIndex);
+        });
+      }
+
+      function stepIndex(stepKey) {
+        return Math.max(0, runSteps.findIndex((step) => step.key === stepKey));
+      }
+
+      function scheduleProgressCues(mode) {
+        clearProgressTimers();
+        const cues = mode === "monitor.health"
+          ? [
+              { delay: 1200, step: "fetch", detail: "正在检查健康接口" },
+              { delay: 3600, step: "publish", detail: "正在整理健康结果" }
+            ]
+          : [
+              { delay: 1200, step: "fetch", detail: "正在读取监控窗口" },
+              { delay: 5200, step: "analyze", detail: "正在归纳风险与重点条目" },
+              { delay: 14000, step: "publish", detail: "正在整理摘要格式" }
+            ];
+        appState.progressTimers = cues.map((cue) => window.setTimeout(() => {
+          if (!appState.busy) return;
+          if (stepIndex(appState.currentStep) < stepIndex(cue.step)) {
+            setRunProgress(cue.step, cue.detail, "running");
+          }
+        }, cue.delay));
+      }
+
+      function clearProgressTimers() {
+        appState.progressTimers.forEach((timer) => window.clearTimeout(timer));
+        appState.progressTimers = [];
+      }
+
+      function updateProgressFromDetail(detail, mode) {
+        const turn = currentTurnFromDetail(detail);
+        if (!turn) return;
+        const text = [
+          turn.stage,
+          turn.phaseMessage,
+          turn.phase,
+          turn.status,
+          turn.message
+        ].filter(Boolean).join(" ").toLowerCase();
+        const label = turn.phaseMessage || turn.message || turn.stage || turn.status || "";
+        if (/publish|upload|artifact|result|complete|succeed/.test(text)) {
+          setRunProgress("publish", label || "正在整理结果", "running");
+        } else if (/codex|analy|summary|摘要/.test(text) || (mode === "monitor.summary" && /running/.test(text))) {
+          setRunProgress("analyze", label || "正在生成摘要", "running");
+        } else if (/collect|fetch|health|config|monitor|读取|检查/.test(text)) {
+          setRunProgress("fetch", label || "正在读取数据", "running");
+        }
+      }
+
+      function currentTurnFromDetail(detail) {
+        if (!detail || !Array.isArray(detail.turns)) return null;
+        const taskRunId = appState.currentTaskRunId || appState.uiState?.get("taskRunId") || "";
+        if (taskRunId) {
+          const matched = detail.turns.find((turn) => turn && turn.taskRunId === taskRunId);
+          if (matched) return matched;
+        }
+        return detail.turns[detail.turns.length - 1] || null;
+      }
+
       function renderResult(state = appState.uiState?.get() || {}) {
         renderMeta();
         if (!state.lastResult) {
           els.result.innerHTML = '<div class="empty">等待 worker turn</div>';
           return;
         }
-        els.result.textContent = state.lastResult;
+        els.result.innerHTML = renderSummaryReport(parseSummaryMarkdown(state.lastResult));
+      }
+
+      function parseSummaryMarkdown(markdown) {
+        const lines = String(markdown || "").replace(/\r/g, "").split("\n");
+        const runtimeStart = lines.findIndex((line) => /^##\s*Runtime/i.test(line.trim()));
+        const bodyLines = runtimeStart >= 0 ? lines.slice(0, runtimeStart) : lines;
+        const runtimeLines = runtimeStart >= 0 ? lines.slice(runtimeStart + 1) : [];
+        const sections = Object.fromEntries(summarySections.map((section) => [section.key, { ...section, body: [], items: [] }]));
+        const intro = [];
+        let current = "";
+
+        for (const rawLine of bodyLines) {
+          const trimmed = rawLine.trim();
+          if (!trimmed || /^#\s+SS Monitor Result/i.test(trimmed) || /^_Generated at/i.test(trimmed)) continue;
+          const text = stripListMarker(trimmed.replace(/^#+\s*/, ""));
+          const section = matchSummarySection(text);
+          if (section) {
+            current = section.key;
+            if (section.rest) sections[current].body.push(section.rest);
+            continue;
+          }
+          if (current) {
+            const target = isListLine(trimmed) || ["items", "advice", "checks"].includes(current) ? "items" : "body";
+            sections[current][target].push(text);
+          } else {
+            intro.push(text);
+          }
+        }
+
+        return {
+          intro,
+          raw: markdown,
+          runtime: parseRuntimeLines(runtimeLines),
+          sections,
+        };
+      }
+
+      function matchSummarySection(text) {
+        const normalized = stripInlineMarkers(text).trim();
+        for (const section of summarySections) {
+          for (const alias of section.aliases) {
+            const exact = normalized === alias;
+            const withColon = normalized.match(new RegExp(`^${escapeRegExp(alias)}\\s*[:：]\\s*(.*)$`));
+            if (exact) return { key: section.key, rest: "" };
+            if (withColon) return { key: section.key, rest: withColon[1].trim() };
+          }
+        }
+        return null;
+      }
+
+      function renderSummaryReport(parsed) {
+        const sections = parsed.sections;
+        const conclusion = firstContent(sections.conclusion) || parsed.intro.join(" ");
+        const risk = firstContent(sections.risk);
+        const source = firstContent(sections.source);
+        const runtimeBadges = Object.entries(parsed.runtime).slice(0, 3).map(([key, value]) => `${key}: ${value}`);
+        const badges = [
+          riskBadge(risk),
+          source ? { label: shortPlainText(source, 34), className: "summary-badge" } : null,
+          ...runtimeBadges.map((label) => ({ label, className: "summary-badge" }))
+        ].filter(Boolean);
+        const sectionHtml = [
+          renderSection(sections.risk),
+          renderSection(sections.source),
+          renderSection(sections.items),
+          renderSection(sections.advice, { ordered: true }),
+          renderSection(sections.checks)
+        ].filter(Boolean).join("");
+        return `
+          <article class="summary-report">
+            <section class="summary-hero">
+              <p class="summary-eyebrow">结论</p>
+              <p>${inlineMarkdown(conclusion || "暂无摘要结果。")}</p>
+            </section>
+            ${badges.length ? `<div class="summary-badges">${badges.map((badge) => `<span class="${badge.className}">${escapeHtml(badge.label)}</span>`).join("")}</div>` : ""}
+            ${sectionHtml}
+            <details class="raw-result">
+              <summary>原始结果</summary>
+              <pre>${escapeHtml(parsed.raw)}</pre>
+            </details>
+          </article>
+        `;
+      }
+
+      function renderSection(section, options = {}) {
+        if (!section || !sectionHasContent(section)) return "";
+        const body = section.body.map((line) => `<p>${inlineMarkdown(line)}</p>`).join("");
+        const items = section.items.length
+          ? `<ul class="summary-list${options.ordered ? " ordered" : ""}">${section.items.map((item) => `<li>${inlineMarkdown(item)}</li>`).join("")}</ul>`
+          : "";
+        return `
+          <section class="summary-strip">
+            <h3>${escapeHtml(section.title)}</h3>
+            <div>${body}${items}</div>
+          </section>
+        `;
+      }
+
+      function sectionHasContent(section) {
+        return section.body.some(Boolean) || section.items.some(Boolean);
+      }
+
+      function firstContent(section) {
+        if (!section) return "";
+        return section.body.find(Boolean) || section.items.find(Boolean) || "";
+      }
+
+      function riskBadge(text) {
+        const plain = stripInlineMarkers(text || "").toLowerCase();
+        if (!plain) return null;
+        if (/^(high|高风险|严重)/.test(plain)) return { label: "高风险", className: "summary-badge risk-high" };
+        if (/^(medium|中风险|中等)/.test(plain)) return { label: "中风险", className: "summary-badge risk-medium" };
+        if (/^(low|低风险|轻微)/.test(plain)) return { label: "低风险", className: "summary-badge risk-low" };
+        if (/(high|高风险|严重)/.test(plain)) return { label: "高风险", className: "summary-badge risk-high" };
+        if (/(medium|中风险|中等)/.test(plain)) return { label: "中风险", className: "summary-badge risk-medium" };
+        if (/(low|低风险|轻微)/.test(plain)) return { label: "低风险", className: "summary-badge risk-low" };
+        return { label: shortPlainText(text, 24), className: "summary-badge" };
+      }
+
+      function parseRuntimeLines(lines) {
+        const runtime = {};
+        for (const line of lines) {
+          const text = stripListMarker(line.trim());
+          const match = text.match(/^([^:：]+)[:：]\s*(.+)$/);
+          if (match) runtime[match[1].trim()] = stripInlineMarkers(match[2].trim());
+        }
+        return runtime;
+      }
+
+      function stripListMarker(value) {
+        return String(value || "").replace(/^[-*]\s+/, "").replace(/^\d+[.、]\s*/, "").trim();
+      }
+
+      function isListLine(value) {
+        return /^[-*]\s+/.test(value.trim()) || /^\d+[.、]\s*/.test(value.trim());
+      }
+
+      function stripInlineMarkers(value) {
+        return String(value || "").replace(/\*\*/g, "").replace(/`/g, "").trim();
+      }
+
+      function inlineMarkdown(value) {
+        return escapeHtml(value)
+          .replace(/`([^`]+)`/g, "<code>$1</code>")
+          .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+      }
+
+      function shortPlainText(value, maxLength) {
+        const text = stripInlineMarkers(value);
+        return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
+      }
+
+      function escapeRegExp(value) {
+        return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       }
 
       function renderMeta(detail) {
@@ -537,6 +1073,7 @@
 
       function setBusy(nextBusy) {
         appState.busy = nextBusy;
+        if (!nextBusy) clearProgressTimers();
         setButtonsDisabled(nextBusy || Boolean(submitPermissionIssue()));
       }
 
