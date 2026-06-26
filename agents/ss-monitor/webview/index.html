@@ -661,6 +661,7 @@
         els.openMonitor.addEventListener("click", (event) => {
           if (els.openMonitor.getAttribute("aria-disabled") === "true") event.preventDefault();
         });
+        els.result.addEventListener("click", bindSourceLinkClicks);
         els.gameOptions.forEach((option) => {
           option.addEventListener("change", () => {
             appState.uiState?.set("games", selectedGames().join(","), { save: true });
@@ -686,6 +687,30 @@
         els[key].addEventListener("input", () => {
           appState.uiState?.set(key, els[key].value, { save: options.save !== false });
         });
+      }
+
+      function bindSourceLinkClicks(event) {
+        const link = event.target.closest?.("a.source-link");
+        if (!link || event.defaultPrevented || event.button !== 0) return;
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        openExternalLink(link.href);
+      }
+
+      function openExternalLink(href) {
+        let url;
+        try {
+          url = new URL(href);
+          if (!["http:", "https:"].includes(url.protocol)) return;
+        } catch {
+          return;
+        }
+        const opened = window.open(url.href, "_blank");
+        if (opened) {
+          opened.opener = null;
+          return;
+        }
+        window.location.assign(url.href);
       }
 
       function submitPermissionIssue() {
