@@ -421,6 +421,15 @@
         font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
         font-size: 0.92em;
       }
+      .source-link {
+        color: inherit;
+        text-decoration: none;
+      }
+      .source-link:hover code {
+        border-color: #d9ba78;
+        background: #fff0cc;
+        text-decoration: underline;
+      }
       strong { font-weight: 900; }
       @media (max-width: 880px) {
         .topbar { align-items: flex-start; flex-direction: column; padding: 20px; }
@@ -699,6 +708,10 @@
           showNotice(issue);
           return;
         }
+        if (!selectedGames().length) {
+          showNotice("请选择项目");
+          return;
+        }
         if (!appState.sdk?.session?.submitTurnAndWaitForResult) {
           showNotice("当前 SDK 不支持 submitTurnAndWaitForResult。");
           return;
@@ -757,7 +770,7 @@
         return {
           mode,
           monitorBaseUrl: els.monitorBaseUrl.value.trim(),
-          games: selectedGames().join(",") || defaults.games,
+          games: selectedGames().join(","),
           windowHours: Number(els.windowHours.value) || 72,
           limit: clampNumber(els.limit.value, 1, 1000, 200),
           extraKeywords: els.extraKeywords.value.trim(),
@@ -769,7 +782,7 @@
       function renderFromState(state) {
         syncValue("monitorBaseUrl", state.monitorBaseUrl || defaults.monitorBaseUrl);
         updateMonitorLink();
-        syncGames(state.games || defaults.games);
+        syncGames(Object.prototype.hasOwnProperty.call(state, "games") ? state.games : defaults.games);
         syncValue("limit", state.limit || defaults.limit);
         syncValue("extraKeywords", state.extraKeywords || "");
         if (els.windowHours.value !== String(state.windowHours || defaults.windowHours)) {
@@ -816,10 +829,7 @@
       }
 
       function syncGames(value) {
-        const selected = new Set(String(value || defaults.games).split(",").map((item) => item.trim().toLowerCase()).filter(Boolean));
-        if (!selected.size) {
-          for (const game of defaults.games.split(",")) selected.add(game);
-        }
+        const selected = new Set(String(value || "").split(",").map((item) => item.trim().toLowerCase()).filter(Boolean));
         els.gameOptions.forEach((option) => {
           const nextChecked = selected.has(option.value);
           if (option.checked !== nextChecked) option.checked = nextChecked;
@@ -1048,8 +1058,28 @@
 
       function inlineMarkdown(value) {
         return escapeHtml(value)
-          .replace(/`([^`]+)`/g, "<code>$1</code>")
+          .replace(/`([^`]+)`/g, (_match, codeText) => sourceItemCodeHtml(codeText))
           .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+      }
+
+      function sourceItemCodeHtml(codeText) {
+        const href = sourceItemUrl(codeText);
+        const codeHtml = `<code>${codeText}</code>`;
+        if (!href) return codeHtml;
+        return `<a class="source-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" title="打开原帖">${codeHtml}</a>`;
+      }
+
+      function sourceItemUrl(codeText) {
+        const text = String(codeText || "").trim();
+        const match = text.match(/^(tieba|forum4399|bilibili|douyin):([A-Za-z0-9_-]+)$/i);
+        if (!match) return "";
+        const source = match[1].toLowerCase();
+        const id = match[2];
+        if (source === "tieba") return `https://tieba.baidu.com/p/${encodeURIComponent(id)}`;
+        if (source === "forum4399") return `https://my.4399.com/forums/thread-${encodeURIComponent(id)}`;
+        if (source === "bilibili") return `https://www.bilibili.com/video/${encodeURIComponent(id)}/`;
+        if (source === "douyin") return `https://www.douyin.com/video/${encodeURIComponent(id)}`;
+        return "";
       }
 
       function shortPlainText(value, maxLength) {

@@ -23,7 +23,13 @@ const requiredHtmlMarkers = [
   "setRunProgress",
   "renderSummaryReport",
   "parseSummaryMarkdown",
-  "summary-list-text"
+  "summary-list-text",
+  "请选择项目",
+  "sourceItemUrl",
+  "source-link",
+  'Object.prototype.hasOwnProperty.call(state, "games")',
+  "https://tieba.baidu.com/p/",
+  "https://my.4399.com/forums/thread-"
 ];
 const forbiddenHtmlMarkers = [
   'id="games"',
@@ -35,7 +41,10 @@ const forbiddenHtmlMarkers = [
   "app.state.read(",
   "app.actions.submit({",
   "session.getState",
-  "session.saveState"
+  "session.saveState",
+  'selectedGames().join(",") || defaults.games',
+  "syncGames(state.games || defaults.games)",
+  "String(value || defaults.games)"
 ];
 const requiredSdkMarkers = [
   "createAgentAppClient",
