@@ -1047,7 +1047,7 @@
       }
 
       function shortPlainText(value, maxLength) {
-        const text = stripInlineMarkers(value);
+        const text = stripInlineMarkers(value).replace(/[。！？!?，,；;.]+$/u, "");
         return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
       }
 
