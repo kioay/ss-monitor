@@ -39,7 +39,7 @@ Return a concise final answer suitable for WebView display. Prefer this shape wh
 - `结论`: one or two sentences.
 - `风险`: high/medium/low with evidence.
 - `来源健康`: blocked/stale/healthy source notes.
-- `重点条目`: up to five notable alerts or discussions.
+- `重点条目`: up to five notable alerts or discussions. When the entry comes from `monitor.items`, include that item's exact source id from `id` in backticks before the title, for example `tieba:10816032913`, `forum4399:64551176`, `bilibili:BV...`, or `douyin:...`. Do not invent source ids.
 - `建议`: next operational actions.
 
 If no monitor data is available, return:

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 import urllib.error
 import urllib.parse
@@ -24,6 +25,8 @@ AGENT_ID = "ss-monitor"
 AGENT_NAME = "SS Monitor"
 DEFAULT_CODEX_MODEL = "gpt-5.4-mini"
 BUSINESS_MODES = {"monitor.summary", "monitor.health"}
+SOURCE_ID_RE = re.compile(r"\b(?:tieba|forum4399|bilibili|douyin):[A-Za-z0-9_-]+\b", re.IGNORECASE)
+SUPPORTED_SOURCE_IDS = {"tieba", "forum4399", "bilibili", "douyin"}
 
 
 def main() -> int:
@@ -141,6 +144,10 @@ def run_business_turn(worker: WorkerClient, output_dir: Path, mode: str, turn_in
     final_message = sanitize_text(str(codex_result.get("finalMessage") or "")).strip()
     if not final_message:
         raise RuntimeError("Codex produced an empty final message")
+    annotated_final_message = annotate_summary_source_ids(final_message, monitor_snapshot)
+    if annotated_final_message != final_message:
+        log("Annotated source ids in summary output")
+        final_message = annotated_final_message
 
     result_markdown = "\n".join(
         [
@@ -442,6 +449,62 @@ def compact_monitor_item(item: Any) -> Any:
     }
 
 
+def annotate_summary_source_ids(markdown: str, monitor_snapshot: dict[str, Any]) -> str:
+    items = monitor_snapshot.get("monitor", {}).get("items") if isinstance(monitor_snapshot.get("monitor"), dict) else []
+    source_items = source_item_matchers(items)
+    if not source_items:
+        return markdown
+
+    lines: list[str] = []
+    for line in markdown.splitlines():
+        if SOURCE_ID_RE.search(line):
+            lines.append(line)
+            continue
+        source_code = source_code_for_summary_line(line, source_items)
+        lines.append(prefix_source_code(line, source_code) if source_code else line)
+    return "\n".join(lines)
+
+
+def source_item_matchers(items: Any) -> list[dict[str, str]]:
+    matchers: list[dict[str, str]] = []
+    for item in list_or_empty(items):
+        if not isinstance(item, dict):
+            continue
+        source_code = source_code_for_item(item)
+        title = sanitize_text(str(item.get("title") or "")).strip()
+        if source_code and len(title) >= 4:
+            matchers.append({"title": title, "sourceCode": source_code})
+    return sorted(matchers, key=lambda entry: len(entry["title"]), reverse=True)
+
+
+def source_code_for_summary_line(line: str, source_items: list[dict[str, str]]) -> str:
+    for item in source_items:
+        if item["title"] in line:
+            return item["sourceCode"]
+    return ""
+
+
+def prefix_source_code(line: str, source_code: str) -> str:
+    marker = f"`{source_code}`"
+    bullet_match = re.match(r"^(\s*(?:[-*+]\s+|\d+[.)]\s+))(.*)$", line)
+    if bullet_match:
+        return f"{bullet_match.group(1)}{marker} {bullet_match.group(2)}"
+    return f"{marker} {line}"
+
+
+def source_code_for_item(item: Any) -> str:
+    if not isinstance(item, dict):
+        return ""
+    raw_id = sanitize_text(str(item.get("id") or "")).strip()
+    existing = SOURCE_ID_RE.search(raw_id)
+    if existing:
+        return existing.group(0)
+    source = sanitize_text(str(item.get("source") or "")).strip().lower()
+    if source not in SUPPORTED_SOURCE_IDS or not raw_id or not re.fullmatch(r"[A-Za-z0-9_-]+", raw_id):
+        return ""
+    return f"{source}:{raw_id}"
+
+
 def compact_config_payload(value: Any) -> Any:
     if not isinstance(value, dict):
         return compact_json_value(value)
@@ -503,6 +566,7 @@ def build_codex_prompt(
             "- Do not output tokens, credentials, cookies, signed URLs, webhook URLs, or private environment values.",
             "- Do not suggest DingTalk test messages unless explicitly asked.",
             "- If monitor data is unavailable, explain the missing precondition instead of inventing metrics.",
+            "- In `重点条目`, every item derived from `monitor.items` must include the exact backticked source id from that item's `id`, such as `tieba:10816032913`, `forum4399:64551176`, `bilibili:BV...`, or `douyin:...`; do not invent ids.",
         ]
     )
 
