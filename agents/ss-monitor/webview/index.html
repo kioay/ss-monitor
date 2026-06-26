@@ -105,6 +105,12 @@
       .panel-body { padding: 18px; }
       .field { display: grid; gap: 7px; margin-bottom: 14px; }
       .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      .monitor-url-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+        align-items: center;
+      }
       label { color: var(--muted); font-weight: 800; font-size: 13px; }
       legend {
         padding: 0;
@@ -413,11 +419,13 @@
       @media (max-width: 880px) {
         .topbar { align-items: flex-start; flex-direction: column; padding: 20px; }
         .header-actions { width: 100%; }
-        .status, .link-action { flex: 1; }
+        .header-actions .status { flex: 1; }
         .layout { grid-template-columns: 1fr; padding: 16px; }
       }
       @media (max-width: 520px) {
         .field-row, .actions { grid-template-columns: 1fr; }
+        .monitor-url-row { grid-template-columns: 1fr; }
+        .monitor-url-row .link-action { width: 100%; }
         .summary-strip { grid-template-columns: 1fr; }
         .progress-copy { align-items: flex-start; flex-direction: column; }
         .progress-detail { text-align: left; }
@@ -432,9 +440,6 @@
           <p class="subtitle">舆情风险、来源健康和重点条目</p>
         </div>
         <div class="header-actions">
-          <a class="link-action" id="openMonitor" href="#" target="_blank" rel="noopener noreferrer" aria-disabled="true">
-            舆情网页 <span aria-hidden="true">↗</span>
-          </a>
           <div class="status" id="status">初始化</div>
         </div>
       </header>
@@ -444,7 +449,12 @@
           <div class="panel-body">
             <div class="field">
               <label for="monitorBaseUrl">监控地址</label>
-              <input id="monitorBaseUrl" autocomplete="off" spellcheck="false" />
+              <div class="monitor-url-row">
+                <input id="monitorBaseUrl" autocomplete="off" spellcheck="false" />
+                <a class="link-action" id="openMonitor" href="#" target="_blank" rel="noopener noreferrer" aria-disabled="true">
+                  舆情网页 <span aria-hidden="true">↗</span>
+                </a>
+              </div>
             </div>
             <div class="field-row">
               <fieldset class="field project-picker" id="gamesGroup">

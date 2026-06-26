@@ -18,6 +18,7 @@ const requiredHtmlMarkers = [
   "selectedGames",
   "syncGames",
   "id=\"openMonitor\"",
+  "monitor-url-row",
   "id=\"runProgress\"",
   "setRunProgress",
   "renderSummaryReport",
