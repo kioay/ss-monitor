@@ -25,8 +25,11 @@ const requiredHtmlMarkers = [
   "parseSummaryMarkdown",
   "summary-list-text",
   "请选择项目",
+  "autolinkSourceItems",
+  "sourceItemLinkHtml",
   "sourceItemUrl",
   "source-link",
+  "cursor: pointer",
   'Object.prototype.hasOwnProperty.call(state, "games")',
   "https://tieba.baidu.com/p/",
   "https://my.4399.com/forums/thread-"

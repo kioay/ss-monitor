@@ -423,6 +423,7 @@
       }
       .source-link {
         color: inherit;
+        cursor: pointer;
         text-decoration: none;
       }
       .source-link:hover code {
@@ -1057,16 +1058,38 @@
       }
 
       function inlineMarkdown(value) {
-        return escapeHtml(value)
-          .replace(/`([^`]+)`/g, (_match, codeText) => sourceItemCodeHtml(codeText))
-          .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        const text = String(value || "");
+        const tokenPattern = /`([^`]+)`|\*\*([^*]+)\*\*/g;
+        let html = "";
+        let lastIndex = 0;
+        for (const match of text.matchAll(tokenPattern)) {
+          html += autolinkSourceItems(text.slice(lastIndex, match.index));
+          if (match[1] !== undefined) {
+            html += sourceItemCodeHtml(match[1]);
+          } else {
+            html += `<strong>${autolinkSourceItems(match[2])}</strong>`;
+          }
+          lastIndex = match.index + match[0].length;
+        }
+        html += autolinkSourceItems(text.slice(lastIndex));
+        return html;
+      }
+
+      function autolinkSourceItems(value) {
+        return escapeHtml(value).replace(/\b(?:tieba|forum4399|bilibili|douyin):[A-Za-z0-9_-]+\b/gi, (sourceId) => {
+          return sourceItemLinkHtml(sourceId, `<code>${sourceId}</code>`) || sourceId;
+        });
       }
 
       function sourceItemCodeHtml(codeText) {
-        const href = sourceItemUrl(codeText);
-        const codeHtml = `<code>${codeText}</code>`;
-        if (!href) return codeHtml;
-        return `<a class="source-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" title="打开原帖">${codeHtml}</a>`;
+        const codeHtml = `<code>${escapeHtml(codeText)}</code>`;
+        return sourceItemLinkHtml(codeText, codeHtml) || codeHtml;
+      }
+
+      function sourceItemLinkHtml(sourceId, innerHtml) {
+        const href = sourceItemUrl(sourceId);
+        if (!href) return "";
+        return `<a class="source-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" title="打开原帖">${innerHtml}</a>`;
       }
 
       function sourceItemUrl(codeText) {
