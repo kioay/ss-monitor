@@ -104,6 +104,95 @@
     throw new Error(`WDCloud Agent App turn failed: ${title}${taskRunId ? ` (${taskRunId})` : ""}.`);
   }
 
+  function textValue(value) {
+    return typeof value === "string" && value.trim() ? value.trim() : "";
+  }
+
+  function actionIdOfTurn(turn) {
+    const input = isRecord(turn && turn.input) ? turn.input : {};
+    return textValue(turn && turn.invocationAction)
+      || textValue(turn && turn.actionId)
+      || textValue(input.actionId)
+      || textValue(input.mode);
+  }
+
+  function resultTurnIdOf(result) {
+    if (!result || typeof result !== "object") return "";
+    const structured = structuredResultOf(result);
+    return textValue(result.turnId)
+      || textValue(nestedRecord(result, "turn")?.turnId)
+      || textValue(nestedRecord(result, "agentTurn")?.turnId)
+      || textValue(isRecord(structured) ? structured.turnId : "");
+  }
+
+  function resultTaskRunIdOf(result) {
+    if (!result || typeof result !== "object") return "";
+    const structured = structuredResultOf(result);
+    return textValue(result.taskRunId)
+      || textValue(nestedRecord(result, "turn")?.taskRunId)
+      || textValue(nestedRecord(result, "taskRun")?.taskRunId)
+      || textValue(isRecord(structured) ? structured.taskRunId : "");
+  }
+
+  function timeMs(value) {
+    const parsed = Date.parse(String(value || ""));
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function newerResult(current, next) {
+    if (!current) return next;
+    const currentMs = timeMs(current.createdAt || current.updatedAt || current.completedAt);
+    const nextMs = timeMs(next.createdAt || next.updatedAt || next.completedAt);
+    return nextMs >= currentMs ? next : current;
+  }
+
+  function invocationHistoryFromSessionDetail(detail, options = {}) {
+    const turns = Array.isArray(detail && detail.turns) ? detail.turns : [];
+    const results = Array.isArray(detail && detail.results) ? detail.results : [];
+    const resultsByTurnId = new Map();
+    const resultsByTaskRunId = new Map();
+    for (const result of results) {
+      if (!result || typeof result !== "object") continue;
+      const turnId = resultTurnIdOf(result);
+      const taskRunId = resultTaskRunIdOf(result);
+      if (turnId) resultsByTurnId.set(turnId, newerResult(resultsByTurnId.get(turnId), result));
+      if (taskRunId) resultsByTaskRunId.set(taskRunId, newerResult(resultsByTaskRunId.get(taskRunId), result));
+    }
+
+    const actionId = textValue(options.actionId);
+    const structuredMode = textValue(options.structuredMode || options.mode);
+    const completedOnly = Boolean(options.completedOnly);
+    return turns.map((turn) => {
+      const input = isRecord(turn && turn.input) ? turn.input : {};
+      const result = resultsByTurnId.get(textValue(turn && turn.turnId))
+        || resultsByTaskRunId.get(textValue(turn && turn.taskRunId));
+      const structuredResult = structuredResultOf(result);
+      return {
+        actionId: actionIdOfTurn(turn),
+        completedAt: result && (result.completedAt || result.createdAt || result.updatedAt),
+        content: typeof turn?.content === "string" ? turn.content : "",
+        input: cloneJson(input),
+        result: result ? cloneJson(result) : undefined,
+        status: result ? "completed" : String(turn && turn.status || ""),
+        structuredResult: cloneJson(structuredResult),
+        summary: typeof result?.summary === "string" ? result.summary : "",
+        taskRunId: textValue(turn && turn.taskRunId) || resultTaskRunIdOf(result),
+        title: typeof turn?.title === "string" ? turn.title : "",
+        turn: cloneJson(turn),
+        turnId: textValue(turn && turn.turnId) || resultTurnIdOf(result),
+      };
+    }).filter((item) => {
+      if (actionId && item.actionId !== actionId) return false;
+      if (completedOnly && !item.result) return false;
+      if (structuredMode) {
+        const inputMode = isRecord(item.input) ? textValue(item.input.mode) : "";
+        const outputMode = isRecord(item.structuredResult) ? textValue(item.structuredResult.mode) : "";
+        if (inputMode !== structuredMode && outputMode !== structuredMode) return false;
+      }
+      return true;
+    });
+  }
+
   function isRecord(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
   }
@@ -305,7 +394,6 @@
       if (typeof artifact.sizeBytes === "number") params.set("sizeBytes", String(artifact.sizeBytes));
       if (artifact.sha256) params.set("sha256", artifact.sha256);
       if (artifact.uploadId) params.set("uploadId", artifact.uploadId);
-      if (artifact.url) params.set("url", artifact.url);
       return params;
     }
 
@@ -329,6 +417,10 @@
     async function getSessionDetail(sessionId) {
       const token = await exchange();
       const rawSessionId = requireValue(sessionId || token.context?.sessionId, "sessionId");
+      if (token.context?.activeTaskRunId || token.context?.activeTurnId || token.context?.activeResultId) {
+        const snapshot = await sessionSnapshot({ sessionId: rawSessionId });
+        return sessionDetailFromSnapshot(snapshot);
+      }
       const id = encodeURIComponent(rawSessionId);
       try {
         return await portalFetch(`/portal/api/agent-sessions/${id}`);
@@ -345,6 +437,22 @@
 
     function sessionDetailFromSnapshot(snapshot) {
       const sessionId = requireValue(snapshot && snapshot.sessionId || snapshot && snapshot.session && snapshot.session.sessionId, "sessionId");
+      const rawResults = Array.isArray(snapshot && snapshot.results)
+        ? snapshot.results
+        : Array.isArray(snapshot && snapshot.recentResults)
+          ? snapshot.recentResults
+          : [];
+      const keyedResults = new Map();
+      for (const result of rawResults) {
+        if (!result || typeof result !== "object") continue;
+        const key = result.resultId || result.taskRunId || result.turnId || `result:${keyedResults.size}`;
+        keyedResults.set(key, result);
+      }
+      for (const result of [snapshot && snapshot.activeResult, snapshot && snapshot.latestResult]) {
+        if (!result || typeof result !== "object") continue;
+        const key = result.resultId || result.taskRunId || result.turnId || `result:${keyedResults.size}`;
+        keyedResults.set(key, result);
+      }
       return {
         session: {
           ...(isRecord(snapshot && snapshot.session) ? snapshot.session : {}),
@@ -355,13 +463,7 @@
           : Array.isArray(snapshot && snapshot.recentTurns)
             ? snapshot.recentTurns
             : [],
-        results: Array.isArray(snapshot && snapshot.results)
-          ? snapshot.results
-          : Array.isArray(snapshot && snapshot.recentResults)
-            ? snapshot.recentResults
-            : snapshot && snapshot.latestResult
-              ? [snapshot.latestResult]
-              : [],
+        results: [...keyedResults.values()],
       };
     }
 
@@ -1034,6 +1136,39 @@
           return unwrapArray(await appFetch(`/portal/api/agent-app/sessions/${sessionId}/events${suffix}`), "events");
         },
       },
+      invocation: {
+        async history(input = {}) {
+          return api.session.getInvocationHistory(input);
+        },
+        async submit(actionId, input = {}, options = {}) {
+          const id = requireValue(actionId, "invocation actionId");
+          const payload = isRecord(input) ? cloneJson(input) : { value: input };
+          const mode = options.mode || payload.mode || id;
+          const turnInput = {
+            ...payload,
+            actionId: id,
+            mode,
+          };
+          return api.session.submitTurnAndWaitForResult({
+            content: options.content || payload.message || payload.prompt || id,
+            idempotencyKey: options.idempotencyKey,
+            input: turnInput,
+            inputFiles: Array.isArray(options.inputFiles) ? options.inputFiles : [],
+            title: options.title || id,
+            workspaceRef: options.workspaceRef,
+          }, {
+            intervalMs: options.intervalMs,
+            match: options.match,
+            onPoll: options.onPoll,
+            onSubmitted: options.onSubmitted,
+            signal: options.signal,
+            structuredMode: options.structuredMode || mode,
+            taskRunId: options.taskRunId,
+            timeoutMs: options.timeoutMs,
+            turnId: options.turnId,
+          }, options.sessionId);
+        },
+      },
       permissions: {
         can(scope) {
           return Array.isArray(exchanged?.scopes) && exchanged.scopes.includes(scope);
@@ -1058,6 +1193,14 @@
       session: {
         async get(sessionId) {
           return getSessionDetail(sessionId);
+        },
+        async getInvocationHistory(input = {}) {
+          const options = typeof input === "string" ? { sessionId: input } : input;
+          const detail = await getSessionDetail(options.sessionId);
+          return invocationHistoryFromSessionDetail(detail, options);
+        },
+        async history(input = {}) {
+          return this.getInvocationHistory(input);
         },
         async getState(sessionId) {
           const id = encodeURIComponent(await sessionIdFromToken(sessionId));
@@ -1109,31 +1252,6 @@
   }
 
   function connectAgentApp(options = {}) {
-    if (typeof options.bootstrapToken === "string" && options.bootstrapToken.trim()) {
-      return Promise.resolve(createAgentAppClient({
-        bootstrapToken: options.bootstrapToken,
-        clientEventIdPrefix: options.clientEventIdPrefix,
-        fetcher: options.fetcher,
-        origin: options.origin || options.context?.centerOrigin,
-        targetWindow: options.targetWindow || globalThis.window,
-        timeoutMs: options.timeoutMs,
-      }));
-    }
-    if (typeof options.bootstrap === "function") {
-      return Promise.resolve(options.bootstrap()).then((payload) => {
-        if (!payload || typeof payload.bootstrapToken !== "string" || !payload.bootstrapToken.trim()) {
-          throw new Error("WDCloud Agent App bootstrap provider did not return a bootstrap token.");
-        }
-        return createAgentAppClient({
-          bootstrapToken: payload.bootstrapToken,
-          clientEventIdPrefix: options.clientEventIdPrefix,
-          fetcher: options.fetcher,
-          origin: options.origin || payload.context?.centerOrigin,
-          targetWindow: options.targetWindow || globalThis.window,
-          timeoutMs: options.timeoutMs,
-        });
-      });
-    }
     const targetWindow = options.targetWindow || globalThis.window;
     if (!targetWindow) return Promise.reject(new Error("WDCloud Agent App bootstrap requires a browser window."));
     return new Promise((resolve, reject) => {

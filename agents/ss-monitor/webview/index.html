@@ -640,6 +640,7 @@
           appState.uiState.subscribe((next) => {
             renderFromState(next);
           });
+          await restoreResultFromSnapshot();
           bindEvents();
           setStatus("已就绪");
           const issue = submitPermissionIssue();
@@ -653,6 +654,71 @@
           setStatus("加载失败");
           showNotice(error.message || String(error));
         }
+      }
+
+      async function restoreResultFromSnapshot() {
+        if (!appState.sdk?.session?.snapshot || !appState.uiState) return;
+        let snapshot;
+        try {
+          snapshot = await appState.sdk.session.snapshot();
+        } catch {
+          return;
+        }
+        const hasActiveContext = Boolean(
+          appState.context?.activeTaskRunId ||
+          appState.context?.activeTurnId ||
+          appState.context?.activeResultId ||
+          snapshot?.activeTaskRunId ||
+          snapshot?.activeTurnId ||
+          snapshot?.activeResultId
+        );
+        const result = pickRestorableResult(snapshot, hasActiveContext);
+        const restored = resultTextFromAgentResult(result);
+        if (!restored) return;
+        const taskRunId = result?.taskRunId || snapshot?.activeTaskRunId || appState.context?.activeTaskRunId || "";
+        const current = appState.uiState.get();
+        if (!hasActiveContext && current.lastResult) return;
+        if (hasActiveContext && current.taskRunId && taskRunId && current.taskRunId === taskRunId && current.lastResult) return;
+        appState.uiState.patch({
+          lastMode: inferModeFromResult(result),
+          lastResult: restored,
+          taskRunId
+        }, {
+          save: !hasActiveContext,
+          source: hasActiveContext ? "snapshot-active-result" : "snapshot-latest-result"
+        });
+        if (!hasActiveContext) {
+          await appState.uiState.flush?.();
+        }
+        showNotice(hasActiveContext ? "已恢复当前计划任务结果。" : "已恢复最近一次结果。");
+      }
+
+      function pickRestorableResult(snapshot, preferActive) {
+        if (!snapshot || typeof snapshot !== "object") return null;
+        if (preferActive && snapshot.activeResult && typeof snapshot.activeResult === "object") return snapshot.activeResult;
+        const contextTaskRunId = appState.context?.activeTaskRunId || snapshot.activeTaskRunId || "";
+        const candidates = [
+          ...(Array.isArray(snapshot.results) ? snapshot.results : []),
+          ...(Array.isArray(snapshot.recentResults) ? snapshot.recentResults : []),
+          snapshot.latestResult
+        ].filter((item) => item && typeof item === "object");
+        if (contextTaskRunId) {
+          const matched = candidates.find((item) => item.taskRunId === contextTaskRunId);
+          if (matched) return matched;
+        }
+        return snapshot.latestResult || candidates[candidates.length - 1] || null;
+      }
+
+      function resultTextFromAgentResult(result) {
+        if (!result || typeof result !== "object") return "";
+        const structured = result.structuredResult && typeof result.structuredResult === "object" ? result.structuredResult : {};
+        return String(structured.resultMarkdown || structured.finalMessage || structured.summary || result.summary || "").trim();
+      }
+
+      function inferModeFromResult(result) {
+        const structured = result?.structuredResult && typeof result.structuredResult === "object" ? result.structuredResult : {};
+        const mode = String(structured.mode || result?.mode || "").trim();
+        return mode === "monitor.health" || mode === "monitor.summary" ? mode : "monitor.summary";
       }
 
       function bindEvents() {

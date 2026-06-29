@@ -55,7 +55,7 @@ function jsonResponse(payload, status = 200) {
   });
 }
 
-function makeClient({ readOnly = false, saveDelayMs = 0 } = {}) {
+function makeClient({ activeContext = false, readOnly = false, saveDelayMs = 0 } = {}) {
   let remoteState = {
     activeTab: "remote",
     includeBotMessages: true,
@@ -63,13 +63,16 @@ function makeClient({ readOnly = false, saveDelayMs = 0 } = {}) {
   };
   const saveCalls = [];
   const presenceCalls = [];
+  const seenPaths = [];
   const sdk = loadSdk();
   const fetcher = async (url, options = {}) => {
     const path = new URL(url).pathname;
+    seenPaths.push(`${options.method || "GET"} ${path}`);
     if (path === "/portal/api/agent-app/bootstrap/exchange") {
       return jsonResponse({
         accessToken: "app-token",
         context: {
+          ...(activeContext ? { activeTaskRunId: "task-active", activeTurnId: "turn-active" } : {}),
           readOnly,
           sessionId: "sess-1",
           userEmail: "tester@example.com",
@@ -94,6 +97,36 @@ function makeClient({ readOnly = false, saveDelayMs = 0 } = {}) {
       presenceCalls.push(body.event);
       return jsonResponse({ ok: true });
     }
+    if (path === "/portal/api/agent-app/sessions/sess-1/snapshot") {
+      return jsonResponse({
+        activeResult: {
+          resultId: "result-active",
+          structuredResult: { resultMarkdown: "active markdown" },
+          taskRunId: "task-active",
+          turnId: "turn-active",
+        },
+        activeTaskRunId: "task-active",
+        activeTurnId: "turn-active",
+        latestResult: {
+          resultId: "result-latest",
+          structuredResult: { resultMarkdown: "latest markdown" },
+          taskRunId: "task-latest",
+          turnId: "turn-latest",
+        },
+        recentResults: [],
+        recentTurns: [],
+        revision: 7,
+        session: { sessionId: "sess-1" },
+        sessionId: "sess-1",
+      });
+    }
+    if (path === "/portal/api/agent-sessions/sess-1") {
+      return jsonResponse({
+        results: [{ resultId: "legacy-result", taskRunId: "legacy-task" }],
+        session: { sessionId: "sess-1" },
+        turns: [],
+      });
+    }
     return jsonResponse({ error: `unexpected ${options.method || "GET"} ${path}` }, 404);
   };
   const client = sdk.createAgentAppClient({
@@ -101,7 +134,7 @@ function makeClient({ readOnly = false, saveDelayMs = 0 } = {}) {
     fetcher,
     origin: "http://center.test",
   });
-  return { client, presenceCalls, saveCalls };
+  return { client, presenceCalls, saveCalls, seenPaths };
 }
 
 async function createUiState(client, overrides = {}) {
@@ -185,6 +218,27 @@ async function createUiState(client, overrides = {}) {
   assert(presenceCalls[0].field === "promptDraft", "field publish should include top-level field");
   assert(presenceCalls[0].value === "hello", "field publish should include top-level value");
   presence.close();
+}
+
+{
+  const { client, seenPaths } = makeClient({ activeContext: true });
+  const detail = await client.session.get();
+  assert(
+    seenPaths.includes("GET /portal/api/agent-app/sessions/sess-1/snapshot"),
+    "active context session.get must read app snapshot"
+  );
+  assert(
+    !seenPaths.includes("GET /portal/api/agent-sessions/sess-1"),
+    "active context session.get must not fall back to legacy portal session detail"
+  );
+  assert(
+    detail.results.some((result) => result.resultId === "result-active"),
+    "snapshot activeResult should be included in session detail results"
+  );
+  assert(
+    detail.results.some((result) => result.resultId === "result-latest"),
+    "snapshot latestResult should be included in session detail results"
+  );
 }
 
 console.log("state-layer smoke passed");
