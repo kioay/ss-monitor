@@ -29,6 +29,7 @@ interface ContextProfile {
   playerHelpRequest: boolean;
   routinePlayerShare: boolean;
   eventUnlockDiscussion: boolean;
+  eventPromotion: boolean;
 }
 
 export const analysisRulesVersion = currentAnalysisVersion;
@@ -196,6 +197,7 @@ export function analyzeItem(input: AnalyzeInput) {
   if (context.accountServerInquiry) topics.unshift("账号/区服询问");
   if (context.personalSkillShare) topics.unshift("个人技术分享");
   if (context.playerHelpRequest || context.eventUnlockDiscussion) topics.unshift("玩家求助咨询");
+  if (context.eventPromotion) topics.unshift("活动/赛事预告");
   if (context.routinePlayerShare) topics.unshift("玩家日常分享");
   if (context.playerBehaviorComplaint) topics.unshift("玩家行为争议");
   const currentVersionTerms =
@@ -306,6 +308,9 @@ function labelSentiment(profile: SentimentProfile, content: string, context: Con
     return profile.score < -0.12 || profile.audienceScore < -0.18 ? "negative" : "mixed";
   }
   if (profile.audienceMentions >= 3 && profile.audienceScore > 0.15 && profile.score > -0.35 && !denseNegative) return "positive";
+  if (context.eventPromotion && !isStrongComplaint(content) && !isOfficialImpactComplaint(content) && !denseNegative) {
+    return hasPositive && hasNegative ? "mixed" : "neutral";
+  }
   if (profile.audienceMentions >= 3 && profile.audienceScore < -0.25 && profile.score < 0.2) return "negative";
   if (isProtectedDiscussionContext(context) && !isStrongComplaint(content) && !denseNegative) return hasPositive && hasNegative ? "mixed" : "neutral";
   if (profile.skillShowcase && profile.score > -0.35 && profile.audienceScore > -0.2) {
@@ -465,7 +470,8 @@ function assessRisk(
     !(context.playerHelpRequest && !officialImpactSignal) &&
     !(context.routinePlayerShare && !officialImpactSignal) &&
     !(context.personalSkillShare && !officialImpactSignal && sentimentProfile.audienceScore > -0.32) &&
-    !(context.eventUnlockDiscussion && !officialImpactSignal && !currentVersionComplaint);
+    !(context.eventUnlockDiscussion && !officialImpactSignal && !currentVersionComplaint) &&
+    !(context.eventPromotion && !officialImpactSignal && !currentVersionComplaint);
   const audienceDefused = sentimentProfile.audienceMentions >= 3 && sentimentProfile.audienceScore > 0.12 && sentimentScore > -0.35 && !denseNegativeBreaksProtection;
   const skillDefused = sentimentProfile.skillShowcase && sentimentProfile.audienceScore > -0.15 && sentimentScore > -0.35 && !denseNegativeBreaksProtection;
   const contextDefused = isProtectedDiscussionContext(context) && !denseNegativeBreaksProtection;
@@ -675,7 +681,8 @@ function detectContext(content: string): ContextProfile {
     personalSkillShare: isPersonalSkillShare(content),
     playerHelpRequest: isPlayerHelpRequest(content),
     routinePlayerShare: isRoutinePlayerShare(content),
-    eventUnlockDiscussion: isEventUnlockDiscussion(content)
+    eventUnlockDiscussion: isEventUnlockDiscussion(content),
+    eventPromotion: isEventPromotion(content)
   };
 }
 
@@ -687,7 +694,8 @@ function isProtectedDiscussionContext(context: ContextProfile) {
     context.personalSkillShare ||
     context.playerHelpRequest ||
     context.routinePlayerShare ||
-    context.eventUnlockDiscussion
+    context.eventUnlockDiscussion ||
+    context.eventPromotion
   );
 }
 
@@ -757,6 +765,14 @@ function isEventUnlockDiscussion(content: string) {
   const unlockContext = /(强开|强行|翘开|封号|封七天|封了|不开|不开放|什么时候|什么原因|上次开放)/;
   const illegalSignal = hasAnyIllegalTerm(content);
   return itemContext.test(content) && unlockContext.test(content) && !illegalSignal;
+}
+
+function isEventPromotion(content: string) {
+  const eventContext = /(直播|直播间|赛事|比赛|追击赛|官方赛|周年|四周年)/;
+  const promotionContext = /(锁定|来看|观看|开播|晚\d{1,2}点|今晚|明晚|加油|督战)/;
+  const officialComplaint = isStrongComplaint(content) || isOfficialImpactComplaint(content);
+  const illegalSignal = hasAnyIllegalTerm(content);
+  return eventContext.test(content) && promotionContext.test(content) && !officialComplaint && !illegalSignal;
 }
 
 function isRoutinePlayerShare(content: string) {
