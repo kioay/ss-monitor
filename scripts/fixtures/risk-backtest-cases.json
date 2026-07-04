@@ -312,6 +312,24 @@
       "metrics": { "views": 1200, "comments": 35, "replies": 35, "likes": 40 },
       "minRiskLevel": "medium",
       "requiredRiskReasons": ["当前版本重点负反馈"]
+    },
+    {
+      "id": "ss2-bilibili-wuduan-anniversary-uninstall-review",
+      "kind": "true_positive_catch",
+      "gameId": "ss2",
+      "title": "锐评无端第29期：四周年差点卸载热油",
+      "contentParts": [
+        { "type": "title", "text": "锐评无端第29期：四周年差点卸载热油", "count": 1 },
+        { "type": "description", "text": "-", "count": 1 },
+        { "type": "tag", "text": "FPS、锐评、生死狙击2、四周年", "count": 4 },
+        { "type": "comment", "text": "又一个被招安的", "count": 1 },
+        { "type": "comment", "text": "up疑似同化进无端组织，本期毫无攻击性，取关了，以为会继续为玩家发声，没想到参加一个座谈会就软了，这期攻击性几乎为零，毫无攻击性了属于是", "count": 1 },
+        { "type": "comment", "text": "出个放大器你们还不是像狗一样上号—无端", "count": 1 }
+      ],
+      "metrics": { "views": 3856, "replies": 161, "comments": 161, "likes": 226, "danmaku": 45, "favorites": 50, "shares": 15 },
+      "minRiskLevel": "medium",
+      "expectedSentiment": "negative",
+      "requiredRiskReasons": ["SS2官方口碑负面"]
     }
   ]
 }

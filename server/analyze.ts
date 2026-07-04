@@ -31,6 +31,7 @@ interface ContextProfile {
   eventUnlockDiscussion: boolean;
   eventPromotion: boolean;
   pcHardwarePriceDiscussion: boolean;
+  ss2OfficialReputationComplaint: boolean;
 }
 
 export const analysisRulesVersion = currentAnalysisVersion;
@@ -200,6 +201,7 @@ export function analyzeItem(input: AnalyzeInput) {
   if (context.playerHelpRequest || context.eventUnlockDiscussion) topics.unshift("玩家求助咨询");
   if (context.eventPromotion) topics.unshift("活动/赛事预告");
   if (context.pcHardwarePriceDiscussion) topics.unshift("电脑硬件价格讨论");
+  if (context.ss2OfficialReputationComplaint) topics.unshift("官方口碑");
   if (context.routinePlayerShare) topics.unshift("玩家日常分享");
   if (context.playerBehaviorComplaint) topics.unshift("玩家行为争议");
   const currentVersionTerms =
@@ -289,6 +291,9 @@ function scoreTextSignals(content: string, gameId: GameId) {
   for (const word of negativeWords) {
     negative += countNegativeSignalOccurrences(signalContent, word);
   }
+  if (gameId === "ss2" && isSs2OfficialReputationComplaint(signalContent)) {
+    negative += 2;
+  }
 
   if ((signalContent.includes("？") || signalContent.includes("?")) && negative > positive) negative += 0.2;
   if ((signalContent.includes("！！") || signalContent.includes("!!")) && negative > positive) negative += 0.2;
@@ -313,6 +318,7 @@ function labelSentiment(profile: SentimentProfile, content: string, context: Con
   if (context.eventPromotion && !isStrongComplaint(content) && !isOfficialImpactComplaint(content) && !denseNegative) {
     return hasPositive && hasNegative ? "mixed" : "neutral";
   }
+  if (context.ss2OfficialReputationComplaint && profile.score < 0.25) return "negative";
   if (profile.audienceMentions >= 3 && profile.audienceScore < -0.25 && profile.score < 0.2) return "negative";
   if (isProtectedDiscussionContext(context) && !isStrongComplaint(content) && !denseNegative) return hasPositive && hasNegative ? "mixed" : "neutral";
   if (profile.skillShowcase && profile.score > -0.35 && profile.audienceScore > -0.2) {
@@ -490,6 +496,7 @@ function assessRisk(
     !isolatedCheatMention;
   const governanceSignal = /(水军|诈骗|未成年|退款|投诉)/.test(content);
   const accountRentalLeadSignal = isAccountRentalLead(content);
+  const ss2ReputationSignal = context.ss2OfficialReputationComplaint;
   const currentVersionNegativeComplaint =
     currentVersionComplaint &&
     !audienceDefused &&
@@ -510,6 +517,9 @@ function assessRisk(
   if (governanceSignal) {
     primaryReasons.push("命中治理类风险词");
   }
+  if (ss2ReputationSignal) {
+    primaryReasons.push("SS2官方口碑负面");
+  }
   if (versionSignal) {
     primaryReasons.push("当前版本重点负反馈");
   }
@@ -520,6 +530,7 @@ function assessRisk(
     governanceSignal,
     versionSignal,
     officialImpactSignal,
+    ss2ReputationSignal,
     highEngagementSignal
   ].filter(Boolean).length;
   let level: RiskLevel = "low";
@@ -686,7 +697,8 @@ function detectContext(content: string): ContextProfile {
     routinePlayerShare: isRoutinePlayerShare(content),
     eventUnlockDiscussion: isEventUnlockDiscussion(content),
     eventPromotion: isEventPromotion(content),
-    pcHardwarePriceDiscussion: isPcHardwarePriceDiscussion(content)
+    pcHardwarePriceDiscussion: isPcHardwarePriceDiscussion(content),
+    ss2OfficialReputationComplaint: isSs2OfficialReputationComplaint(content)
   };
 }
 
@@ -712,6 +724,18 @@ function isOfficialImpactComplaint(content: string) {
   const officialTarget = /(官方|策划|运营|客服|公告|更新|版本|活动|充值|氪金|礼包|礼盒|皮肤|匹配|服务器|交易行|优化|BUG|bug|卡顿|炸服|闪退|封号|封禁|退款|投诉)/;
   const complaint = /(垃圾|破游戏|恶心|烂透|没救|倒闭|白氪|骗氪|逼氪|太贵|退钱|退款|投诉|不修|不管|不开|不开放|卡顿|炸服|闪退|崩溃|异常|问题|离谱|削弱|太弱|难用)/;
   return contentLines(content).some((line) => officialTarget.test(line) && complaint.test(line) && !isNeutralComplaintLine(line));
+}
+
+function isSs2OfficialReputationComplaint(content: string) {
+  const ss2Context = /(生死狙击2|生死2|SS2|ss2|无端|热油|热游)/;
+  if (!ss2Context.test(content)) return false;
+
+  const officialTarget = /(无端|官方|策划|运营|四周年|周年|座谈会|玩家发声|热油|热游)/;
+  const reputationComplaint =
+    /(锐评|差点卸载|卸载|退游|退坑|取关|招安|被招安|同化|不为玩家发声|毫无攻击性|攻击性.{0,8}零|软了|像狗一样上号|敷衍|背刺|失望)/;
+  return contentLines(content).some(
+    (line) => officialTarget.test(line) && reputationComplaint.test(line) && !isNeutralComplaintLine(line)
+  );
 }
 
 function isPlayerBehaviorComplaint(content: string) {
