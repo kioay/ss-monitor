@@ -22,6 +22,7 @@ app.use(cors());
 app.use(express.json());
 
 app.get("/api/config", (_request, response) => {
+  response.setHeader("Cache-Control", "no-store");
   response.json({
     games,
     defaultWindowHours: runtimeConfig.defaultWindowHours,

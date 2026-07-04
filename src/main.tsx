@@ -589,8 +589,8 @@ function App() {
   const latestSearchRequestRef = React.useRef(0);
   const latestAutoScrolledSearchRef = React.useRef("");
 
-  React.useEffect(() => {
-    fetch(api.config)
+  const loadConfig = React.useCallback(() => {
+    fetch(`${api.config}?v=${currentAnalysisVersion}`, { cache: "no-store" })
       .then((response) => response.json())
       .then((payload) => {
         setConfig(payload);
@@ -600,7 +600,15 @@ function App() {
         });
       })
       .catch((reason) => setError(reason instanceof Error ? reason.message : String(reason)));
-  }, []);
+  }, [initialUiState.hasWindowHours]);
+
+  React.useEffect(() => {
+    loadConfig();
+  }, [loadConfig]);
+
+  React.useEffect(() => {
+    if (keywordPanelOpen) loadConfig();
+  }, [keywordPanelOpen, loadConfig]);
 
   const selectedGameConfigs = React.useMemo(() => {
     const configuredGames = config?.games || [];
