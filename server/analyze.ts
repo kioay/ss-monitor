@@ -30,6 +30,7 @@ interface ContextProfile {
   routinePlayerShare: boolean;
   eventUnlockDiscussion: boolean;
   eventPromotion: boolean;
+  pcHardwarePriceDiscussion: boolean;
 }
 
 export const analysisRulesVersion = currentAnalysisVersion;
@@ -198,6 +199,7 @@ export function analyzeItem(input: AnalyzeInput) {
   if (context.personalSkillShare) topics.unshift("个人技术分享");
   if (context.playerHelpRequest || context.eventUnlockDiscussion) topics.unshift("玩家求助咨询");
   if (context.eventPromotion) topics.unshift("活动/赛事预告");
+  if (context.pcHardwarePriceDiscussion) topics.unshift("电脑硬件价格讨论");
   if (context.routinePlayerShare) topics.unshift("玩家日常分享");
   if (context.playerBehaviorComplaint) topics.unshift("玩家行为争议");
   const currentVersionTerms =
@@ -471,7 +473,8 @@ function assessRisk(
     !(context.routinePlayerShare && !officialImpactSignal) &&
     !(context.personalSkillShare && !officialImpactSignal && sentimentProfile.audienceScore > -0.32) &&
     !(context.eventUnlockDiscussion && !officialImpactSignal && !currentVersionComplaint) &&
-    !(context.eventPromotion && !officialImpactSignal && !currentVersionComplaint);
+    !(context.eventPromotion && !officialImpactSignal && !currentVersionComplaint) &&
+    !(context.pcHardwarePriceDiscussion && !officialImpactSignal && !currentVersionComplaint);
   const audienceDefused = sentimentProfile.audienceMentions >= 3 && sentimentProfile.audienceScore > 0.12 && sentimentScore > -0.35 && !denseNegativeBreaksProtection;
   const skillDefused = sentimentProfile.skillShowcase && sentimentProfile.audienceScore > -0.15 && sentimentScore > -0.35 && !denseNegativeBreaksProtection;
   const contextDefused = isProtectedDiscussionContext(context) && !denseNegativeBreaksProtection;
@@ -682,7 +685,8 @@ function detectContext(content: string): ContextProfile {
     playerHelpRequest: isPlayerHelpRequest(content),
     routinePlayerShare: isRoutinePlayerShare(content),
     eventUnlockDiscussion: isEventUnlockDiscussion(content),
-    eventPromotion: isEventPromotion(content)
+    eventPromotion: isEventPromotion(content),
+    pcHardwarePriceDiscussion: isPcHardwarePriceDiscussion(content)
   };
 }
 
@@ -695,7 +699,8 @@ function isProtectedDiscussionContext(context: ContextProfile) {
     context.playerHelpRequest ||
     context.routinePlayerShare ||
     context.eventUnlockDiscussion ||
-    context.eventPromotion
+    context.eventPromotion ||
+    context.pcHardwarePriceDiscussion
   );
 }
 
@@ -773,6 +778,17 @@ function isEventPromotion(content: string) {
   const officialComplaint = isStrongComplaint(content) || isOfficialImpactComplaint(content);
   const illegalSignal = hasAnyIllegalTerm(content);
   return eventContext.test(content) && promotionContext.test(content) && !officialComplaint && !illegalSignal;
+}
+
+function isPcHardwarePriceDiscussion(content: string) {
+  const hardwareContext =
+    /(电脑|3a大作|内存条|固态|硬盘|显卡|机箱|电源|主板|CPU|cpu|风扇|水冷|显示器|键盘|鼠标|音响|4k|三星990|pro2600|扩容)/i;
+  const priceContext = /(太贵|价格|多少钱|\d{3,5}多|块钱|元|配下来|便宜)/;
+  const gameCommerceContext =
+    /(充值|氪金|白氪|骗氪|逼氪|活动|礼包|礼盒|皮肤|道具|武器|抽|保底|概率|交易行|商城|金币|点券|会员晶石|纪念币|专精点|挑战徽章|资质宝石)/;
+  const gameIncidentContext = /(官方|策划|运营|客服|公告|更新|版本|BUG|bug|卡顿|炸服|闪退|崩溃|封号|封禁|退款|投诉|倒闭|没救|破游戏|垃圾游戏)/;
+  const illegalSignal = hasAnyIllegalTerm(content);
+  return hardwareContext.test(content) && priceContext.test(content) && !gameCommerceContext.test(content) && !gameIncidentContext.test(content) && !illegalSignal;
 }
 
 function isRoutinePlayerShare(content: string) {

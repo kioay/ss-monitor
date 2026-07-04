@@ -126,6 +126,26 @@
       "forbiddenRiskReasons": ["负面表达集中", "BettaFish模型辅助确认负面"]
     },
     {
+      "id": "ss2-pc-hardware-price-weak-game-link",
+      "kind": "false_positive_guard",
+      "gameId": "ss2",
+      "title": "现在电脑太贵了。",
+      "contentParts": [
+        { "type": "title", "text": "现在电脑太贵了。", "count": 1 },
+        {
+          "type": "description",
+          "text": "为了玩3a大作把电脑扩容到6t，为了玩生死狙击2把内存条扩容到48g，现在固态内存条太贵了，内存条3000多，三星990pro2600，内存条和三星固态加一起差不多6000了，在加上个4t长城9000多了，这9000多，不算显卡，不算机箱，不算电源，不算主板，不算CPU，不算风扇，不算水冷，还得买霓虹线。还得买4k显示器，还得买音响，键盘鼠标音响便宜一共不到2000块钱就能拿下，全部配下来，价格就逆天。",
+          "count": 1
+        }
+      ],
+      "metrics": { "replies": 18, "comments": 18 },
+      "semanticSignal": { "label": "negative", "score": -1, "confidence": 1, "positiveProbability": 0 },
+      "expectedRiskLevel": "low",
+      "expectedSentiment": "neutral",
+      "requiredTopics": ["电脑硬件价格讨论"],
+      "forbiddenRiskReasons": ["负面表达集中", "BettaFish模型辅助确认负面"]
+    },
+    {
       "id": "ss1-classic-2022-light-complaint-positive-semantic",
       "kind": "semantic_guard",
       "gameId": "ss1",
@@ -239,6 +259,20 @@
       "minRiskLevel": "medium",
       "expectedSentiment": "negative",
       "requiredRiskReasons": ["负面表达集中"]
+    },
+    {
+      "id": "ss2-in-game-event-price-complaint",
+      "kind": "true_positive_catch",
+      "gameId": "ss2",
+      "title": "这次活动礼包太贵了",
+      "contentParts": [
+        { "type": "title", "text": "这次活动礼包太贵了", "count": 1 },
+        { "type": "comment", "text": "充值礼包和皮肤价格都太贵了，抽保底也贵，真的有点恶心。", "count": 1 }
+      ],
+      "metrics": { "comments": 12, "replies": 12 },
+      "minRiskLevel": "medium",
+      "expectedSentiment": "negative",
+      "forbiddenTopics": ["电脑硬件价格讨论"]
     },
     {
       "id": "ss1-cheat-promotion",

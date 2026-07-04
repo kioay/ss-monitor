@@ -27,7 +27,8 @@ const protectedTopics = new Set([
   "玩家日常分享",
   "玩家行为争议",
   "账号/区服询问",
-  "活动/赛事预告"
+  "活动/赛事预告",
+  "电脑硬件价格讨论"
 ]);
 const semanticCache = new Map<string, BettaFishSemanticSignal>();
 let lastFailureAt = 0;
