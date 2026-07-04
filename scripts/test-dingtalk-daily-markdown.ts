@@ -78,6 +78,35 @@ try {
   assert.equal(state.seen?.["ss1:tieba:risk"]?.startsWith("2026-06-11T02:00:00.000Z|"), true);
   assert.equal(state.seen?.["ss1:tieba:url:https://tieba.baidu.com/p/risk"]?.startsWith("2026-06-11T02:00:00.000Z|"), true);
   assert.equal(state.seen?.["ss1:tieba:medium"]?.startsWith("2026-06-11T02:00:00.000Z|"), true);
+
+  payloads.length = 0;
+  await fs.writeFile(process.env.DINGTALK_STATE_PATH, JSON.stringify({
+    initialized: true,
+    lastDailyReportDate: "2026-06-14",
+    lastDailyReportSentAt: "2026-06-14T01:30:00.000Z",
+    seen: {}
+  }));
+
+  const mondayResponse = makeResponse([
+    makeItem("tieba:friday-night", "high", "2026-06-12T15:59:00.000Z"),
+    makeItem("tieba:saturday-risk", "high", "2026-06-12T16:00:00.000Z"),
+    makeItem("tieba:sunday-risk", "medium", "2026-06-14T12:00:00.000Z"),
+    makeItem("tieba:monday-at-send-time", "high", "2026-06-15T01:30:00.000Z")
+  ]);
+  const mondayResult = await sendDingTalkDailyReport(mondayResponse, "ss1", new Date("2026-06-15T09:30:00+08:00"));
+
+  assert.equal(mondayResult.ok, true);
+  assert.equal(mondayResult.mode, "daily");
+  assert.equal(mondayResult.sent, 2);
+  assert.equal(payloads.length, 3);
+
+  for (const payload of payloads) {
+    const text = payload.markdown?.text || "";
+    assert.equal(text.includes("tieba:saturday-risk"), true);
+    assert.equal(text.includes("tieba:sunday-risk"), true);
+    assert.equal(text.includes("tieba:friday-night"), false);
+    assert.equal(text.includes("tieba:monday-at-send-time"), false);
+  }
 } finally {
   await fs.rm(tempDir, { recursive: true, force: true });
 }

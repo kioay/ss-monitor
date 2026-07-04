@@ -500,12 +500,20 @@ function hasDailyReportAlreadySent(state: DingTalkState, reportDate: string) {
 
 function dailyReportWindowStart(state: DingTalkState, reportEnd: Date) {
   const explicitSentAt = validDateBefore(state.lastDailyReportSentAt, reportEnd);
-  if (explicitSentAt) return explicitSentAt;
+  if (explicitSentAt) return weekendFloorForMondayReport(explicitSentAt, reportEnd);
 
   const legacySentAt = legacyDailyReportSentAt(state.lastDailyReportDate);
-  if (legacySentAt && legacySentAt < reportEnd) return legacySentAt;
+  if (legacySentAt && legacySentAt < reportEnd) return weekendFloorForMondayReport(legacySentAt, reportEnd);
 
-  return previousScheduledReportBoundary(reportEnd);
+  return weekendFloorForMondayReport(previousScheduledReportBoundary(reportEnd), reportEnd);
+}
+
+function weekendFloorForMondayReport(start: Date, reportEnd: Date) {
+  if (reportEnd.getDay() !== 1) return start;
+  const weekendStart = new Date(reportEnd);
+  weekendStart.setDate(weekendStart.getDate() - 2);
+  weekendStart.setHours(0, 0, 0, 0);
+  return start > weekendStart ? weekendStart : start;
 }
 
 function isDailyFocusItem(item: MonitorItem) {
