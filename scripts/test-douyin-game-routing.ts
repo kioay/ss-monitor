@@ -28,6 +28,24 @@ assert.deepEqual(
   ["ss2"]
 );
 
+for (const keyword of ["生死狙击2热游", "生死狙击2端游", "无端生死狙击2", "生死2"]) {
+  const row = {
+    ...ss2OnlyRow,
+    sourceItemId: `aweme-${keyword}`,
+    title: `${keyword} 新内容讨论`,
+    description: `${keyword} 玩家反馈`,
+    tags: `#${keyword}`,
+    sourceKeyword: keyword
+  };
+
+  assert.deepEqual(
+    rowsToDouyinMonitorItems(ss2, cutoff, [row]).items.map((item) => item.gameId),
+    ["ss2"],
+    keyword
+  );
+  assert.equal(rowsToDouyinMonitorItems(ss1, cutoff, [row]).items.length, 0, keyword);
+}
+
 assert.equal(rowsToDouyinMonitorItems(ss1, cutoff, [{ ...ss2OnlyRow, gameId: "ss1" }]).items.length, 0);
 
 const ss1BroadRow = {
