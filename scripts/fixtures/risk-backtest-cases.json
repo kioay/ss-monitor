@@ -185,6 +185,19 @@
       "forbiddenRiskReasons": ["当前版本重点负反馈", "命中敏感风险词"]
     },
     {
+      "id": "ss1-self-deprecating-help-request",
+      "kind": "false_positive_guard",
+      "gameId": "ss1",
+      "title": "有没有大佬塞我这么个六千的小垃圾呀 求拉",
+      "contentParts": [
+        { "type": "title", "text": "有没有大佬塞我这么个六千的小垃圾呀 求拉", "count": 1 }
+      ],
+      "metrics": { "replies": 10, "comments": 10 },
+      "expectedRiskLevel": "low",
+      "expectedSentiment": "neutral",
+      "forbiddenRiskReasons": ["负面表达集中"]
+    },
+    {
       "id": "ss1-account-rental-lead-negative-semantic",
       "kind": "true_positive_catch",
       "gameId": "ss1",

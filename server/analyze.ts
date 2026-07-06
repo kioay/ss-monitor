@@ -367,6 +367,8 @@ function hasDenseNegativeDiscussion(content: string, profile: SentimentProfile) 
 }
 
 function isNeutralNegativeContext(line: string, word: string) {
+  if (word === "垃圾" && isSelfDeprecatingHelpLine(line)) return true;
+  if (word === "拉黑" && /求拉|拉我|拉一下|拉个|拉人|拉队|拉群/.test(line)) return true;
   if ((word === "没人玩" || word === "没有人玩") && /(还有没人玩|有没有人玩|还有人玩吗|有人玩吗|没人玩吗|没有人玩吗)/.test(line)) return true;
   if (word === "没人" && /没人(知道|懂|说|回复|回答|回|帮|解答|理|看)/.test(line)) return true;
   if (word === "没用" && /(没用过|有没有用|有用没用|能不能用|能用吗|好用吗)/.test(line)) return true;
@@ -375,6 +377,14 @@ function isNeutralNegativeContext(line: string, word: string) {
   if (word === "不值" && /(值不值|值不值得|不值吗|值得吗)/.test(line)) return true;
   if (word === "排不到" && /(怎么排|排不到吗|会不会排不到)/.test(line)) return true;
   return false;
+}
+
+function isSelfDeprecatingHelpLine(line: string) {
+  const selfDeprecatingTarget = /(我|俺|本人|自己|咱|咱们|这个|这么个|小).{0,8}(小垃圾|垃圾)/;
+  const helpIntent = /(有没有|有无|求|求拉|拉我|带带|带我|大佬|大神|塞我|收留|组队|一起|能不能|可以不)/;
+  const officialTarget = /(官方|策划|运营|客服|公告|版本|活动|礼包|皮肤|匹配|服务器|充值|氪金|游戏)/;
+  const hardComplaint = /(垃圾游戏|游戏垃圾|官方垃圾|策划垃圾|运营垃圾|活动垃圾|版本垃圾|匹配垃圾|服务器垃圾)/;
+  return selfDeprecatingTarget.test(line) && helpIntent.test(line) && !officialTarget.test(line) && !hardComplaint.test(line);
 }
 
 function isNegatedIllegalTermContext(line: string, term: string, indexInLine: number) {
@@ -631,8 +641,13 @@ function countPositiveSignalOccurrences(content: string, word: string) {
 }
 
 function isNeutralPositiveQuestion(prefix: string, word: string) {
+  if (isHelpTitleHonorific(word) && /(有没有|有无|求|请问|问下|问一下)$/.test(prefix)) return true;
   if (word !== "可以" && word !== "好玩" && word !== "值得") return false;
   return /(是不是|是否|能不能|可不可以|要不要|该不该|值不值)$/.test(prefix);
+}
+
+function isHelpTitleHonorific(word: string) {
+  return word === "大佬" || word === "大神" || word === "高手" || word === "专家";
 }
 
 function isFalsePositivePraiseContext(prefix: string, suffix: string, word: string) {
