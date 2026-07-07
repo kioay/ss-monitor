@@ -19,8 +19,15 @@ await fs.writeFile(process.env.DINGTALK_STATE_PATH, JSON.stringify({
 }));
 
 const payloads: Array<{ markdown?: { title?: string; text?: string } }> = [];
-globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
+globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
   payloads.push(JSON.parse(String(init?.body || "{}")));
+  if (String(url).includes("/robot/primary")) {
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ errcode: 300005, errmsg: "token is not exist" })
+    } as Response;
+  }
   return {
     ok: true,
     json: async () => ({ errcode: 0 })

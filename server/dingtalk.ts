@@ -446,7 +446,10 @@ async function sendMarkdownToRobots(robots: DingTalkRobotConfig[], markdown: { t
     .filter((entry): entry is { result: PromiseRejectedResult; robot: DingTalkRobotConfig } => entry.result.status === "rejected");
   if (failures.length) {
     const details = failures.map(({ robot, result }) => `${robot.label}: ${errorMessage(result.reason)}`).join(" | ");
-    throw new Error(`DingTalk ${robots[0]?.shortName || "robot"} partial send failed ${failures.length}/${robots.length}: ${details}`);
+    if (failures.length === robots.length) {
+      throw new Error(`DingTalk ${robots[0]?.shortName || "robot"} send failed ${failures.length}/${robots.length}: ${details}`);
+    }
+    console.warn(`DingTalk ${robots[0]?.shortName || "robot"} partial send failed ${failures.length}/${robots.length}: ${details}`);
   }
 }
 
