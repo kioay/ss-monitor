@@ -87,6 +87,10 @@ const mixinKeyEncTab = [
 ];
 
 let wbiKeyCache: { key: string; expiresAt: number } | undefined;
+let anonymousCookieCache: { cookie: string; expiresAt: number } | undefined;
+const anonymousCookieTtlMs = 6 * 60 * 60_000;
+const bilibiliUserAgent =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36";
 
 interface CollectBilibiliOptions {
   relevanceMode?: "game" | "keyword";
@@ -171,21 +175,85 @@ export async function collectBilibili(game: GameConfig, cutoff: Date, options: C
 }
 
 async function searchVideos(keyword: string, page: number) {
+  try {
+    return await searchVideosWithCookie(keyword, page, bilibiliCookie());
+  } catch (error) {
+    const sourceError = error as SourceError;
+    if (!sourceError.blocked || sourceCookie("bilibili")) throw error;
+    const cookie = await refreshAnonymousBilibiliCookie(keyword);
+    return searchVideosWithCookie(keyword, page, cookie);
+  }
+}
+
+async function searchVideosWithCookie(keyword: string, page: number, cookie: string) {
   const url = await signedWbiUrl("https://api.bilibili.com/x/web-interface/wbi/search/type", {
     search_type: "video",
     keyword,
     order: "pubdate",
     page
-  });
+  }, cookie);
   const data = await fetchJson<BiliSearchResponse>(url, {
     referer: "https://search.bilibili.com/",
-    cookie: sourceCookie("bilibili")
+    cookie
   });
 
   if (data.code !== 0) {
     throw new SourceError(`B站搜索失败：${data.message || data.code}`);
   }
   return data.data?.result || [];
+}
+
+function bilibiliCookie() {
+  const configuredCookie = sourceCookie("bilibili");
+  if (configuredCookie) return configuredCookie;
+  if (anonymousCookieCache && anonymousCookieCache.expiresAt > Date.now()) return anonymousCookieCache.cookie;
+  return "";
+}
+
+async function refreshAnonymousBilibiliCookie(keyword: string) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12_000);
+  try {
+    const response = await fetch(`https://search.bilibili.com/all?keyword=${encodeURIComponent(keyword)}`, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent": bilibiliUserAgent,
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.5",
+        Referer: "https://www.bilibili.com/"
+      }
+    });
+    const text = await response.text();
+    if (!response.ok || looksBilibiliBlocked(text)) {
+      throw new SourceError(`B站匿名会话获取失败：HTTP ${response.status}`, true);
+    }
+    const cookie = cookieHeaderFromSetCookie(response.headers);
+    if (!cookie) throw new SourceError("B站匿名会话未返回 cookie", true);
+    anonymousCookieCache = { cookie, expiresAt: Date.now() + anonymousCookieTtlMs };
+    return cookie;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function cookieHeaderFromSetCookie(headers: Headers) {
+  const headerValues =
+    typeof headers.getSetCookie === "function"
+      ? headers.getSetCookie()
+      : splitSetCookieHeader(headers.get("set-cookie") || "");
+  return headerValues
+    .map((value) => value.split(";")[0]?.trim())
+    .filter((value) => /^(buvid3|b_nut|buvid4|SESSDATA|bili_jct)=/.test(value || ""))
+    .join("; ");
+}
+
+function splitSetCookieHeader(value: string) {
+  if (!value) return [];
+  return value.split(/,(?=\s*[^;,]+=)/).map((item) => item.trim()).filter(Boolean);
+}
+
+function looksBilibiliBlocked(text: string) {
+  return text.includes("错误号: 412") || text.includes("security control policy");
 }
 
 async function buildBiliMonitorItem(game: GameConfig, searchItem: BiliSearchItem, deepParse: boolean): Promise<MonitorItem> {
@@ -341,8 +409,8 @@ async function fetchSubtitles(list: Array<{ subtitle_url?: string }>, bvid: stri
   return subtitles;
 }
 
-async function signedWbiUrl(baseUrl: string, params: Record<string, string | number>) {
-  const key = await getWbiKey();
+async function signedWbiUrl(baseUrl: string, params: Record<string, string | number>, cookie = bilibiliCookie()) {
+  const key = await getWbiKey(cookie);
   const signedParams: Record<string, string | number> = {
     ...params,
     wts: Math.round(Date.now() / 1000)
@@ -358,12 +426,12 @@ async function signedWbiUrl(baseUrl: string, params: Record<string, string | num
   return `${baseUrl}?${query}&w_rid=${wRid}`;
 }
 
-async function getWbiKey() {
+async function getWbiKey(cookie = bilibiliCookie()) {
   if (wbiKeyCache && wbiKeyCache.expiresAt > Date.now()) return wbiKeyCache.key;
 
   const nav = await fetchJson<WbiNavResponse>("https://api.bilibili.com/x/web-interface/nav", {
     referer: "https://www.bilibili.com/",
-    cookie: sourceCookie("bilibili")
+    cookie
   });
   const imgKey = fileStem(nav.data?.wbi_img?.img_url || "");
   const subKey = fileStem(nav.data?.wbi_img?.sub_url || "");
