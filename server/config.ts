@@ -56,6 +56,7 @@ export const runtimeConfig = {
   nightEndHour: clampHour(Number(process.env.NIGHT_END_HOUR || 8)),
   defaultWindowHours: Math.max(1, Number(process.env.DEFAULT_WINDOW_HOURS || 72)),
   inspirationCollectionHours: parseHourList(process.env.INSPIRATION_COLLECTION_HOURS || "10,18", [10, 18]),
+  inspirationSnapshotPath: process.env.INSPIRATION_SNAPSHOT_PATH || "data/inspiration-snapshot.json",
   bilibiliCookie: process.env.BILIBILI_COOKIE || "",
   baiduCookie: process.env.BAIDU_COOKIE || "",
   confluenceToken: process.env.CONFLUENCE_TOKEN || "",

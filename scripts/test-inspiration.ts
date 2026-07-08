@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { buildInspirationAssets, makeInspirationReferenceGame } from "../server/inspiration";
+import { buildInspirationAssets, makeInspirationReferenceGame, shouldRetainInspirationCache } from "../server/inspiration";
 import { inspirationSeedPresets, type ContentPart, type GameId, type MonitorItem, type RiskLevel, type Sentiment, type SourceType } from "../src/shared";
 
 const now = new Date("2026-07-08T06:00:00.000Z");
@@ -161,6 +161,23 @@ const selectedReferenceGame = makeInspirationReferenceGame(["destiny-2", "rainbo
 assert.ok(selectedReferenceGame.tiebaBars.includes("命运2"));
 assert.ok(selectedReferenceGame.tiebaBars.includes("彩虹六号"));
 assert.ok(selectedReferenceGame.tiebaBars.includes("THE FINALS"));
+
+assert.equal(
+  shouldRetainInspirationCache({ candidateAssetCount: 0, previousAssetCount: 67, hasBlockedSource: false }),
+  true
+);
+assert.equal(
+  shouldRetainInspirationCache({ candidateAssetCount: 1, previousAssetCount: 67, hasBlockedSource: true }),
+  true
+);
+assert.equal(
+  shouldRetainInspirationCache({ candidateAssetCount: 80, previousAssetCount: 67, hasBlockedSource: true }),
+  false
+);
+assert.equal(
+  shouldRetainInspirationCache({ candidateAssetCount: 0, previousAssetCount: 0, hasBlockedSource: true }),
+  false
+);
 
 function makeItem(
   id: string,

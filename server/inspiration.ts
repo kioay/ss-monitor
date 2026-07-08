@@ -1,6 +1,9 @@
+import fs from "node:fs/promises";
+import path from "node:path";
 import { z } from "zod";
 import { collectBilibili } from "./collectors/bilibili";
 import { collectTieba } from "./collectors/tieba";
+import { runtimeConfig } from "./config";
 import { stripHtml, uniq } from "./utils";
 import {
   inspirationSeedPresets,
@@ -13,6 +16,7 @@ import {
   type InspirationResponse,
   type InspirationStats,
   type MonitorItem,
+  type SourceHealth,
   type SourceType
 } from "../src/shared";
 
@@ -254,14 +258,21 @@ const sourceOrder: SourceType[] = ["bilibili", "douyin", "tieba", "forum4399", "
 type InspirationCollection = {
   createdAt: number;
   items: MonitorItem[];
+  health: SourceHealth[];
 };
+interface InspirationSnapshotFile {
+  version: 1;
+  entries: Array<InspirationCollection & { cacheKey: string }>;
+}
 
 const inspirationCollectionCache = new Map<string, InspirationCollection>();
 const inspirationCollectionInFlight = new Map<string, Promise<InspirationCollection>>();
 const inspirationCollectionTtlMs = 45 * 60_000;
+const inspirationSnapshotMaxEntries = 24;
 const referenceGameId = "fps-tps-reference";
 const inspirationMaxSearchKeywords = 56;
 const inspirationMaxTiebaBars = 20;
+let inspirationSnapshotLoaded = false;
 
 const tiebaBarsBySeedId: Record<string, string[]> = {
   valorant: ["无畏契约"],
@@ -343,6 +354,7 @@ async function getInspirationCollection(
   now: Date
 ): Promise<InspirationCollection> {
   const cacheKey = inspirationCollectionKey(referenceGame, windowHours);
+  await loadInspirationSnapshot();
   const cached = inspirationCollectionCache.get(cacheKey);
   if (!refresh && cached && now.getTime() - cached.createdAt < inspirationCollectionTtlMs) return cached;
 
@@ -351,9 +363,21 @@ async function getInspirationCollection(
 
   const cutoff = new Date(now.getTime() - windowHours * 3_600_000);
   const task = collectInspirationSources(referenceGame, cutoff)
-    .then((items) => {
-      const entry = { createdAt: Date.now(), items };
+    .then(async (collection) => {
+      const previous = inspirationCollectionCache.get(cacheKey);
+      const candidateAssetCount = buildInspirationAssets(collection.items, { now }).length;
+      const previousAssetCount = previous ? buildInspirationAssets(previous.items, { now }).length : 0;
+      const hasBlockedSource = collection.health.some((entry) => entry.blocked);
+      if (shouldRetainInspirationCache({ candidateAssetCount, previousAssetCount, hasBlockedSource })) {
+        console.warn(
+          `Inspiration collection kept previous cache: new=${candidateAssetCount}, previous=${previousAssetCount}, blocked=${hasBlockedSource}`
+        );
+        return previous as InspirationCollection;
+      }
+
+      const entry = { createdAt: Date.now(), items: collection.items, health: collection.health };
       inspirationCollectionCache.set(cacheKey, entry);
+      await saveInspirationSnapshot();
       return entry;
     })
     .finally(() => {
@@ -366,29 +390,99 @@ async function getInspirationCollection(
 
 async function collectInspirationSources(referenceGame: GameConfig, cutoff: Date) {
   const tasks = [
-    collectBilibili(referenceGame, cutoff, {
-      relevanceMode: "keyword",
-      maxKeywords: inspirationMaxSearchKeywords,
-      maxPages: 1,
-      maxItems: 140,
-      sourceLabel: "B站竞品视频"
-    }),
-    collectTieba(referenceGame, cutoff)
+    {
+      source: "bilibili" as const,
+      sourceLabel: "B站竞品视频",
+      run: () => collectBilibili(referenceGame, cutoff, {
+        relevanceMode: "keyword",
+        maxKeywords: inspirationMaxSearchKeywords,
+        maxPages: 1,
+        maxItems: 140,
+        sourceLabel: "B站竞品视频"
+      })
+    },
+    { source: "tieba" as const, sourceLabel: "百度贴吧", run: () => collectTieba(referenceGame, cutoff) }
   ];
-  const settled = await Promise.allSettled(tasks);
+  const settled = await Promise.allSettled(tasks.map((task) => task.run()));
   const items: MonitorItem[] = [];
+  const health: SourceHealth[] = [];
 
-  for (const result of settled) {
+  for (const [index, result] of settled.entries()) {
+    const task = tasks[index];
     if (result.status === "fulfilled") {
       items.push(...result.value.items);
+      health.push(result.value.health);
     } else {
       console.warn("Inspiration source collection failed", result.reason instanceof Error ? result.reason.message : result.reason);
+      health.push({
+        source: task.source,
+        sourceLabel: task.sourceLabel,
+        gameId: referenceGame.id,
+        ok: false,
+        fetchedAt: new Date().toISOString(),
+        latencyMs: 0,
+        itemCount: 0,
+        staleDropped: 0,
+        blocked: Boolean((result.reason as { blocked?: boolean } | undefined)?.blocked),
+        message: result.reason instanceof Error ? result.reason.message : String(result.reason)
+      });
     }
   }
 
-  return uniqueMonitorItems(items)
-    .filter((item) => item.gameId === referenceGameId)
-    .sort((left, right) => +new Date(right.publishedAt) - +new Date(left.publishedAt));
+  return {
+    items: uniqueMonitorItems(items)
+      .filter((item) => item.gameId === referenceGameId)
+      .sort((left, right) => +new Date(right.publishedAt) - +new Date(left.publishedAt)),
+    health
+  };
+}
+
+export function shouldRetainInspirationCache(input: {
+  candidateAssetCount: number;
+  previousAssetCount: number;
+  hasBlockedSource: boolean;
+}) {
+  if (input.previousAssetCount <= 0) return false;
+  if (input.candidateAssetCount <= 0) return true;
+  return input.hasBlockedSource && input.candidateAssetCount < input.previousAssetCount;
+}
+
+async function loadInspirationSnapshot() {
+  if (inspirationSnapshotLoaded) return;
+  inspirationSnapshotLoaded = true;
+  try {
+    const raw = await fs.readFile(inspirationSnapshotPath(), "utf-8");
+    const snapshot = JSON.parse(raw) as InspirationSnapshotFile;
+    for (const entry of snapshot.entries || []) {
+      if (!entry.cacheKey || !Array.isArray(entry.items) || !entry.items.length) continue;
+      inspirationCollectionCache.set(entry.cacheKey, {
+        createdAt: Number(entry.createdAt) || Date.now(),
+        items: entry.items,
+        health: Array.isArray(entry.health) ? entry.health : []
+      });
+    }
+  } catch {
+    // Snapshot cache is optional; first successful collection will create it.
+  }
+}
+
+async function saveInspirationSnapshot() {
+  try {
+    const entries = Array.from(inspirationCollectionCache.entries())
+      .filter(([, entry]) => entry.items.length > 0)
+      .sort((left, right) => right[1].createdAt - left[1].createdAt)
+      .slice(0, inspirationSnapshotMaxEntries)
+      .map(([cacheKey, entry]) => ({ cacheKey, ...entry }));
+    const target = inspirationSnapshotPath();
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.writeFile(target, JSON.stringify({ version: 1, entries }, null, 2));
+  } catch (error) {
+    console.warn("Inspiration snapshot save failed", error instanceof Error ? error.message : error);
+  }
+}
+
+function inspirationSnapshotPath() {
+  return path.resolve(runtimeConfig.inspirationSnapshotPath);
 }
 
 function selectInspirationSeeds(seedIds: string[]) {
