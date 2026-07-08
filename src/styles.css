@@ -3445,10 +3445,20 @@ button.metric:focus-visible {
 
 .inspiration-board-filters {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(360px, 0.95fr) minmax(240px, 0.65fr);
+  grid-template-columns: minmax(128px, 0.45fr) minmax(220px, 1fr) minmax(360px, 0.95fr) minmax(240px, 0.65fr);
   align-items: end;
   gap: 8px;
   margin-bottom: 10px;
+}
+
+.inspiration-sort {
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.inspiration-sort select {
+  width: 100%;
+  min-width: 0;
 }
 
 .inspiration-filter-cluster {

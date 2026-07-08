@@ -95,6 +95,25 @@ const queryAssets = buildInspirationAssets([weaponVideo, characterImage], {
 });
 assert.deepEqual(queryAssets.map((asset) => asset.id), ["weapon-video"]);
 
+const nicheDesign = makeItem("niche-design", {
+  source: "bilibili",
+  title: "无畏契约武器皮肤展示：检视动画和击杀特效全览",
+  summary: "枪械皮肤、枪皮、检视、击杀特效细节展示",
+  metrics: { views: 800, likes: 30, comments: 4 },
+  publishedAt: "2026-07-08T05:30:00.000Z"
+});
+const popularDesign = makeItem("popular-design", {
+  source: "bilibili",
+  title: "Apex 武器皮肤展示",
+  summary: "枪皮外观展示，活动套装预览",
+  metrics: { views: 620000, likes: 28000, comments: 5200, favorites: 3400, shares: 900 },
+  publishedAt: "2026-07-07T05:00:00.000Z"
+});
+const relevanceSortedAssets = buildInspirationAssets([popularDesign, nicheDesign], { now });
+assert.deepEqual(relevanceSortedAssets.map((asset) => asset.id), ["niche-design", "popular-design"]);
+const heatSortedAssets = buildInspirationAssets([popularDesign, nicheDesign], { now, sort: "heat" });
+assert.deepEqual(heatSortedAssets.map((asset) => asset.id), ["popular-design", "niche-design"]);
+
 const referenceGame = makeInspirationReferenceGame([], "weapon_skin");
 assert.equal(referenceGame.id, "fps-tps-reference");
 assert.equal(referenceGame.name, "FPS/TPS 竞品素材");

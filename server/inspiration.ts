@@ -8,6 +8,7 @@ import {
   type InspirationAsset,
   type InspirationAssetKind,
   type InspirationCategory,
+  type InspirationSort,
   type InspirationSeedPreset,
   type InspirationResponse,
   type InspirationStats,
@@ -17,6 +18,7 @@ import {
 
 const categoryFilterValues = ["all", "weapon_skin", "character_skin", "general_reference"] as const;
 const kindFilterValues = ["all", "video", "image"] as const;
+const sortValues = ["relevance", "heat", "latest"] as const;
 
 const inspirationQuerySchema = z.object({
   packs: z.string().optional().transform((value) => parseCsv(value || "")),
@@ -25,6 +27,7 @@ const inspirationQuerySchema = z.object({
   q: z.string().max(120).default(""),
   category: z.enum(categoryFilterValues).default("all"),
   kind: z.enum(kindFilterValues).default("all"),
+  sort: z.enum(sortValues).default("relevance"),
   refresh: z.string().optional().transform((value) => value === "1" || value === "true"),
   force: z.string().optional().transform((value) => value === "1" || value === "true")
 });
@@ -297,6 +300,7 @@ export async function getInspirationResponse(rawQuery: unknown): Promise<Inspira
     query: query.q,
     category: query.category,
     kind: query.kind,
+    sort: query.sort,
     now
   });
   const assets = matchedAssets.slice(0, query.limit);
@@ -307,6 +311,7 @@ export async function getInspirationResponse(rawQuery: unknown): Promise<Inspira
     query: query.q.trim(),
     category: query.category,
     kind: query.kind,
+    sort: query.sort,
     totalMatched: matchedAssets.length,
     stats: makeInspirationStats(assets),
     seeds: inspirationSeedPresets,
@@ -448,12 +453,14 @@ export function buildInspirationAssets(
     query?: string;
     category?: "all" | InspirationCategory;
     kind?: "all" | InspirationAssetKind;
+    sort?: InspirationSort;
     now?: Date;
   } = {}
 ): InspirationAsset[] {
   const queryTerms = normalizeQueryTerms(options.query || "");
   const categoryFilter = options.category || "all";
   const kindFilter = options.kind || "all";
+  const sort = options.sort || "relevance";
   const now = options.now || new Date();
 
   return items
@@ -461,7 +468,23 @@ export function buildInspirationAssets(
     .filter((asset): asset is InspirationAsset => Boolean(asset))
     .filter((asset) => categoryFilter === "all" || asset.category === categoryFilter)
     .filter((asset) => kindFilter === "all" || asset.kind === kindFilter)
-    .sort((left, right) => right.score - left.score || +new Date(right.item.publishedAt) - +new Date(left.item.publishedAt));
+    .sort((left, right) => compareInspirationAssets(left, right, sort));
+}
+
+function compareInspirationAssets(left: InspirationAsset, right: InspirationAsset, sort: InspirationSort) {
+  if (sort === "heat") {
+    return heatScore(right.item) - heatScore(left.item)
+      || right.score - left.score
+      || publishedTime(right.item) - publishedTime(left.item);
+  }
+  if (sort === "latest") {
+    return publishedTime(right.item) - publishedTime(left.item)
+      || right.score - left.score
+      || heatScore(right.item) - heatScore(left.item);
+  }
+  return right.score - left.score
+    || heatScore(right.item) - heatScore(left.item)
+    || publishedTime(right.item) - publishedTime(left.item);
 }
 
 function classifyInspirationItem(item: MonitorItem, queryTerms: string[], now: Date): InspirationAsset | undefined {
@@ -625,6 +648,24 @@ function engagementScore(item: MonitorItem) {
     + (metrics.favorites || 0) / 120
     + (metrics.shares || 0) / 120;
   return Math.min(20, value);
+}
+
+function heatScore(item: MonitorItem) {
+  const metrics = item.metrics || {};
+  const comments = metrics.comments || metrics.replies || 0;
+  const raw =
+    (metrics.views || 0)
+    + (metrics.likes || 0) * 20
+    + comments * 80
+    + (metrics.favorites || 0) * 60
+    + (metrics.shares || 0) * 80
+    + (metrics.danmaku || 0) * 20;
+  return Math.log1p(Math.max(0, raw));
+}
+
+function publishedTime(item: MonitorItem) {
+  const value = +new Date(item.publishedAt);
+  return Number.isFinite(value) ? value : 0;
 }
 
 function inspirationReason(kind: InspirationAssetKind, category: InspirationCategory, tags: string[]) {

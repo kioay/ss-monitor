@@ -5,6 +5,7 @@ export type RiskLevel = "low" | "medium" | "high";
 export type RiskSignalSource = "thread" | "new_reply" | "stale_thread";
 export type InspirationCategory = "weapon_skin" | "character_skin" | "general_reference";
 export type InspirationAssetKind = "video" | "image";
+export type InspirationSort = "relevance" | "heat" | "latest";
 
 export const currentAnalysisVersion = 3;
 
@@ -681,6 +682,7 @@ export interface InspirationResponse {
   query: string;
   category: "all" | InspirationCategory;
   kind: "all" | InspirationAssetKind;
+  sort: InspirationSort;
   totalMatched: number;
   stats: InspirationStats;
   seeds: InspirationSeedPreset[];

@@ -47,6 +47,7 @@ import type {
   InspirationAssetKind,
   InspirationCategory,
   InspirationResponse,
+  InspirationSort,
   KeywordEffectiveness,
   AlertItem,
   MonitorItem,
@@ -1578,6 +1579,7 @@ function InspirationPage() {
   const [error, setError] = React.useState("");
   const [category, setCategory] = React.useState<InspirationCategoryFilter>("all");
   const [kind, setKind] = React.useState<InspirationKindFilter>("all");
+  const [sort, setSort] = React.useState<InspirationSort>("relevance");
   const [query, setQuery] = React.useState("");
   const [selectedPackIds, setSelectedPackIds] = React.useState(() => inspirationSeedPresets.map((seed) => seed.id));
   const latestRequestRef = React.useRef(0);
@@ -1600,6 +1602,7 @@ function InspirationPage() {
           limit: "96",
           category,
           kind,
+          sort,
           q: query.trim(),
           ...(refresh ? { refresh: "1" } : {})
         });
@@ -1619,7 +1622,7 @@ function InspirationPage() {
         if (refresh) setCollectLoading(false);
       }
     },
-    [category, kind, query, selectedPackIds, windowHours]
+    [category, kind, query, selectedPackIds, sort, windowHours]
   );
 
   React.useEffect(() => {
@@ -1687,11 +1690,13 @@ function InspirationPage() {
           windowHours={windowHours}
           category={category}
           kind={kind}
+          sort={sort}
           query={query}
           selectedPackIds={selectedPackIds}
           onWindowHoursChange={setWindowHours}
           onCategoryChange={updateCategory}
           onKindChange={updateKind}
+          onSortChange={setSort}
           onQueryChange={setQuery}
           onTogglePack={togglePack}
           onSelectAllPacks={selectAllPacks}
@@ -1709,11 +1714,13 @@ function InspirationStudio({
   windowHours,
   category,
   kind,
+  sort,
   query,
   selectedPackIds,
   onWindowHoursChange,
   onCategoryChange,
   onKindChange,
+  onSortChange,
   onQueryChange,
   onTogglePack,
   onSelectAllPacks,
@@ -1725,11 +1732,13 @@ function InspirationStudio({
   windowHours: number;
   category: InspirationCategoryFilter;
   kind: InspirationKindFilter;
+  sort: InspirationSort;
   query: string;
   selectedPackIds: string[];
   onWindowHoursChange: (value: number) => void;
   onCategoryChange: (value: InspirationCategoryFilter) => void;
   onKindChange: (value: InspirationKindFilter) => void;
+  onSortChange: (value: InspirationSort) => void;
   onQueryChange: (value: string) => void;
   onTogglePack: (packId: string) => void;
   onSelectAllPacks: () => void;
@@ -1806,6 +1815,15 @@ function InspirationStudio({
 
         <section className="inspiration-board" aria-label="灵感素材列表">
           <div className="inspiration-board-filters" aria-label="素材结果筛选">
+            <label className="field inspiration-sort">
+              <span>排序</span>
+              <select name="inspiration-sort" value={sort} onChange={(event) => onSortChange(event.target.value as InspirationSort)}>
+                <option value="relevance">综合优先</option>
+                <option value="heat">热度优先</option>
+                <option value="latest">最新优先</option>
+              </select>
+            </label>
+
             <label className="field inspiration-search">
               <Search size={16} aria-hidden="true" />
               <span className="sr-only">搜索灵感素材</span>
