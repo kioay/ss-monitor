@@ -1,7 +1,7 @@
 {
   "agentId": "design-inspiration",
   "operation": "update",
-  "previousVersion": "0.1.0",
-  "nextVersion": "0.1.1",
-  "changeSummary": "修复素材卡片显示异常：采集结果中的标题、来源链接、缩略图和热度数据会完整保留到前端，不再显示为未命名素材或占位图。"
+  "previousVersion": "0.1.1",
+  "nextVersion": "0.1.2",
+  "changeSummary": "将竞品包从手动输入改为多选框，方便直接勾选全网竞品范围，减少输错竞品包 id 的情况。"
 }

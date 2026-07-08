@@ -18,6 +18,12 @@ const requiredHtmlMarkers = [
   "inspiration.health",
   "asset-grid",
   "renderAssetCards",
+  "pack-grid",
+  "data-pack-option",
+  "selectedPackIds",
+  "syncPacks",
+  "全选",
+  "清空",
   "素材侦察板",
   "采集素材",
   "检查接口"

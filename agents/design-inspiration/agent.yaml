@@ -1,6 +1,6 @@
 id: design-inspiration
 name: 设计灵感素材库
-version: 0.1.1
+version: 0.1.2
 summary: 收集并整理 FPS/TPS 竞品武器、角色皮肤设计灵感素材。
 codexModel: gpt-5.5
 ownerTeam: self

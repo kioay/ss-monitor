@@ -175,6 +175,82 @@
         background: var(--signal-soft);
         color: var(--signal-dark);
       }
+      .pack-picker {
+        border: 0;
+        margin: 0 0 13px;
+        padding: 0;
+      }
+      .pack-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+      .pack-count {
+        color: #47605b;
+        font-size: 12px;
+        font-weight: 900;
+        white-space: nowrap;
+      }
+      .pack-count[data-empty="true"] { color: var(--red); }
+      .pack-tools {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+      .pack-tool {
+        min-height: 28px;
+        border: 1px solid #bfd1ca;
+        border-radius: 8px;
+        padding: 0 9px;
+        background: #ffffff;
+        color: #315c58;
+        font-size: 12px;
+        font-weight: 900;
+        cursor: pointer;
+      }
+      .pack-tool:focus-visible {
+        outline: 3px solid rgba(18, 140, 150, 0.18);
+        outline-offset: 2px;
+      }
+      .pack-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+      .pack-option {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        min-height: 36px;
+        border: 1px solid #c3d4cd;
+        border-radius: 8px;
+        padding: 7px 9px;
+        background: #fbfdfb;
+        color: #354946;
+        font-size: 12px;
+        font-weight: 900;
+        line-height: 1.25;
+        cursor: pointer;
+      }
+      .pack-option input {
+        flex: 0 0 auto;
+        width: 15px;
+        height: 15px;
+        margin: 0;
+        accent-color: var(--signal);
+      }
+      .pack-option span {
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+      .pack-option:has(input:checked) {
+        border-color: rgba(18, 140, 150, 0.58);
+        background: var(--signal-soft);
+        color: var(--signal-dark);
+      }
       .toggle {
         display: flex;
         align-items: center;
@@ -393,6 +469,8 @@
       }
       @media (max-width: 520px) {
         .field-row, .actions, .segments { grid-template-columns: 1fr; }
+        .pack-grid { grid-template-columns: 1fr; }
+        .pack-head { align-items: flex-start; flex-direction: column; }
         h1 { font-size: 24px; }
         .progress-copy { align-items: flex-start; flex-direction: column; }
         .progress-detail { text-align: left; }
@@ -462,10 +540,17 @@
               <label for="query">关键词</label>
               <input id="query" autocomplete="off" placeholder="例如 科幻、近战、检视、通行证" />
             </div>
-            <div class="field">
-              <label for="packs">竞品包</label>
-              <textarea id="packs" spellcheck="false" placeholder="留空表示全部竞品包；也可输入 valorant,apex,warframe"></textarea>
-            </div>
+            <fieldset class="pack-picker">
+              <legend>竞品包</legend>
+              <div class="pack-head">
+                <div class="pack-tools">
+                  <span class="pack-count" id="packCount">0/0 已选</span>
+                  <button class="pack-tool" id="selectAllPacks" type="button">全选</button>
+                  <button class="pack-tool" id="clearPacks" type="button">清空</button>
+                </div>
+              </div>
+              <div class="pack-grid" id="packGrid" aria-label="竞品包多选"></div>
+            </fieldset>
             <div class="field">
               <label for="question">报告重点</label>
               <textarea id="question"></textarea>
@@ -525,6 +610,34 @@
         { key: "publish", label: "整理结果" }
       ];
 
+      const packOptions = [
+        { id: "valorant", label: "VALORANT" },
+        { id: "apex", label: "Apex" },
+        { id: "call-of-duty", label: "COD" },
+        { id: "delta-force", label: "三角洲行动" },
+        { id: "overwatch", label: "守望先锋" },
+        { id: "pubg", label: "PUBG" },
+        { id: "cs2", label: "CS2" },
+        { id: "fortnite", label: "堡垒之夜" },
+        { id: "arena-breakout", label: "暗区突围" },
+        { id: "lost-light", label: "萤火突击" },
+        { id: "arc-raiders", label: "ARC Raiders" },
+        { id: "warframe", label: "Warframe" },
+        { id: "bloodstrike", label: "Blood Strike" },
+        { id: "peace-elite", label: "和平精英" },
+        { id: "knives-out", label: "荒野行动" },
+        { id: "halo", label: "Halo" },
+        { id: "doom", label: "DOOM" },
+        { id: "destiny-2", label: "命运2" },
+        { id: "rainbow-six-siege", label: "彩虹六号" },
+        { id: "the-finals", label: "THE FINALS" },
+        { id: "marvel-rivals", label: "漫威争锋" },
+        { id: "fragpunk", label: "FragPunk" },
+        { id: "strinova", label: "卡拉彼丘" },
+        { id: "escape-from-tarkov", label: "塔科夫" },
+        { id: "helldivers-2", label: "Helldivers 2" }
+      ];
+
       const appState = {
         busy: false,
         composing: false,
@@ -536,8 +649,11 @@
         uiState: null
       };
 
+      renderPackOptions();
+
       const els = {
         category: Array.from(document.querySelectorAll('input[name="category"]')),
+        clearPacks: document.getElementById("clearPacks"),
         collect: document.getElementById("collect"),
         force: document.getElementById("force"),
         health: document.getElementById("health"),
@@ -546,7 +662,8 @@
         meta: document.getElementById("meta"),
         notice: document.getElementById("notice"),
         openLibrary: document.getElementById("openLibrary"),
-        packs: document.getElementById("packs"),
+        packCount: document.getElementById("packCount"),
+        packOptions: Array.from(document.querySelectorAll("[data-pack-option]")),
         query: document.getElementById("query"),
         question: document.getElementById("question"),
         result: document.getElementById("result"),
@@ -554,11 +671,13 @@
         runPhase: document.getElementById("runPhase"),
         runProgress: document.getElementById("runProgress"),
         runSteps: Array.from(document.querySelectorAll("[data-run-step]")),
+        selectAllPacks: document.getElementById("selectAllPacks"),
         sort: document.getElementById("sort"),
         status: document.getElementById("status"),
         windowHours: document.getElementById("windowHours")
       };
 
+      syncPacks(defaults.packs);
       init();
 
       async function init() {
@@ -613,7 +732,18 @@
         els.collect.addEventListener("click", () => submitTurn("inspiration.collect"));
         els.health.addEventListener("click", () => submitTurn("inspiration.health"));
         els.inspirationBaseUrl.addEventListener("input", updateLibraryLink);
-        [els.packs, els.question].forEach((node) => {
+        els.selectAllPacks.addEventListener("click", () => {
+          setAllPacks(true);
+          persistPackSelection();
+        });
+        els.clearPacks.addEventListener("click", () => {
+          setAllPacks(false);
+          showNotice("已清空竞品包。请至少勾选一个竞品包，或点击“全选”。");
+        });
+        els.packOptions.forEach((node) => {
+          node.addEventListener("change", persistPackSelection);
+        });
+        [els.question].forEach((node) => {
           node.addEventListener("compositionstart", () => {
             appState.composing = true;
           });
@@ -646,6 +776,10 @@
         }
         if (!appState.sdk?.session?.submitTurnAndWaitForResult) {
           showNotice("当前 SDK 不支持 submitTurnAndWaitForResult。");
+          return;
+        }
+        if (mode === "inspiration.collect" && selectedPackIds().length === 0) {
+          showNotice("请至少选择一个竞品包，或点击“全选”。");
           return;
         }
         setBusy(true);
@@ -704,7 +838,7 @@
           sort: els.sort.value || "heat",
           category: selectedCategory(),
           query: els.query.value.trim(),
-          packs: els.packs.value.trim(),
+          packs: selectedPackIds().join(","),
           force: els.force.checked,
           question: els.question.value.trim()
         };
@@ -714,7 +848,7 @@
         syncValue("inspirationBaseUrl", state.inspirationBaseUrl || defaults.inspirationBaseUrl);
         syncValue("limit", state.limit || defaults.limit);
         syncValue("query", state.query || "");
-        syncTextArea("packs", state.packs || "");
+        syncPacks(state.packs || "");
         syncTextArea("question", state.question || defaults.question);
         syncSelect("windowHours", state.windowHours || defaults.windowHours);
         syncSelect("sort", state.sort || defaults.sort);
@@ -727,6 +861,54 @@
       function syncValue(key, value) {
         if (document.activeElement === els[key]) return;
         if (els[key].value !== String(value)) els[key].value = String(value);
+      }
+
+      function renderPackOptions() {
+        const grid = document.getElementById("packGrid");
+        if (!grid) return;
+        grid.innerHTML = packOptions.map((option) => `
+          <label class="pack-option">
+            <input type="checkbox" value="${escapeHtml(option.id)}" data-pack-option />
+            <span>${escapeHtml(option.label)}</span>
+          </label>
+        `).join("");
+      }
+
+      function selectedPackIds() {
+        return els.packOptions.filter((item) => item.checked).map((item) => item.value);
+      }
+
+      function syncPacks(value) {
+        const allowed = new Set(packOptions.map((option) => option.id));
+        const fromState = String(value || "").split(",").map((item) => item.trim()).filter((item) => allowed.has(item));
+        const next = fromState.length ? new Set(fromState) : new Set(packOptions.map((option) => option.id));
+        els.packOptions.forEach((item) => {
+          item.checked = next.has(item.value);
+        });
+        updatePackCount();
+      }
+
+      function setAllPacks(checked) {
+        els.packOptions.forEach((item) => {
+          item.checked = checked;
+        });
+        updatePackCount();
+      }
+
+      function persistPackSelection() {
+        const ids = selectedPackIds();
+        updatePackCount();
+        if (!ids.length) {
+          showNotice("请至少选择一个竞品包，或点击“全选”。");
+          return;
+        }
+        appState.uiState?.set("packs", ids.join(","));
+      }
+
+      function updatePackCount() {
+        const selected = selectedPackIds().length;
+        els.packCount.textContent = `${selected}/${packOptions.length} 已选`;
+        els.packCount.dataset.empty = selected === 0 ? "true" : "false";
       }
 
       function syncTextArea(key, value) {
