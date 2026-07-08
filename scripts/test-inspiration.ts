@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { buildInspirationAssets, makeInspirationReferenceGame } from "../server/inspiration";
-import type { ContentPart, GameId, MonitorItem, RiskLevel, Sentiment, SourceType } from "../src/shared";
+import { inspirationSeedPresets, type ContentPart, type GameId, type MonitorItem, type RiskLevel, type Sentiment, type SourceType } from "../src/shared";
 
 const now = new Date("2026-07-08T06:00:00.000Z");
 
@@ -99,11 +99,40 @@ const referenceGame = makeInspirationReferenceGame([], "weapon_skin");
 assert.equal(referenceGame.id, "fps-tps-reference");
 assert.equal(referenceGame.name, "FPS/TPS 竞品素材");
 assert.ok(referenceGame.bilibiliKeywords.some((keyword) => keyword.includes("VALORANT")));
+assert.ok(referenceGame.bilibiliKeywords.some((keyword) => keyword.includes("暗区突围")));
+assert.ok(referenceGame.bilibiliKeywords.some((keyword) => keyword.includes("Helldivers 2")));
 assert.ok(referenceGame.tiebaBars.includes("无畏契约"));
 assert.ok(referenceGame.tiebaBars.includes("三角洲行动"));
 assert.ok(!referenceGame.bilibiliKeywords.includes("Apex"));
 assert.ok(!referenceGame.bilibiliKeywords.includes("三角洲行动"));
 assert.ok(!referenceGame.bilibiliKeywords.join("\n").includes("生死狙击"));
+
+const expectedSeedIds = [
+  "arena-breakout",
+  "lost-light",
+  "arc-raiders",
+  "warframe",
+  "bloodstrike",
+  "peace-elite",
+  "knives-out",
+  "halo",
+  "doom",
+  "destiny-2",
+  "rainbow-six-siege",
+  "the-finals",
+  "marvel-rivals",
+  "fragpunk",
+  "strinova",
+  "escape-from-tarkov",
+  "helldivers-2"
+];
+const seedIds = new Set(inspirationSeedPresets.map((seed) => seed.id));
+for (const id of expectedSeedIds) assert.ok(seedIds.has(id), id);
+
+const selectedReferenceGame = makeInspirationReferenceGame(["destiny-2", "rainbow-six-siege", "the-finals"], "all");
+assert.ok(selectedReferenceGame.tiebaBars.includes("命运2"));
+assert.ok(selectedReferenceGame.tiebaBars.includes("彩虹六号"));
+assert.ok(selectedReferenceGame.tiebaBars.includes("THE FINALS"));
 
 function makeItem(
   id: string,

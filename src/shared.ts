@@ -159,6 +159,289 @@ export const inspirationSeedPresets: InspirationSeedPreset[] = [
       "Fortnite bundle",
       "Fortnite cosmetics"
     ]
+  },
+  {
+    id: "arena-breakout",
+    label: "暗区突围",
+    category: "general_reference",
+    description: "暗区突围枪械涂装、战术装备、角色套装和赛季外观",
+    keywords: [
+      "暗区突围 武器皮肤",
+      "暗区突围 枪械皮肤",
+      "暗区突围 枪皮",
+      "暗区突围 套装",
+      "暗区突围 角色皮肤",
+      "暗区突围 外观展示",
+      "Arena Breakout weapon skin",
+      "Arena Breakout outfit",
+      "Arena Breakout cosmetics"
+    ]
+  },
+  {
+    id: "lost-light",
+    label: "萤火突击",
+    category: "general_reference",
+    description: "萤火突击枪械涂装、战术服装、活动套装和仓库展示",
+    keywords: [
+      "萤火突击 武器皮肤",
+      "萤火突击 枪械皮肤",
+      "萤火突击 枪皮",
+      "萤火突击 角色皮肤",
+      "萤火突击 套装",
+      "萤火突击 外观展示",
+      "Lost Light weapon skin",
+      "Lost Light outfit",
+      "Lost Light cosmetics"
+    ]
+  },
+  {
+    id: "arc-raiders",
+    label: "ARC Raiders",
+    category: "general_reference",
+    description: "ARC Raiders 撤离射击装备、角色服装、武器外观和科幻道具",
+    keywords: [
+      "ARC Raiders 武器皮肤",
+      "ARC Raiders 武器外观",
+      "ARC Raiders 角色皮肤",
+      "ARC Raiders 套装",
+      "ARC Raiders 外观展示",
+      "arcRiders weapon skin",
+      "arcRiders outfit",
+      "ARC Raiders cosmetics"
+    ]
+  },
+  {
+    id: "warframe",
+    label: "Warframe",
+    category: "general_reference",
+    description: "Warframe 战甲皮肤、武器外观、披饰、Prime 和 TennoGen 参考",
+    keywords: [
+      "Warframe 皮肤",
+      "Warframe 战甲皮肤",
+      "Warframe 武器皮肤",
+      "Warframe 外观展示",
+      "Warframe Prime 外观",
+      "Warframe TennoGen",
+      "Warframe skin",
+      "Warframe weapon skin",
+      "Warframe cosmetics"
+    ]
+  },
+  {
+    id: "bloodstrike",
+    label: "Blood Strike",
+    category: "general_reference",
+    description: "血战英雄外观、武器皮肤、赛季套装和移动端射击审美",
+    keywords: [
+      "血战 武器皮肤",
+      "血战 枪皮",
+      "血战 角色皮肤",
+      "血战 套装",
+      "血战 外观展示",
+      "Blood Strike weapon skin",
+      "Blood Strike character skin",
+      "Blood Strike outfit",
+      "Blood Strike cosmetics"
+    ]
+  },
+  {
+    id: "peace-elite",
+    label: "和平精英",
+    category: "general_reference",
+    description: "和平精英升级枪、角色套装、载具皮肤、联名和商城外观",
+    keywords: [
+      "和平精英 武器皮肤",
+      "和平精英 枪皮",
+      "和平精英 升级枪",
+      "和平精英 角色皮肤",
+      "和平精英 套装",
+      "和平精英 外观展示",
+      "和平精英 载具皮肤",
+      "Peace Elite weapon skin",
+      "Peace Elite outfit"
+    ]
+  },
+  {
+    id: "knives-out",
+    label: "荒野行动",
+    category: "general_reference",
+    description: "荒野行动枪械皮肤、角色时装、联动套装和载具外观",
+    keywords: [
+      "荒野行动 武器皮肤",
+      "荒野行动 枪皮",
+      "荒野行动 角色皮肤",
+      "荒野行动 时装",
+      "荒野行动 套装",
+      "荒野行动 外观展示",
+      "Knives Out weapon skin",
+      "Knives Out outfit",
+      "Knives Out cosmetics"
+    ]
+  },
+  {
+    id: "halo",
+    label: "Halo",
+    category: "general_reference",
+    description: "Halo 装甲涂装、武器涂装、载具涂装和科幻军武轮廓",
+    keywords: [
+      "Halo 装甲皮肤",
+      "Halo 武器皮肤",
+      "Halo 武器外观",
+      "Halo 涂装",
+      "Halo 外观展示",
+      "Halo armor coating",
+      "Halo weapon coating",
+      "Halo cosmetics"
+    ]
+  },
+  {
+    id: "doom",
+    label: "DOOM",
+    category: "weapon_skin",
+    description: "DOOM 武器造型、恶魔角色、机甲装备和重金属科幻材质",
+    keywords: [
+      "DOOM 武器外观",
+      "DOOM 武器设计",
+      "DOOM 角色设计",
+      "DOOM 皮肤",
+      "DOOM 外观展示",
+      "DOOM weapon design",
+      "DOOM weapon skin",
+      "DOOM character design"
+    ]
+  },
+  {
+    id: "destiny-2",
+    label: "命运2",
+    category: "general_reference",
+    description: "命运2异域武器皮肤、护甲外观、装饰品、赛季套装和光效",
+    keywords: [
+      "命运2 武器皮肤",
+      "命运2 武器外观",
+      "命运2 护甲皮肤",
+      "命运2 套装",
+      "命运2 装饰品",
+      "命运2 外观展示",
+      "Destiny 2 weapon ornament",
+      "Destiny 2 armor ornament",
+      "Destiny 2 cosmetics"
+    ]
+  },
+  {
+    id: "rainbow-six-siege",
+    label: "彩虹六号",
+    category: "general_reference",
+    description: "彩虹六号干员皮肤、精英套装、武器涂装和战术装备外观",
+    keywords: [
+      "彩虹六号 武器皮肤",
+      "彩虹六号 干员皮肤",
+      "彩虹六号 精英皮肤",
+      "彩虹六号 套装",
+      "彩虹六号 外观展示",
+      "Rainbow Six Siege weapon skin",
+      "Rainbow Six Siege operator skin",
+      "Rainbow Six Siege elite skin"
+    ]
+  },
+  {
+    id: "the-finals",
+    label: "THE FINALS",
+    category: "general_reference",
+    description: "THE FINALS 选手服装、武器皮肤、贴纸、道具和赛季外观",
+    keywords: [
+      "THE FINALS 武器皮肤",
+      "THE FINALS 角色皮肤",
+      "THE FINALS 套装",
+      "THE FINALS 外观展示",
+      "最终决战 武器皮肤",
+      "最终决战 角色皮肤",
+      "THE FINALS weapon skin",
+      "THE FINALS outfit",
+      "THE FINALS cosmetics"
+    ]
+  },
+  {
+    id: "marvel-rivals",
+    label: "漫威争锋",
+    category: "character_skin",
+    description: "漫威争锋英雄皮肤、漫画联动套装、武器配件和技能特效",
+    keywords: [
+      "漫威争锋 皮肤",
+      "漫威争锋 英雄皮肤",
+      "漫威争锋 角色皮肤",
+      "漫威争锋 套装",
+      "漫威争锋 外观展示",
+      "Marvel Rivals skin",
+      "Marvel Rivals costume",
+      "Marvel Rivals cosmetics"
+    ]
+  },
+  {
+    id: "fragpunk",
+    label: "FragPunk",
+    category: "general_reference",
+    description: "FragPunk 英雄外观、武器皮肤、卡牌视觉和赛博涂装",
+    keywords: [
+      "FragPunk 武器皮肤",
+      "FragPunk 角色皮肤",
+      "FragPunk 英雄皮肤",
+      "FragPunk 套装",
+      "FragPunk 外观展示",
+      "界外狂潮 武器皮肤",
+      "界外狂潮 角色皮肤",
+      "FragPunk weapon skin",
+      "FragPunk cosmetics"
+    ]
+  },
+  {
+    id: "strinova",
+    label: "卡拉彼丘",
+    category: "general_reference",
+    description: "卡拉彼丘角色时装、武器皮肤、二次元战术射击外观和纸片化特效",
+    keywords: [
+      "卡拉彼丘 武器皮肤",
+      "卡拉彼丘 枪皮",
+      "卡拉彼丘 角色皮肤",
+      "卡拉彼丘 时装",
+      "卡拉彼丘 套装",
+      "卡拉彼丘 外观展示",
+      "Strinova weapon skin",
+      "Strinova character skin",
+      "Strinova cosmetics"
+    ]
+  },
+  {
+    id: "escape-from-tarkov",
+    label: "塔科夫",
+    category: "weapon_skin",
+    description: "逃离塔科夫枪械改装、配件组合、战术装备和拟真材质参考",
+    keywords: [
+      "逃离塔科夫 武器外观",
+      "逃离塔科夫 枪械改装",
+      "逃离塔科夫 枪械皮肤",
+      "逃离塔科夫 装备外观",
+      "塔科夫 武器外观",
+      "Escape from Tarkov weapon customization",
+      "Escape from Tarkov weapon skin",
+      "Tarkov weapon build"
+    ]
+  },
+  {
+    id: "helldivers-2",
+    label: "Helldivers 2",
+    category: "general_reference",
+    description: "Helldivers 2 护甲套装、披风、武器造型和军武科幻阵营包装",
+    keywords: [
+      "Helldivers 2 护甲皮肤",
+      "Helldivers 2 武器外观",
+      "Helldivers 2 套装",
+      "Helldivers 2 披风",
+      "Helldivers 2 外观展示",
+      "绝地潜兵2 护甲皮肤",
+      "绝地潜兵2 武器外观",
+      "Helldivers 2 armor",
+      "Helldivers 2 cosmetics"
+    ]
   }
 ];
 

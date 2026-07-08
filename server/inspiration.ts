@@ -257,6 +257,8 @@ const inspirationCollectionCache = new Map<string, InspirationCollection>();
 const inspirationCollectionInFlight = new Map<string, Promise<InspirationCollection>>();
 const inspirationCollectionTtlMs = 45 * 60_000;
 const referenceGameId = "fps-tps-reference";
+const inspirationMaxSearchKeywords = 56;
+const inspirationMaxTiebaBars = 20;
 
 const tiebaBarsBySeedId: Record<string, string[]> = {
   valorant: ["无畏契约"],
@@ -266,7 +268,24 @@ const tiebaBarsBySeedId: Record<string, string[]> = {
   overwatch: ["守望先锋"],
   pubg: ["绝地求生", "PUBG"],
   cs2: ["CS2", "反恐精英"],
-  fortnite: ["堡垒之夜"]
+  fortnite: ["堡垒之夜"],
+  "arena-breakout": ["暗区突围"],
+  "lost-light": ["萤火突击"],
+  "arc-raiders": ["ARC Raiders"],
+  warframe: ["Warframe"],
+  bloodstrike: ["BloodStrike", "血战"],
+  "peace-elite": ["和平精英"],
+  "knives-out": ["荒野行动"],
+  halo: ["Halo"],
+  doom: ["DOOM"],
+  "destiny-2": ["命运2"],
+  "rainbow-six-siege": ["彩虹六号"],
+  "the-finals": ["THE FINALS"],
+  "marvel-rivals": ["漫威争锋"],
+  fragpunk: ["FragPunk", "界外狂潮"],
+  strinova: ["卡拉彼丘"],
+  "escape-from-tarkov": ["逃离塔科夫"],
+  "helldivers-2": ["绝地潜兵"]
 };
 
 export async function getInspirationResponse(rawQuery: unknown): Promise<InspirationResponse> {
@@ -344,9 +363,9 @@ async function collectInspirationSources(referenceGame: GameConfig, cutoff: Date
   const tasks = [
     collectBilibili(referenceGame, cutoff, {
       relevanceMode: "keyword",
-      maxKeywords: 20,
-      maxPages: 2,
-      maxItems: 96,
+      maxKeywords: inspirationMaxSearchKeywords,
+      maxPages: 1,
+      maxItems: 140,
       sourceLabel: "B站竞品视频"
     }),
     collectTieba(referenceGame, cutoff)
@@ -374,18 +393,18 @@ function selectInspirationSeeds(seedIds: string[]) {
 }
 
 function inspirationSearchKeywords(seeds: InspirationSeedPreset[], category: "all" | InspirationCategory) {
-  const categoryTerms = category === "all" ? ["皮肤", "外观展示"] : categoryLexicon[category];
+  const categoryTerms = category === "all" ? ["皮肤", "外观展示"] : categoryLexicon[category].slice(0, 2);
   const pairedKeywords = seeds.flatMap((seed) =>
-    categoryTerms.slice(0, 5).map((term) => `${seed.label} ${term}`)
+    categoryTerms.map((term) => `${seed.label} ${term}`)
   );
   const seedKeywords = seeds.flatMap((seed) => seed.keywords).filter(isDesignSearchKeyword);
-  return uniq([...seedKeywords, ...pairedKeywords])
+  return uniq([...pairedKeywords, ...seedKeywords])
     .filter((keyword) => !isOwnedProjectKeyword(keyword))
-    .slice(0, 28);
+    .slice(0, inspirationMaxSearchKeywords);
 }
 
 function tiebaBarsForSeeds(seeds: InspirationSeedPreset[]) {
-  return uniq(seeds.flatMap((seed) => tiebaBarsBySeedId[seed.id] || [])).slice(0, 8);
+  return uniq(seeds.flatMap((seed) => tiebaBarsBySeedId[seed.id] || [])).slice(0, inspirationMaxTiebaBars);
 }
 
 function tiebaKeywordsForCategory(category: "all" | InspirationCategory) {
