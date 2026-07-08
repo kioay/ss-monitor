@@ -428,7 +428,7 @@ def compact_assets_for_result(value: Any, limit: int) -> list[dict[str, Any]]:
     for asset in list_or_empty(value)[:limit]:
         if not isinstance(asset, dict):
             continue
-        item = asset.get("item") if isinstance(asset.get("item"), dict) else {}
+        item = asset.get("item") if isinstance(asset.get("item"), dict) else asset
         metrics = item.get("metrics") if isinstance(item.get("metrics"), dict) else {}
         assets.append(
             {
@@ -439,14 +439,14 @@ def compact_assets_for_result(value: Any, limit: int) -> list[dict[str, Any]]:
                 "reason": sanitize_text(str(asset.get("reason") or "")),
                 "matchedSeeds": compact_list(asset.get("matchedSeeds"), 8),
                 "visualTags": compact_list(asset.get("visualTags"), 8),
-                "title": sanitize_text(str(item.get("title") or ""))[:240],
-                "summary": sanitize_text(str(item.get("summary") or ""))[:600],
+                "title": sanitize_text(str(item.get("title") or asset.get("title") or ""))[:240],
+                "summary": sanitize_text(str(item.get("summary") or asset.get("summary") or ""))[:600],
                 "source": item.get("source"),
                 "sourceLabel": item.get("sourceLabel"),
                 "author": sanitize_text(str(item.get("author") or ""))[:120],
                 "publishedAt": item.get("publishedAt"),
-                "sourceUrl": item.get("url"),
-                "thumbnailUrl": item.get("thumbnail"),
+                "sourceUrl": item.get("url") or asset.get("sourceUrl"),
+                "thumbnailUrl": item.get("thumbnail") or asset.get("thumbnailUrl"),
                 "metrics": {
                     "views": metrics.get("views"),
                     "likes": metrics.get("likes"),
