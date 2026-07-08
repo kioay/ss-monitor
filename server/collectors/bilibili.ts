@@ -186,12 +186,36 @@ async function searchVideos(keyword: string, page: number) {
 }
 
 async function searchVideosWithCookie(keyword: string, page: number, cookie: string) {
+  const result = await searchWbiVideosWithCookie(keyword, page, cookie);
+  if (result.length || sourceCookie("bilibili")) return result;
+  return searchLegacyVideosWithCookie(keyword, page, cookie);
+}
+
+async function searchWbiVideosWithCookie(keyword: string, page: number, cookie: string) {
   const url = await signedWbiUrl("https://api.bilibili.com/x/web-interface/wbi/search/type", {
     search_type: "video",
     keyword,
     order: "pubdate",
     page
   }, cookie);
+  const data = await fetchJson<BiliSearchResponse>(url, {
+    referer: "https://search.bilibili.com/",
+    cookie
+  });
+
+  if (data.code !== 0) {
+    throw new SourceError(`B站搜索失败：${data.message || data.code}`);
+  }
+  return data.data?.result || [];
+}
+
+async function searchLegacyVideosWithCookie(keyword: string, page: number, cookie: string) {
+  const url = `https://api.bilibili.com/x/web-interface/search/type?${new URLSearchParams({
+    search_type: "video",
+    keyword,
+    order: "pubdate",
+    page: String(page)
+  })}`;
   const data = await fetchJson<BiliSearchResponse>(url, {
     referer: "https://search.bilibili.com/",
     cookie
