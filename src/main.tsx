@@ -1672,10 +1672,6 @@ function InspirationPage() {
             <h1>FPS/TPS 灵感素材库</h1>
           </div>
           <div className="top-actions">
-            <a className="topbar-link-button" href="http://192.168.8.242:8787/?games=ss1&window=72" title="返回舆情监测">
-              <Waves size={17} aria-hidden="true" />
-              <span>舆情监测</span>
-            </a>
             <button className="icon-button primary" type="button" onClick={refreshInspiration} disabled={loading} title="刷新素材库" aria-label="刷新灵感素材库">
               <RefreshCw size={18} className={loading || collectLoading ? "spin" : ""} aria-hidden="true" />
             </button>
