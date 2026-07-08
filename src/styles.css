@@ -3179,7 +3179,7 @@ button.metric:focus-visible {
 }
 
 .inspiration-page {
-  width: min(1540px, calc(100% - 32px));
+  width: min(1500px, calc(100% - 24px));
   --reference-ink: #151d1b;
   --reference-plate: #f6f8f2;
   --reference-table: #e8eee8;
@@ -3191,6 +3191,7 @@ button.metric:focus-visible {
 
 .inspiration-topbar h1 {
   max-width: 720px;
+  font-size: 32px;
 }
 
 .inspiration-studio {
@@ -3215,7 +3216,7 @@ button.metric:focus-visible {
 .inspiration-command {
   justify-content: space-between;
   gap: 16px;
-  padding: 16px;
+  padding: 12px 14px;
   border-bottom: 1px solid rgba(18, 29, 27, 0.18);
   background:
     linear-gradient(90deg, rgba(21, 29, 27, 0.05) 0, rgba(21, 29, 27, 0.05) 1px, transparent 1px, transparent 24px),
@@ -3228,7 +3229,7 @@ button.metric:focus-visible {
   gap: 8px;
   margin: 0;
   color: var(--reference-ink);
-  font-size: 24px;
+  font-size: 21px;
   line-height: 1.15;
 }
 
@@ -3277,16 +3278,16 @@ button.metric:focus-visible {
 
 .inspiration-workbench {
   display: grid;
-  grid-template-columns: minmax(250px, 300px) minmax(0, 1fr);
+  grid-template-columns: minmax(218px, 260px) minmax(0, 1fr);
   min-height: 620px;
 }
 
 .inspiration-rail {
   display: grid;
   align-content: start;
-  gap: 16px;
+  gap: 12px;
   border-right: 1px solid rgba(18, 29, 27, 0.16);
-  padding: 14px;
+  padding: 12px;
   background:
     repeating-linear-gradient(0deg, rgba(18, 29, 27, 0.045) 0, rgba(18, 29, 27, 0.045) 1px, transparent 1px, transparent 22px),
     #f1f5ee;
@@ -3326,19 +3327,19 @@ button.metric:focus-visible {
 
 .inspiration-pack-grid {
   display: grid;
-  gap: 7px;
+  gap: 6px;
 }
 
 .inspiration-pack-grid button {
   min-width: 0;
-  min-height: 42px;
+  min-height: 38px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   border: 1px solid rgba(18, 29, 27, 0.14);
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 7px 9px;
   background: rgba(255, 255, 255, 0.68);
   color: var(--reference-ink);
   text-align: left;
@@ -3434,6 +3435,7 @@ button.metric:focus-visible {
 }
 
 .inspiration-search {
+  grid-area: search;
   min-width: 0;
   background: rgba(255, 255, 255, 0.72);
 }
@@ -3445,13 +3447,21 @@ button.metric:focus-visible {
 
 .inspiration-board-filters {
   display: grid;
-  grid-template-columns: minmax(128px, 0.45fr) minmax(220px, 1fr) minmax(360px, 0.95fr) minmax(240px, 0.65fr);
+  grid-template-columns: minmax(0, 1fr) minmax(142px, 168px) minmax(248px, 0.45fr);
+  grid-template-areas:
+    "search search sort"
+    "material material media";
   align-items: end;
-  gap: 8px;
-  margin-bottom: 10px;
+  gap: 10px;
+  margin-bottom: 12px;
+  border: 1px solid rgba(18, 29, 27, 0.14);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(248, 251, 246, 0.76);
 }
 
 .inspiration-sort {
+  grid-area: sort;
   min-width: 0;
   background: rgba(255, 255, 255, 0.72);
 }
@@ -3467,6 +3477,14 @@ button.metric:focus-visible {
   gap: 6px;
 }
 
+.inspiration-filter-cluster.material {
+  grid-area: material;
+}
+
+.inspiration-filter-cluster.media {
+  grid-area: media;
+}
+
 .inspiration-filter-cluster > span {
   color: rgba(18, 29, 27, 0.62);
   font-size: 11px;
@@ -3479,7 +3497,7 @@ button.metric:focus-visible {
 
 .inspiration-board {
   min-width: 0;
-  padding: 14px;
+  padding: 12px;
   background:
     linear-gradient(90deg, rgba(18, 29, 27, 0.04) 0, rgba(18, 29, 27, 0.04) 1px, transparent 1px, transparent 96px),
     linear-gradient(0deg, rgba(18, 29, 27, 0.035) 0, rgba(18, 29, 27, 0.035) 1px, transparent 1px, transparent 96px),
@@ -3487,32 +3505,38 @@ button.metric:focus-visible {
 }
 
 .inspiration-stats {
-  display: grid;
-  grid-template-columns: minmax(118px, 0.7fr) repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
   margin-bottom: 12px;
+  border: 1px solid rgba(18, 29, 27, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  overflow: hidden;
 }
 
 .inspiration-stat-total,
 .inspiration-stat-group {
   min-width: 0;
-  min-height: 46px;
+  min-height: 42px;
   display: flex;
   align-items: center;
-  border: 1px solid rgba(18, 29, 27, 0.14);
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.74);
+  border: 0;
+  border-right: 1px solid rgba(18, 29, 27, 0.12);
+  border-radius: 0;
+  background: transparent;
   color: var(--muted);
 }
 
 .inspiration-stat-total {
+  flex: 0 0 126px;
   gap: 7px;
   padding: 7px 12px;
   color: var(--reference-ink);
 }
 
 .inspiration-stat-total b {
-  font-size: 24px;
+  font-size: 22px;
   line-height: 1;
 }
 
@@ -3523,11 +3547,16 @@ button.metric:focus-visible {
 }
 
 .inspiration-stat-group {
+  flex: 1 1 190px;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 7px 8px;
+  padding: 7px 10px;
   font-size: 12px;
   font-weight: 760;
+}
+
+.inspiration-stat-group:last-child {
+  border-right: 0;
 }
 
 .inspiration-stat-label {
@@ -5007,7 +5036,11 @@ button.metric:focus-visible {
   }
 
   .inspiration-board-filters {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(138px, 168px);
+    grid-template-areas:
+      "search sort"
+      "material material"
+      "media media";
   }
 }
 
@@ -5222,6 +5255,11 @@ button.metric:focus-visible {
 
   .inspiration-board-filters {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "search"
+      "sort"
+      "material"
+      "media";
   }
 
   .inspiration-pack-grid,
@@ -5238,7 +5276,19 @@ button.metric:focus-visible {
   }
 
   .inspiration-stats {
-    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+
+  .inspiration-stat-total,
+  .inspiration-stat-group {
+    flex: 1 1 auto;
+    width: 100%;
+    border-right: 0;
+    border-bottom: 1px solid rgba(18, 29, 27, 0.12);
+  }
+
+  .inspiration-stat-group:last-child {
+    border-bottom: 0;
   }
 
   .inspiration-wall {

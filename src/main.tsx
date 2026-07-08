@@ -1815,15 +1815,6 @@ function InspirationStudio({
 
         <section className="inspiration-board" aria-label="灵感素材列表">
           <div className="inspiration-board-filters" aria-label="素材结果筛选">
-            <label className="field inspiration-sort">
-              <span>排序</span>
-              <select name="inspiration-sort" value={sort} onChange={(event) => onSortChange(event.target.value as InspirationSort)}>
-                <option value="relevance">综合优先</option>
-                <option value="heat">热度优先</option>
-                <option value="latest">最新优先</option>
-              </select>
-            </label>
-
             <label className="field inspiration-search">
               <Search size={16} aria-hidden="true" />
               <span className="sr-only">搜索灵感素材</span>
@@ -1835,7 +1826,16 @@ function InspirationStudio({
               />
             </label>
 
-            <div className="inspiration-filter-cluster">
+            <label className="field inspiration-sort">
+              <span>排序</span>
+              <select name="inspiration-sort" value={sort} onChange={(event) => onSortChange(event.target.value as InspirationSort)}>
+                <option value="relevance">综合优先</option>
+                <option value="heat">热度优先</option>
+                <option value="latest">最新优先</option>
+              </select>
+            </label>
+
+            <div className="inspiration-filter-cluster material">
               <span>素材类型</span>
               <div className="inspiration-filter-stack">
                 {(["all", "weapon_skin", "character_skin", "general_reference"] as InspirationCategoryFilter[]).map((value) => (
@@ -1852,7 +1852,7 @@ function InspirationStudio({
               </div>
             </div>
 
-            <div className="inspiration-filter-cluster">
+            <div className="inspiration-filter-cluster media">
               <span>媒介</span>
               <div className="inspiration-kind-toggle" aria-label="视频或图片">
                 <button type="button" className={kind === "all" ? "active" : ""} onClick={() => onKindChange("all")} title="全部素材">
