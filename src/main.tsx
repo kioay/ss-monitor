@@ -1571,8 +1571,6 @@ function App() {
 }
 
 function InspirationPage() {
-  const [config, setConfig] = React.useState<{ games: GameConfig[]; defaultWindowHours: number }>();
-  const [selectedGames, setSelectedGames] = React.useState<GameId[]>([]);
   const [windowHours, setWindowHours] = React.useState(searchWindowHours);
   const [data, setData] = React.useState<InspirationResponse>();
   const [loading, setLoading] = React.useState(false);
@@ -1581,49 +1579,29 @@ function InspirationPage() {
   const [category, setCategory] = React.useState<InspirationCategoryFilter>("all");
   const [kind, setKind] = React.useState<InspirationKindFilter>("all");
   const [query, setQuery] = React.useState("");
+  const [selectedPackIds, setSelectedPackIds] = React.useState(() => inspirationSeedPresets.map((seed) => seed.id));
   const latestRequestRef = React.useRef(0);
-
-  const loadConfig = React.useCallback(() => {
-    fetch(`${api.config}?v=${currentAnalysisVersion}`, { cache: "no-store" })
-      .then((response) => response.json())
-      .then((payload) => {
-        setConfig(payload);
-        setSelectedGames((current) => normalizeDashboardGameSelection(current, payload.games || []));
-      })
-      .catch((reason) => setError(reason instanceof Error ? reason.message : String(reason)));
-  }, []);
-
-  React.useEffect(() => {
-    loadConfig();
-  }, [loadConfig]);
 
   React.useEffect(() => {
     document.title = "FPS/TPS 灵感素材库";
   }, []);
 
-  const gameOptions = React.useMemo(() => dashboardGameOptions(config?.games || []), [config?.games]);
-  const selectedGameConfigs = React.useMemo(() => {
-    const configuredGames = config?.games || [];
-    const selectedIds = new Set(selectedGames.length ? selectedGames : configuredGames.map((game) => game.id));
-    return configuredGames.filter((game) => selectedIds.has(game.id));
-  }, [config?.games, selectedGames]);
-
   const loadInspiration = React.useCallback(
-    async (force = false) => {
-      if (!selectedGames.length) return;
+    async (refresh = false) => {
       const requestId = latestRequestRef.current + 1;
       latestRequestRef.current = requestId;
       setLoading(true);
+      if (refresh) setCollectLoading(true);
       setError("");
       try {
         const params = new URLSearchParams({
-          games: selectedGames.join(","),
+          packs: selectedPackIds.join(","),
           windowHours: String(windowHours),
-          limit: "72",
+          limit: "96",
           category,
           kind,
           q: query.trim(),
-          ...(force ? { force: "1" } : {})
+          ...(refresh ? { refresh: "1" } : {})
         });
         const response = await fetch(`${api.inspiration}?${params.toString()}`);
         if (!response.ok) {
@@ -1638,50 +1616,51 @@ function InspirationPage() {
         setError(reason instanceof Error ? reason.message : String(reason));
       } finally {
         if (latestRequestRef.current === requestId) setLoading(false);
+        if (refresh) setCollectLoading(false);
       }
     },
-    [category, kind, query, selectedGames, windowHours]
+    [category, kind, query, selectedPackIds, windowHours]
   );
 
   React.useEffect(() => {
-    if (!config || !selectedGames.length) return;
     const timer = window.setTimeout(() => {
       void loadInspiration(false);
     }, query.trim() ? 280 : 0);
     return () => window.clearTimeout(timer);
-  }, [config, loadInspiration, query, selectedGames.length]);
+  }, [loadInspiration, query]);
 
-  const selectGames = React.useCallback((gameIds: GameId[]) => {
-    setSelectedGames(gameIds);
+  const togglePack = React.useCallback((packId: string) => {
+    setSelectedPackIds((current) => {
+      if (current.includes(packId)) return current.length === 1 ? current : current.filter((id) => id !== packId);
+      return [...current, packId];
+    });
   }, []);
 
-  const collectWithKeywordPack = React.useCallback(async () => {
-    if (!selectedGames.length) return;
-    setCollectLoading(true);
-    setError("");
-    try {
-      const keywordPack = inspirationKeywordPack(category);
-      const params = new URLSearchParams({
-        games: selectedGames.join(","),
-        windowHours: String(windowHours),
-        limit: "1000",
-        notify: "0",
-        force: "1",
-        extraKeywords: keywordPack
-      });
-      const response = await fetch(`${api.monitor}?${params.toString()}`);
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({})) as { message?: string };
-        throw new Error(payload.message || `API ${response.status}`);
-      }
-      await response.json();
-      await loadInspiration(true);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
-    } finally {
-      setCollectLoading(false);
+  const selectAllPacks = React.useCallback(() => {
+    setSelectedPackIds(inspirationSeedPresets.map((seed) => seed.id));
+  }, []);
+
+  const collectInspiration = React.useCallback(() => {
+    void loadInspiration(true);
+  }, [loadInspiration]);
+
+  const refreshInspiration = React.useCallback(() => {
+    void loadInspiration(true);
+  }, [loadInspiration]);
+
+  const updateCategory = React.useCallback((value: InspirationCategoryFilter) => {
+    setCategory(value);
+  }, []);
+
+  const updateKind = React.useCallback((value: InspirationKindFilter) => {
+    setKind(value);
+  }, []);
+
+  React.useEffect(() => {
+    if (!selectedPackIds.length) {
+      setSelectedPackIds(inspirationSeedPresets.map((seed) => seed.id));
     }
-  }, [category, loadInspiration, selectedGames, windowHours]);
+  }, [selectedPackIds.length]);
 
   return (
     <>
@@ -1697,41 +1676,9 @@ function InspirationPage() {
               <Waves size={17} aria-hidden="true" />
               <span>舆情监测</span>
             </a>
-            <button className="icon-button primary" type="button" onClick={() => loadInspiration(true)} disabled={loading} title="刷新素材库" aria-label="刷新灵感素材库">
-              <RefreshCw size={18} className={loading ? "spin" : ""} aria-hidden="true" />
+            <button className="icon-button primary" type="button" onClick={refreshInspiration} disabled={loading} title="刷新素材库" aria-label="刷新灵感素材库">
+              <RefreshCw size={18} className={loading || collectLoading ? "spin" : ""} aria-hidden="true" />
             </button>
-          </div>
-        </section>
-
-        <section className="control-band inspiration-page-controls">
-          <div
-            className={`segmented ${gameOptions.length === 1 ? "single" : ""}`}
-            style={{ "--segmented-count": Math.max(gameOptions.length, 1) } as React.CSSProperties}
-          >
-            {gameOptions.map((option) => (
-              <button
-                key={option.key}
-                type="button"
-                className={sameGameSelection(selectedGames, option.ids) ? "active" : ""}
-                aria-pressed={sameGameSelection(selectedGames, option.ids)}
-                onClick={() => selectGames(option.ids)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-          <label className="field">
-            <span>窗口</span>
-            <select name="inspiration-window" value={windowHours} onChange={(event) => setWindowHours(Number(event.target.value))}>
-              <option value={72}>72 小时</option>
-              <option value={168}>7 天</option>
-              <option value={336}>14 天</option>
-              <option value={720}>30 天</option>
-            </select>
-          </label>
-          <div className="field inspiration-selected-scope">
-            <Database size={16} aria-hidden="true" />
-            <span>{selectedGameConfigs.map((game) => game.shortName || game.name).join(" / ") || "等待项目配置"}</span>
           </div>
         </section>
 
@@ -1740,14 +1687,19 @@ function InspirationPage() {
         <InspirationStudio
           data={data}
           loading={loading}
-          packLoading={collectLoading}
+          collectLoading={collectLoading}
+          windowHours={windowHours}
           category={category}
           kind={kind}
           query={query}
-          onCategoryChange={setCategory}
-          onKindChange={setKind}
+          selectedPackIds={selectedPackIds}
+          onWindowHoursChange={setWindowHours}
+          onCategoryChange={updateCategory}
+          onKindChange={updateKind}
           onQueryChange={setQuery}
-          onApplyKeywordPack={collectWithKeywordPack}
+          onTogglePack={togglePack}
+          onSelectAllPacks={selectAllPacks}
+          onCollect={collectInspiration}
         />
       </main>
     </>
@@ -1757,115 +1709,168 @@ function InspirationPage() {
 function InspirationStudio({
   data,
   loading,
-  packLoading = false,
+  collectLoading = false,
+  windowHours,
   category,
   kind,
   query,
+  selectedPackIds,
+  onWindowHoursChange,
   onCategoryChange,
   onKindChange,
   onQueryChange,
-  onApplyKeywordPack
+  onTogglePack,
+  onSelectAllPacks,
+  onCollect
 }: {
   data?: InspirationResponse;
   loading: boolean;
-  packLoading?: boolean;
+  collectLoading?: boolean;
+  windowHours: number;
   category: InspirationCategoryFilter;
   kind: InspirationKindFilter;
   query: string;
+  selectedPackIds: string[];
+  onWindowHoursChange: (value: number) => void;
   onCategoryChange: (value: InspirationCategoryFilter) => void;
   onKindChange: (value: InspirationKindFilter) => void;
   onQueryChange: (value: string) => void;
-  onApplyKeywordPack: () => void;
+  onTogglePack: (packId: string) => void;
+  onSelectAllPacks: () => void;
+  onCollect: () => void;
 }) {
   const assets = data?.assets || [];
   const stats = data?.stats;
   const seeds = data?.seeds?.length ? data.seeds : inspirationSeedPresets;
   const sourceSummary = stats?.sourceBreakdown.length
     ? stats.sourceBreakdown.map((entry) => `${sourceTypeText(entry.source)} ${entry.count}`).join(" / ")
-    : "等待素材命中";
+    : "暂无命中";
+  const allPacksSelected = selectedPackIds.length === seeds.length;
 
   return (
     <section className="inspiration-studio" id="inspiration-library" aria-labelledby="inspiration-title">
-      <div className="inspiration-head">
+      <div className="inspiration-command">
         <div>
-          <p className="eyebrow">Reference Radar</p>
+          <p className="eyebrow">Competitor Reference</p>
           <h2 id="inspiration-title">
             <Crosshair size={19} aria-hidden="true" />
-            FPS/TPS 灵感素材库
+            素材侦察板
           </h2>
-          <p>从现有全网监测链路里筛出武器皮肤、角色皮肤、展示视频和图文参考，沉淀成设计素材入口。</p>
         </div>
-        <button className="inspiration-pack-button" type="button" onClick={onApplyKeywordPack} disabled={packLoading}>
-          {packLoading ? <RefreshCw size={17} className="spin" aria-hidden="true" /> : <BookmarkPlus size={17} aria-hidden="true" />}
-          {packLoading ? "采集中" : "应用素材词包"}
-        </button>
-      </div>
-
-      <div className="inspiration-controls">
-        <div className="segmented inspiration-tabs" style={{ "--segmented-count": 4 } as React.CSSProperties}>
-          {(["all", "weapon_skin", "character_skin", "general_reference"] as InspirationCategoryFilter[]).map((value) => (
-            <button
-              type="button"
-              className={category === value ? "active" : ""}
-              aria-pressed={category === value}
-              onClick={() => onCategoryChange(value)}
-              key={value}
-            >
-              {inspirationCategoryLabel(value)}
-            </button>
-          ))}
-        </div>
-        <div className="inspiration-kind-toggle" aria-label="素材类型">
-          <button type="button" className={kind === "all" ? "active" : ""} onClick={() => onKindChange("all")}>
-            <Palette size={15} aria-hidden="true" />
-            全部
-          </button>
-          <button type="button" className={kind === "video" ? "active" : ""} onClick={() => onKindChange("video")}>
-            <Video size={15} aria-hidden="true" />
-            视频
-          </button>
-          <button type="button" className={kind === "image" ? "active" : ""} onClick={() => onKindChange("image")}>
-            <ImageIcon size={15} aria-hidden="true" />
-            图片
+        <div className="inspiration-command-actions">
+          <label className="field inspiration-window">
+            <span>窗口</span>
+            <select name="inspiration-window" value={windowHours} onChange={(event) => onWindowHoursChange(Number(event.target.value))}>
+              <option value={72}>72 小时</option>
+              <option value={168}>7 天</option>
+              <option value={336}>14 天</option>
+              <option value={720}>30 天</option>
+            </select>
+          </label>
+          <button className="inspiration-collect-button" type="button" onClick={onCollect} disabled={collectLoading || loading}>
+            {collectLoading ? <RefreshCw size={17} className="spin" aria-hidden="true" /> : <BookmarkPlus size={17} aria-hidden="true" />}
+            {collectLoading ? "采集中" : "采集素材"}
           </button>
         </div>
-        <label className="field inspiration-search">
-          <Search size={16} aria-hidden="true" />
-          <span className="sr-only">搜索灵感素材</span>
-          <input
-            value={query}
-            onChange={(event) => onQueryChange(event.target.value)}
-            placeholder="搜索皮肤、武器、角色、游戏名"
-            autoComplete="off"
-          />
-        </label>
       </div>
 
-      <div className="inspiration-stats" aria-label="灵感素材统计">
-        <span><b>{stats?.total ?? 0}</b>素材</span>
-        <span><b>{stats?.videos ?? 0}</b>视频</span>
-        <span><b>{stats?.images ?? 0}</b>图片</span>
-        <span><b>{stats?.weaponSkins ?? 0}</b>武器</span>
-        <span><b>{stats?.characterSkins ?? 0}</b>角色</span>
-        <span className="wide">{sourceSummary}</span>
-      </div>
+      <div className="inspiration-workbench">
+        <aside className="inspiration-rail" aria-label="素材筛选">
+          <section className="inspiration-rail-block">
+            <div className="inspiration-rail-title">
+              <span>竞品包</span>
+              <button type="button" className={allPacksSelected ? "active" : ""} onClick={onSelectAllPacks}>
+                全部
+              </button>
+            </div>
+            <div className="inspiration-pack-grid">
+              {seeds.map((seed) => {
+                const active = selectedPackIds.includes(seed.id);
+                return (
+                  <button
+                    type="button"
+                    className={active ? "active" : ""}
+                    aria-pressed={active}
+                    title={seed.description}
+                    onClick={() => onTogglePack(seed.id)}
+                    key={seed.id}
+                  >
+                    <span>{seed.label}</span>
+                    <small>{seed.category === "weapon_skin" ? "武器" : seed.category === "character_skin" ? "角色" : "综合"}</small>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
 
-      <div className="inspiration-seeds" aria-label="素材词包">
-        {seeds.map((seed) => (
-          <span className={category === seed.category ? "active" : ""} title={seed.description} key={seed.id}>
-            {seed.label}
-          </span>
-        ))}
-      </div>
+          <section className="inspiration-rail-block">
+            <div className="inspiration-rail-title">
+              <span>素材类型</span>
+            </div>
+            <div className="inspiration-filter-stack">
+              {(["all", "weapon_skin", "character_skin", "general_reference"] as InspirationCategoryFilter[]).map((value) => (
+                <button
+                  type="button"
+                  className={category === value ? "active" : ""}
+                  aria-pressed={category === value}
+                  onClick={() => onCategoryChange(value)}
+                  key={value}
+                >
+                  {inspirationCategoryLabel(value)}
+                </button>
+              ))}
+            </div>
+          </section>
 
-      <div className="inspiration-wall">
-        {loading ? <p className="empty compact">素材索引刷新中...</p> : null}
-        {!loading && assets.length === 0 ? (
-          <p className="empty compact">还没有命中素材。先应用素材词包，刷新后会从 B站、抖音、贴吧等链路沉淀参考。</p>
-        ) : null}
-        {assets.map((asset) => (
-          <InspirationAssetCard asset={asset} highlightQuery={query} key={asset.id} />
-        ))}
+          <section className="inspiration-rail-block">
+            <div className="inspiration-kind-toggle" aria-label="视频或图片">
+              <button type="button" className={kind === "all" ? "active" : ""} onClick={() => onKindChange("all")} title="全部素材">
+                <Palette size={15} aria-hidden="true" />
+                全部
+              </button>
+              <button type="button" className={kind === "video" ? "active" : ""} onClick={() => onKindChange("video")} title="视频素材">
+                <Video size={15} aria-hidden="true" />
+                视频
+              </button>
+              <button type="button" className={kind === "image" ? "active" : ""} onClick={() => onKindChange("image")} title="图片素材">
+                <ImageIcon size={15} aria-hidden="true" />
+                图片
+              </button>
+            </div>
+          </section>
+
+          <label className="field inspiration-search">
+            <Search size={16} aria-hidden="true" />
+            <span className="sr-only">搜索灵感素材</span>
+            <input
+              value={query}
+              onChange={(event) => onQueryChange(event.target.value)}
+              placeholder="搜索游戏、武器、角色、特效"
+              autoComplete="off"
+            />
+          </label>
+        </aside>
+
+        <section className="inspiration-board" aria-label="灵感素材列表">
+          <div className="inspiration-stats" aria-label="灵感素材统计">
+            <span><b>{stats?.total ?? 0}</b>素材</span>
+            <span><b>{stats?.videos ?? 0}</b>视频</span>
+            <span><b>{stats?.images ?? 0}</b>图片</span>
+            <span><b>{stats?.weaponSkins ?? 0}</b>武器</span>
+            <span><b>{stats?.characterSkins ?? 0}</b>角色</span>
+            <span className="wide">{sourceSummary}</span>
+          </div>
+
+          <div className="inspiration-wall">
+            {loading ? <p className="empty compact">素材索引刷新中...</p> : null}
+            {!loading && assets.length === 0 ? (
+              <p className="empty compact">未命中素材。调整竞品包或时间窗口后采集。</p>
+            ) : null}
+            {assets.map((asset) => (
+              <InspirationAssetCard asset={asset} highlightQuery={query} key={asset.id} />
+            ))}
+          </div>
+        </section>
       </div>
     </section>
   );
@@ -1875,6 +1880,9 @@ function InspirationAssetCard({ asset, highlightQuery }: { asset: InspirationAss
   const item = asset.item;
   return (
     <article className={`inspiration-card ${asset.category}`}>
+      <a className="inspiration-card-open" href={item.url} target="_blank" rel="noreferrer" title="打开素材来源" aria-label={`打开素材来源：${item.title}`}>
+        <ExternalLink size={17} aria-hidden="true" />
+      </a>
       <div className="inspiration-thumb">
         <Thumbnail item={item} />
         <span>{inspirationKindLabel(asset.kind)}</span>
@@ -1897,16 +1905,8 @@ function InspirationAssetCard({ asset, highlightQuery }: { asset: InspirationAss
           ))}
         </div>
       </div>
-      <a href={item.url} target="_blank" rel="noreferrer" title="打开素材来源" aria-label={`打开素材来源：${item.title}`}>
-        <ExternalLink size={17} aria-hidden="true" />
-      </a>
     </article>
   );
-}
-
-function inspirationKeywordPack(category: InspirationCategoryFilter) {
-  const seeds = inspirationSeedPresets.filter((seed) => category === "all" || seed.category === category);
-  return normalizeSupplementalKeywordText(seeds.flatMap((seed) => seed.keywords).join(","));
 }
 
 function inspirationCategoryLabel(category: InspirationCategoryFilter) {

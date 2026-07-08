@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { buildInspirationAssets } from "../server/inspiration";
+import { buildInspirationAssets, makeInspirationReferenceGame } from "../server/inspiration";
 import type { ContentPart, GameId, MonitorItem, RiskLevel, Sentiment, SourceType } from "../src/shared";
 
 const now = new Date("2026-07-08T06:00:00.000Z");
@@ -31,6 +31,7 @@ assert.equal(allAssets[0].category, "weapon_skin");
 assert.equal(allAssets[0].kind, "video");
 assert.ok(allAssets[0].visualTags.includes("枪械皮肤"));
 assert.ok(allAssets[0].visualTags.includes("击杀特效"));
+assert.ok(allAssets[0].matchedSeeds.includes("VALORANT"));
 
 const characterAssets = buildInspirationAssets([weaponVideo, characterImage], {
   now,
@@ -38,13 +39,21 @@ const characterAssets = buildInspirationAssets([weaponVideo, characterImage], {
 });
 assert.deepEqual(characterAssets.map((asset) => asset.id), ["character-image"]);
 assert.equal(characterAssets[0].kind, "image");
-assert.ok(characterAssets[0].matchedSeeds.includes("角色皮肤"));
+assert.ok(characterAssets[0].matchedSeeds.includes("三角洲行动"));
 
 const queryAssets = buildInspirationAssets([weaponVideo, characterImage], {
   now,
   query: "检视"
 });
 assert.deepEqual(queryAssets.map((asset) => asset.id), ["weapon-video"]);
+
+const referenceGame = makeInspirationReferenceGame([], "weapon_skin");
+assert.equal(referenceGame.id, "fps-tps-reference");
+assert.equal(referenceGame.name, "FPS/TPS 竞品素材");
+assert.ok(referenceGame.bilibiliKeywords.some((keyword) => keyword.includes("VALORANT")));
+assert.ok(referenceGame.tiebaBars.includes("无畏契约"));
+assert.ok(referenceGame.tiebaBars.includes("三角洲行动"));
+assert.ok(!referenceGame.bilibiliKeywords.join("\n").includes("生死狙击"));
 
 function makeItem(
   id: string,
@@ -58,8 +67,8 @@ function makeItem(
   const contentParts = overrides.contentParts || [{ type: "title", text: overrides.title || "ordinary post", count: 1 }];
   return {
     id,
-    gameId: "ss1" as GameId,
-    gameName: "生死狙击1",
+    gameId: "fps-tps-reference" as GameId,
+    gameName: "FPS/TPS 竞品素材",
     source: overrides.source || "tieba",
     sourceLabel: overrides.sourceLabel || "测试来源",
     sourceItemId: id,

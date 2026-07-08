@@ -18,67 +18,146 @@ export interface InspirationSeedPreset {
 
 export const inspirationSeedPresets: InspirationSeedPreset[] = [
   {
-    id: "weapon-skins",
-    label: "武器皮肤",
-    category: "weapon_skin",
-    description: "枪械、近战、武器外观、检视动画和特效展示",
-    keywords: [
-      "枪械皮肤",
-      "武器皮肤",
-      "武器外观",
-      "枪皮",
-      "近战皮肤",
-      "检视动画",
-      "换弹动画",
-      "击杀特效",
-      "无畏契约皮肤",
-      "Apex皮肤",
-      "使命召唤皮肤",
-      "三角洲行动皮肤",
-      "PUBG皮肤",
-      "CS2皮肤"
-    ]
-  },
-  {
-    id: "character-skins",
-    label: "角色皮肤",
-    category: "character_skin",
-    description: "角色、干员、套装、时装、英雄外观和入场展示",
-    keywords: [
-      "角色皮肤",
-      "干员皮肤",
-      "人物皮肤",
-      "英雄皮肤",
-      "套装外观",
-      "角色时装",
-      "无畏契约套装",
-      "Apex传家宝",
-      "使命召唤干员",
-      "守望先锋皮肤",
-      "堡垒之夜皮肤",
-      "三角洲行动干员"
-    ]
-  },
-  {
-    id: "fps-tps-reference",
-    label: "FPS/TPS 参考",
+    id: "valorant",
+    label: "VALORANT",
     category: "general_reference",
-    description: "射击游戏素材展示、赛季通行证、商城轮换和玩家二创参考",
+    description: "无畏契约武器套装、检视动画、击杀特效、角色外观",
     keywords: [
-      "FPS皮肤",
-      "TPS皮肤",
-      "射击游戏皮肤",
-      "赛季皮肤",
-      "通行证皮肤",
-      "商城皮肤",
-      "皮肤展示",
-      "外观展示",
       "无畏契约",
-      "Apex英雄",
+      "无畏契约 武器皮肤",
+      "无畏契约 枪皮",
+      "无畏契约 套装",
+      "无畏契约 检视动画",
+      "无畏契约 击杀特效",
+      "无畏契约 角色皮肤",
+      "VALORANT skin",
+      "VALORANT bundle",
+      "VALORANT weapon skin"
+    ]
+  },
+  {
+    id: "apex",
+    label: "Apex",
+    category: "general_reference",
+    description: "Apex 英雄武器皮肤、传奇皮肤、传家宝、活动套装",
+    keywords: [
+      "Apex",
+      "Apex 英雄",
+      "Apex 武器皮肤",
+      "Apex 枪皮",
+      "Apex 传奇皮肤",
+      "Apex 传家宝",
+      "Apex 活动皮肤",
+      "Apex 外观展示",
+      "Apex skins",
+      "Apex heirloom",
+      "Apex weapon skin"
+    ]
+  },
+  {
+    id: "call-of-duty",
+    label: "COD",
+    category: "general_reference",
+    description: "使命召唤干员皮肤、蓝图枪、曳光包、处决展示",
+    keywords: [
       "使命召唤",
+      "使命召唤 武器皮肤",
+      "使命召唤 枪械蓝图",
+      "使命召唤 干员皮肤",
+      "使命召唤 曳光包",
+      "使命召唤 处决",
+      "COD weapon skin",
+      "COD operator skin",
+      "Warzone bundle",
+      "tracer pack"
+    ]
+  },
+  {
+    id: "delta-force",
+    label: "三角洲行动",
+    category: "general_reference",
+    description: "三角洲行动枪械外观、干员皮肤、赛季活动素材",
+    keywords: [
       "三角洲行动",
+      "三角洲行动 武器皮肤",
+      "三角洲行动 枪皮",
+      "三角洲行动 干员皮肤",
+      "三角洲行动 外观",
+      "三角洲行动 赛季皮肤",
+      "Delta Force skin",
+      "Delta Force weapon skin",
+      "Delta Force operator skin"
+    ]
+  },
+  {
+    id: "overwatch",
+    label: "守望先锋",
+    category: "general_reference",
+    description: "守望先锋英雄皮肤、神话皮肤、武器外观、特效展示",
+    keywords: [
       "守望先锋",
-      "绝地求生"
+      "守望先锋 皮肤",
+      "守望先锋 英雄皮肤",
+      "守望先锋 神话皮肤",
+      "守望先锋 武器皮肤",
+      "守望先锋 外观展示",
+      "Overwatch skin",
+      "Overwatch mythic skin",
+      "Overwatch weapon skin"
+    ]
+  },
+  {
+    id: "pubg",
+    label: "PUBG",
+    category: "general_reference",
+    description: "PUBG 枪皮、角色套装、联名皮肤、通行证外观",
+    keywords: [
+      "PUBG",
+      "绝地求生",
+      "PUBG 武器皮肤",
+      "PUBG 枪皮",
+      "PUBG 角色皮肤",
+      "PUBG 套装",
+      "绝地求生 皮肤",
+      "绝地求生 枪皮",
+      "PUBG skin",
+      "PUBG weapon skin"
+    ]
+  },
+  {
+    id: "cs2",
+    label: "CS2",
+    category: "weapon_skin",
+    description: "CS2 枪皮、刀皮、手套、饰品磨损和市场审美",
+    keywords: [
+      "CS2",
+      "反恐精英2",
+      "CS2 枪皮",
+      "CS2 武器皮肤",
+      "CS2 刀皮",
+      "CS2 手套",
+      "反恐精英2 皮肤",
+      "CSGO 枪皮",
+      "CS2 skin",
+      "CS2 knife skin",
+      "CS2 weapon skin"
+    ]
+  },
+  {
+    id: "fortnite",
+    label: "堡垒之夜",
+    category: "character_skin",
+    description: "堡垒之夜角色皮肤、联名套装、背饰和动作展示",
+    keywords: [
+      "堡垒之夜",
+      "堡垒之夜 皮肤",
+      "堡垒之夜 角色皮肤",
+      "堡垒之夜 联名皮肤",
+      "堡垒之夜 套装",
+      "Fortnite skin",
+      "Fortnite outfit",
+      "Fortnite bundle",
+      "Fortnite cosmetics"
     ]
   }
 ];

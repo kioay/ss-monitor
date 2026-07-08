@@ -207,6 +207,7 @@ app.listen(runtimeConfig.port, runtimeConfig.host, () => {
   warmRiskBacktest();
   startBackgroundMonitor();
   startDailyReportScheduler();
+  startInspirationCollectionScheduler();
 });
 
 function startBackgroundMonitor() {
@@ -242,12 +243,50 @@ function startDailyReportScheduler() {
   setTimeout(run, msUntilNextDailyReport());
 }
 
+function startInspirationCollectionScheduler() {
+  const run = async () => {
+    try {
+      const data = await getInspirationResponse({
+        windowHours: "720",
+        limit: "120",
+        category: "all",
+        kind: "all",
+        refresh: "1"
+      });
+      console.log(`Inspiration collection refreshed ${data.assets.length}/${data.totalMatched} assets at ${data.generatedAt}`);
+    } catch (error) {
+      console.error("Inspiration collection refresh failed", error);
+    } finally {
+      setTimeout(run, msUntilNextInspirationCollection());
+    }
+  };
+  setTimeout(run, msUntilNextInspirationCollection());
+}
+
 function msUntilNextDailyReport(now = new Date()) {
   const next = new Date(now);
   next.setHours(9, 30, 0, 0);
   if (next <= now) next.setDate(next.getDate() + 1);
   while (!isWorkday(next)) next.setDate(next.getDate() + 1);
   return Math.max(1_000, next.getTime() - now.getTime());
+}
+
+function msUntilNextInspirationCollection(now = new Date()) {
+  const next = nextScheduledHour(runtimeConfig.inspirationCollectionHours, now);
+  return Math.max(1_000, next.getTime() - now.getTime());
+}
+
+function nextScheduledHour(hours: number[], now = new Date()) {
+  const schedule = hours.length ? [...hours].sort((left, right) => left - right) : [10, 18];
+  for (const hour of schedule) {
+    const next = new Date(now);
+    next.setHours(hour, 0, 0, 0);
+    if (next > now) return next;
+  }
+  const next = new Date(now);
+  next.setDate(next.getDate() + 1);
+  next.setHours(schedule[0], 0, 0, 0);
+  return next;
 }
 
 function isWorkday(value: Date) {

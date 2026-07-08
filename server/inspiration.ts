@@ -1,13 +1,14 @@
 import { z } from "zod";
-import { gameById, games } from "./config";
-import { readMonitorHistoryItems } from "./monitorHistory";
+import { collectBilibili } from "./collectors/bilibili";
+import { collectTieba } from "./collectors/tieba";
 import { stripHtml, uniq } from "./utils";
 import {
   inspirationSeedPresets,
-  type GameId,
+  type GameConfig,
   type InspirationAsset,
   type InspirationAssetKind,
   type InspirationCategory,
+  type InspirationSeedPreset,
   type InspirationResponse,
   type InspirationStats,
   type MonitorItem,
@@ -18,22 +19,14 @@ const categoryFilterValues = ["all", "weapon_skin", "character_skin", "general_r
 const kindFilterValues = ["all", "video", "image"] as const;
 
 const inspirationQuerySchema = z.object({
-  games: z
-    .string()
-    .optional()
-    .transform((value) =>
-      value
-        ? value
-            .split(",")
-            .map((id) => id.trim())
-            .filter(Boolean)
-        : games.map((game) => game.id)
-    ),
+  packs: z.string().optional().transform((value) => parseCsv(value || "")),
   windowHours: z.coerce.number().int().min(1).max(24 * 30).default(24 * 30),
   limit: z.coerce.number().int().min(1).max(120).default(48),
   q: z.string().max(120).default(""),
   category: z.enum(categoryFilterValues).default("all"),
-  kind: z.enum(kindFilterValues).default("all")
+  kind: z.enum(kindFilterValues).default("all"),
+  refresh: z.string().optional().transform((value) => value === "1" || value === "true"),
+  force: z.string().optional().transform((value) => value === "1" || value === "true")
 });
 
 type InspirationQuery = z.infer<typeof inspirationQuerySchema>;
@@ -97,12 +90,33 @@ const visualTagLexicon: Array<{ tag: string; terms: string[] }> = [
 
 const sourceOrder: SourceType[] = ["bilibili", "douyin", "tieba", "forum4399", "bettafish"];
 
+type InspirationCollection = {
+  createdAt: number;
+  items: MonitorItem[];
+};
+
+const inspirationCollectionCache = new Map<string, InspirationCollection>();
+const inspirationCollectionInFlight = new Map<string, Promise<InspirationCollection>>();
+const inspirationCollectionTtlMs = 45 * 60_000;
+const referenceGameId = "fps-tps-reference";
+
+const tiebaBarsBySeedId: Record<string, string[]> = {
+  valorant: ["无畏契约"],
+  apex: ["Apex英雄"],
+  "call-of-duty": ["使命召唤"],
+  "delta-force": ["三角洲行动"],
+  overwatch: ["守望先锋"],
+  pubg: ["绝地求生", "PUBG"],
+  cs2: ["CS2", "反恐精英"],
+  fortnite: ["堡垒之夜"]
+};
+
 export async function getInspirationResponse(rawQuery: unknown): Promise<InspirationResponse> {
   const query = inspirationQuerySchema.parse(rawQuery);
   const now = new Date();
-  const gameIds = selectedGameIds(query.games);
-  const historyItems = await readMonitorHistoryItems(gameIds, now, query.windowHours);
-  const matchedAssets = buildInspirationAssets(historyItems, {
+  const referenceGame = makeInspirationReferenceGame(query.packs, query.category);
+  const collection = await getInspirationCollection(referenceGame, query.windowHours, query.refresh || query.force, now);
+  const matchedAssets = buildInspirationAssets(collection.items, {
     query: query.q,
     category: query.category,
     kind: query.kind,
@@ -121,6 +135,127 @@ export async function getInspirationResponse(rawQuery: unknown): Promise<Inspira
     seeds: inspirationSeedPresets,
     assets
   };
+}
+
+export function makeInspirationReferenceGame(
+  seedIds: string[] = [],
+  category: "all" | InspirationCategory = "all"
+): GameConfig {
+  const selectedSeeds = selectInspirationSeeds(seedIds);
+  const keywords = inspirationSearchKeywords(selectedSeeds, category);
+  return {
+    id: referenceGameId,
+    name: "FPS/TPS 竞品素材",
+    shortName: "竞品素材",
+    bilibiliKeywords: keywords,
+    douyinKeywords: keywords,
+    tiebaBars: tiebaBarsForSeeds(selectedSeeds),
+    tiebaKeywords: tiebaKeywordsForCategory(category)
+  };
+}
+
+async function getInspirationCollection(
+  referenceGame: GameConfig,
+  windowHours: number,
+  refresh: boolean,
+  now: Date
+): Promise<InspirationCollection> {
+  const cacheKey = inspirationCollectionKey(referenceGame, windowHours);
+  const cached = inspirationCollectionCache.get(cacheKey);
+  if (!refresh && cached && now.getTime() - cached.createdAt < inspirationCollectionTtlMs) return cached;
+
+  const inFlight = inspirationCollectionInFlight.get(cacheKey);
+  if (!refresh && inFlight) return inFlight;
+
+  const cutoff = new Date(now.getTime() - windowHours * 3_600_000);
+  const task = collectInspirationSources(referenceGame, cutoff)
+    .then((items) => {
+      const entry = { createdAt: Date.now(), items };
+      inspirationCollectionCache.set(cacheKey, entry);
+      return entry;
+    })
+    .finally(() => {
+      if (inspirationCollectionInFlight.get(cacheKey) === task) inspirationCollectionInFlight.delete(cacheKey);
+    });
+
+  inspirationCollectionInFlight.set(cacheKey, task);
+  return task;
+}
+
+async function collectInspirationSources(referenceGame: GameConfig, cutoff: Date) {
+  const tasks = [
+    collectBilibili(referenceGame, cutoff, {
+      relevanceMode: "keyword",
+      maxKeywords: 20,
+      maxPages: 2,
+      maxItems: 96,
+      sourceLabel: "B站竞品视频"
+    }),
+    collectTieba(referenceGame, cutoff)
+  ];
+  const settled = await Promise.allSettled(tasks);
+  const items: MonitorItem[] = [];
+
+  for (const result of settled) {
+    if (result.status === "fulfilled") {
+      items.push(...result.value.items);
+    } else {
+      console.warn("Inspiration source collection failed", result.reason instanceof Error ? result.reason.message : result.reason);
+    }
+  }
+
+  return uniqueMonitorItems(items)
+    .filter((item) => item.gameId === referenceGameId)
+    .sort((left, right) => +new Date(right.publishedAt) - +new Date(left.publishedAt));
+}
+
+function selectInspirationSeeds(seedIds: string[]) {
+  const byId = new Map(inspirationSeedPresets.map((seed) => [seed.id, seed]));
+  const selected = seedIds.map((id) => byId.get(id)).filter((seed): seed is InspirationSeedPreset => Boolean(seed));
+  return selected.length ? selected : inspirationSeedPresets;
+}
+
+function inspirationSearchKeywords(seeds: InspirationSeedPreset[], category: "all" | InspirationCategory) {
+  const categoryTerms = category === "all" ? ["皮肤", "外观展示"] : categoryLexicon[category];
+  const pairedKeywords = seeds.flatMap((seed) =>
+    categoryTerms.slice(0, 5).map((term) => `${seed.label} ${term}`)
+  );
+  return uniq([...seeds.flatMap((seed) => seed.keywords), ...pairedKeywords])
+    .filter((keyword) => !isOwnedProjectKeyword(keyword))
+    .slice(0, 28);
+}
+
+function tiebaBarsForSeeds(seeds: InspirationSeedPreset[]) {
+  return uniq(seeds.flatMap((seed) => tiebaBarsBySeedId[seed.id] || [])).slice(0, 8);
+}
+
+function tiebaKeywordsForCategory(category: "all" | InspirationCategory) {
+  if (category === "weapon_skin") return ["武器皮肤", "枪皮", "枪械皮肤", "刀皮", "检视", "击杀特效"];
+  if (category === "character_skin") return ["角色皮肤", "干员皮肤", "英雄皮肤", "套装", "外观"];
+  return ["皮肤", "外观", "枪皮", "套装", "通行证", "商城", "联名"];
+}
+
+function isOwnedProjectKeyword(keyword: string) {
+  return /生死狙击|生死1|生死2|SS1|SS2|热油/i.test(keyword);
+}
+
+function inspirationCollectionKey(referenceGame: GameConfig, windowHours: number) {
+  const keywordKey = referenceGame.bilibiliKeywords.map((keyword) => normalizeText(keyword)).sort().join("|");
+  const barKey = referenceGame.tiebaBars.map((bar) => normalizeText(bar)).sort().join("|");
+  return `${windowHours}:${keywordKey}:${barKey}`;
+}
+
+function uniqueMonitorItems(items: MonitorItem[]) {
+  const seen = new Set<string>();
+  const unique: MonitorItem[] = [];
+  for (const item of items) {
+    const key = item.url || item.id;
+    if (seen.has(key) || seen.has(item.id)) continue;
+    seen.add(key);
+    seen.add(item.id);
+    unique.push(item);
+  }
+  return unique;
 }
 
 export function buildInspirationAssets(
@@ -237,6 +372,10 @@ function normalizeText(value: string) {
   return stripHtml(value || "").toLowerCase().replace(/\s+/g, " ").trim();
 }
 
+function parseCsv(value: string) {
+  return uniq(value.split(/[\s,;|，、；]+/).map((item) => item.trim()).filter(Boolean));
+}
+
 function normalizeQueryTerms(value: string) {
   const normalized = normalizeText(value);
   if (!normalized) return [];
@@ -287,9 +426,4 @@ function makeInspirationStats(assets: InspirationAsset[]): InspirationStats {
       .sort((left, right) => sourceOrder.indexOf(left[0]) - sourceOrder.indexOf(right[0]))
       .map(([source, count]) => ({ source, count }))
   };
-}
-
-function selectedGameIds(ids: string[]): GameId[] {
-  const selected = ids.map((id) => gameById.get(id as GameId)?.id).filter((id): id is GameId => Boolean(id));
-  return selected.length ? selected : games.map((game) => game.id);
 }

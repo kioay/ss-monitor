@@ -55,6 +55,7 @@ export const runtimeConfig = {
   nightStartHour: clampHour(Number(process.env.NIGHT_START_HOUR || 0)),
   nightEndHour: clampHour(Number(process.env.NIGHT_END_HOUR || 8)),
   defaultWindowHours: Math.max(1, Number(process.env.DEFAULT_WINDOW_HOURS || 72)),
+  inspirationCollectionHours: parseHourList(process.env.INSPIRATION_COLLECTION_HOURS || "10,18", [10, 18]),
   bilibiliCookie: process.env.BILIBILI_COOKIE || "",
   baiduCookie: process.env.BAIDU_COOKIE || "",
   confluenceToken: process.env.CONFLUENCE_TOKEN || "",
@@ -166,6 +167,16 @@ function isNightHour(hour: number) {
 function clampHour(value: number) {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.min(23, Math.trunc(value)));
+}
+
+function parseHourList(raw: string, fallback: number[]) {
+  const hours = raw
+    .split(/[\s,;|，、；]+/)
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value))
+    .map(clampHour);
+  const uniqueHours = Array.from(new Set(hours)).sort((left, right) => left - right);
+  return uniqueHours.length ? uniqueHours : fallback;
 }
 
 function clampRatio(value: number) {

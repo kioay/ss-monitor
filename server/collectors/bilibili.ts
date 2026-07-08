@@ -88,23 +88,35 @@ const mixinKeyEncTab = [
 
 let wbiKeyCache: { key: string; expiresAt: number } | undefined;
 
-export async function collectBilibili(game: GameConfig, cutoff: Date) {
+interface CollectBilibiliOptions {
+  relevanceMode?: "game" | "keyword";
+  maxKeywords?: number;
+  maxPages?: number;
+  maxItems?: number;
+  sourceLabel?: string;
+}
+
+export async function collectBilibili(game: GameConfig, cutoff: Date, options: CollectBilibiliOptions = {}) {
   const started = Date.now();
   const fetchedAt = nowIso();
   const errors: string[] = [];
   let blocked = false;
   let staleDropped = 0;
   const byBvid = new Map<string, BiliSearchItem>();
+  const keywords = game.bilibiliKeywords.slice(0, options.maxKeywords || game.bilibiliKeywords.length);
+  const maxPages = options.maxPages || runtimeConfig.maxBilibiliSearchPages;
+  const maxItems = options.maxItems || runtimeConfig.maxVideosPerGame;
+  const relevanceMode = options.relevanceMode || "game";
 
-  for (const keyword of game.bilibiliKeywords) {
+  for (const keyword of keywords) {
     try {
-      for (let page = 1; page <= runtimeConfig.maxBilibiliSearchPages; page += 1) {
+      for (let page = 1; page <= maxPages; page += 1) {
         const result = await searchVideos(keyword, page);
         let pageHasWindowItems = false;
         for (const item of result) {
           const publishedAt = new Date(item.pubdate * 1000);
           if (!Number.isNaN(publishedAt.getTime()) && publishedAt >= cutoff) pageHasWindowItems = true;
-          if (!item.bvid || !isRelevantVideo(game, item)) continue;
+          if (!item.bvid || !isRelevantVideo(game, item, relevanceMode)) continue;
           if (Number.isNaN(publishedAt.getTime()) || publishedAt < cutoff) {
             staleDropped += 1;
             continue;
@@ -123,7 +135,7 @@ export async function collectBilibili(game: GameConfig, cutoff: Date) {
 
   const candidates = Array.from(byBvid.values())
     .sort((a, b) => b.pubdate - a.pubdate)
-    .slice(0, runtimeConfig.maxVideosPerGame);
+    .slice(0, maxItems);
 
   const deepSet = makeDeepParseSet(candidates);
   const settled = await Promise.allSettled(
@@ -141,9 +153,9 @@ export async function collectBilibili(game: GameConfig, cutoff: Date) {
 
   const health: SourceHealth = {
     source: "bilibili",
-    sourceLabel: "B站视频",
+    sourceLabel: options.sourceLabel || "B站视频",
     gameId: game.id,
-    ok: items.length > 0 || errors.length < game.bilibiliKeywords.length,
+    ok: items.length > 0 || errors.length < keywords.length,
     fetchedAt,
     latencyMs: Date.now() - started,
     itemCount: items.length,
@@ -391,13 +403,14 @@ function needsAudienceContext(item: BiliSearchItem) {
   return /(难受|骂|外挂|外卦|开挂|封号|作弊|科技|辅助|内存宏|鼠标宏|压枪宏|脚本|自瞄|锁头|透视|穿墙|无后座|无后坐|DMA|驱动|过检测|免封|QQ群|群号|加群|进群|售卖|卡密|代理|破游戏|BUG|bug|卡顿|崩溃|氪|削弱|匹配|单排|四排|五排|巅王|战队车|技术|操作|身法|教学|教程|击杀|高光|视角)/.test(text);
 }
 
-function isRelevantVideo(game: GameConfig, item: BiliSearchItem) {
+function isRelevantVideo(game: GameConfig, item: BiliSearchItem, mode: "game" | "keyword" = "game") {
   const title = stripHtml(item.title);
   const description = stripHtml(item.description || item.desc || "");
   const tags = item.tag || "";
   const author = item.author || "";
   const primaryText = `${title} ${description} ${author}`;
   const text = `${primaryText} ${tags}`;
+  if (mode === "keyword") return textMatchesGame(primaryText, game) || textMatchesGame(tags, game);
   if (isCompetingShooter(primaryText) && !mentionsTargetGame(primaryText, game)) return false;
   if (game.id === "ss2") {
     if (/生死狙击2/.test(primaryText)) return true;
