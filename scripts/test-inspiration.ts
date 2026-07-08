@@ -16,7 +16,16 @@ const characterImage = makeItem("character-image", {
   source: "tieba",
   title: "三角洲行动干员皮肤套装外观图集",
   summary: "角色皮肤和套装外观参考",
+  thumbnail: "https://imgsa.baidu.com/forum/pic/item/character-skin.jpg",
   contentParts: [{ type: "post", text: "干员皮肤、角色时装、套装外观，适合做角色视觉参考。", count: 1 }]
+});
+
+const imageWithoutMedia = makeItem("image-without-media", {
+  source: "tieba",
+  title: "重生的美术设计师是不是这里子没见过正常人脸啊？",
+  summary: "图文素材，射击游戏参考，二创参考",
+  keywords: ["二创参考"],
+  contentParts: [{ type: "post", text: "讨论角色外观和美术设计，但帖子没有图片。", count: 1 }]
 });
 
 const unrelated = makeItem("unrelated", {
@@ -73,7 +82,7 @@ const nonDesignNoise = [
 const noiseAssets = buildInspirationAssets(nonDesignNoise, { now });
 assert.deepEqual(noiseAssets.map((asset) => asset.id), []);
 
-const allAssets = buildInspirationAssets([weaponVideo, characterImage, unrelated], { now });
+const allAssets = buildInspirationAssets([weaponVideo, characterImage, imageWithoutMedia, unrelated], { now });
 assert.deepEqual(allAssets.map((asset) => asset.id), ["weapon-video", "character-image"]);
 assert.equal(allAssets[0].category, "weapon_skin");
 assert.equal(allAssets[0].kind, "video");

@@ -488,6 +488,9 @@ function compareInspirationAssets(left: InspirationAsset, right: InspirationAsse
 }
 
 function classifyInspirationItem(item: MonitorItem, queryTerms: string[], now: Date): InspirationAsset | undefined {
+  const kind = inspirationKind(item);
+  if (kind === "image" && !item.thumbnail) return undefined;
+
   const text = inspirationText(item);
   const normalized = normalizeText(text);
   const compact = normalized.replace(/\s+/g, "");
@@ -502,7 +505,6 @@ function classifyInspirationItem(item: MonitorItem, queryTerms: string[], now: D
   const visualTags = matchedVisualTags(normalized, compact);
   if (!isDesignInspirationCandidate(normalized, compact, primaryNormalized, primaryCompact, categoryScores, matchedSeeds.length > 0)) return undefined;
 
-  const kind = inspirationKind(item);
   const score =
     categoryScores[category] * 18
     + matchedSeeds.length * 16
