@@ -1672,7 +1672,7 @@ function InspirationPage() {
             <h1>FPS/TPS 灵感素材库</h1>
           </div>
           <div className="top-actions">
-            <a className="topbar-link-button" href="/" title="返回舆情监测">
+            <a className="topbar-link-button" href="http://192.168.8.242:8787/?games=ss1&window=72" title="返回舆情监测">
               <Waves size={17} aria-hidden="true" />
               <span>舆情监测</span>
             </a>
