@@ -107,15 +107,17 @@ export async function sendDingTalkDailyReport(
 
 function getRobotConfigs(gameId: GameId): DingTalkRobotConfig[] {
   const robots: DingTalkRobotConfig[] = [...getGenericRobotConfigs(gameId)];
-  if (gameId === "ss1" && runtimeConfig.dingTalkWebhook) {
-    robots.push({
-      gameId,
-      shortName: "SS1",
-      label: "SS1-primary",
-      webhook: runtimeConfig.dingTalkWebhook,
-      secret: runtimeConfig.dingTalkSecret || undefined,
-      statePath: runtimeConfig.dingTalkStatePath
-    });
+  if (gameId === "ss1") {
+    if (runtimeConfig.dingTalkWebhook) {
+      robots.push({
+        gameId,
+        shortName: "SS1",
+        label: "SS1-primary",
+        webhook: runtimeConfig.dingTalkWebhook,
+        secret: runtimeConfig.dingTalkSecret || undefined,
+        statePath: runtimeConfig.dingTalkStatePath
+      });
+    }
     const extraWebhooks = parseConfigList(runtimeConfig.dingTalkSs1ExtraWebhooks);
     const extraSecrets = parseConfigList(runtimeConfig.dingTalkSs1ExtraSecrets);
     for (const [index, webhook] of extraWebhooks.entries()) {
@@ -129,15 +131,17 @@ function getRobotConfigs(gameId: GameId): DingTalkRobotConfig[] {
       });
     }
   }
-  if (gameId === "ss2" && runtimeConfig.dingTalkSs2Webhook) {
-    robots.push({
-      gameId,
-      shortName: "SS2",
-      label: "SS2-primary",
-      webhook: runtimeConfig.dingTalkSs2Webhook,
-      secret: runtimeConfig.dingTalkSs2Secret || undefined,
-      statePath: runtimeConfig.dingTalkSs2StatePath
-    });
+  if (gameId === "ss2") {
+    if (runtimeConfig.dingTalkSs2Webhook) {
+      robots.push({
+        gameId,
+        shortName: "SS2",
+        label: "SS2-primary",
+        webhook: runtimeConfig.dingTalkSs2Webhook,
+        secret: runtimeConfig.dingTalkSs2Secret || undefined,
+        statePath: runtimeConfig.dingTalkSs2StatePath
+      });
+    }
     const extraWebhooks = parseConfigList(runtimeConfig.dingTalkSs2ExtraWebhooks);
     const extraSecrets = parseConfigList(runtimeConfig.dingTalkSs2ExtraSecrets);
     for (const [index, webhook] of extraWebhooks.entries()) {

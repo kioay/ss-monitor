@@ -22,6 +22,7 @@
     "test:risk-alerts": "tsx scripts/test-risk-alerts.ts",
     "test:risk-backtest": "tsx scripts/test-risk-backtest.ts",
     "test:dingtalk-daily-markdown": "tsx scripts/test-dingtalk-daily-markdown.ts",
+    "test:dingtalk-extra-only": "tsx scripts/test-dingtalk-extra-only.ts",
     "test:analyze-guard": "tsx scripts/test-analyze-guard.ts",
     "test:semantic-guard": "tsx scripts/test-bettafish-semantic-guard.ts",
     "start": "tsx server/index.ts",
