@@ -1738,9 +1738,13 @@ function InspirationStudio({
   const assets = data?.assets || [];
   const stats = data?.stats;
   const seeds = data?.seeds?.length ? data.seeds : inspirationSeedPresets;
-  const sourceSummary = stats?.sourceBreakdown.length
-    ? stats.sourceBreakdown.map((entry) => `${sourceTypeText(entry.source)} ${entry.count}`).join(" / ")
-    : "暂无命中";
+  const totalAssets = stats?.total ?? 0;
+  const videoAssets = stats?.videos ?? 0;
+  const imageAssets = stats?.images ?? 0;
+  const weaponSkinAssets = stats?.weaponSkins ?? 0;
+  const characterSkinAssets = stats?.characterSkins ?? 0;
+  const uncategorizedAssets = Math.max(0, totalAssets - weaponSkinAssets - characterSkinAssets);
+  const sourceEntries = stats?.sourceBreakdown || [];
   const allPacksSelected = selectedPackIds.length === seeds.length;
 
   return (
@@ -1849,12 +1853,31 @@ function InspirationStudio({
 
         <section className="inspiration-board" aria-label="灵感素材列表">
           <div className="inspiration-stats" aria-label="灵感素材统计">
-            <span><b>{stats?.total ?? 0}</b>素材</span>
-            <span><b>{stats?.videos ?? 0}</b>视频</span>
-            <span><b>{stats?.images ?? 0}</b>图片</span>
-            <span><b>{stats?.weaponSkins ?? 0}</b>武器</span>
-            <span><b>{stats?.characterSkins ?? 0}</b>角色</span>
-            <span className="wide">{sourceSummary}</span>
+            <div className="inspiration-stat-total">
+              <b>{totalAssets}</b>
+              <span>个素材</span>
+            </div>
+            <div className="inspiration-stat-group" aria-label="媒介统计">
+              <span className="inspiration-stat-label">媒介</span>
+              <span><b>{imageAssets}</b>图片</span>
+              <span><b>{videoAssets}</b>视频</span>
+            </div>
+            <div className="inspiration-stat-group" aria-label="内容统计">
+              <span className="inspiration-stat-label">内容</span>
+              <span><b>{weaponSkinAssets}</b>武器</span>
+              <span><b>{characterSkinAssets}</b>角色</span>
+              {uncategorizedAssets ? <span><b>{uncategorizedAssets}</b>未分类</span> : null}
+            </div>
+            <div className="inspiration-stat-group" aria-label="来源统计">
+              <span className="inspiration-stat-label">来源</span>
+              {sourceEntries.length ? (
+                sourceEntries.map((entry) => (
+                  <span key={entry.source}><b>{entry.count}</b>{sourceTypeText(entry.source)}</span>
+                ))
+              ) : (
+                <span>暂无命中</span>
+              )}
+            </div>
           </div>
 
           <div className="inspiration-wall">

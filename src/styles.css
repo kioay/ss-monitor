@@ -3453,33 +3453,66 @@ button.metric:focus-visible {
 }
 
 .inspiration-stats {
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(118px, 0.7fr) repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 12px;
 }
 
-.inspiration-stats span {
-  min-height: 30px;
-  display: inline-flex;
+.inspiration-stat-total,
+.inspiration-stat-group {
+  min-width: 0;
+  min-height: 46px;
+  display: flex;
   align-items: center;
-  gap: 5px;
   border: 1px solid rgba(18, 29, 27, 0.14);
   border-radius: 7px;
-  padding: 0 9px;
   background: rgba(255, 255, 255, 0.74);
   color: var(--muted);
+}
+
+.inspiration-stat-total {
+  gap: 7px;
+  padding: 7px 12px;
+  color: var(--reference-ink);
+}
+
+.inspiration-stat-total b {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.inspiration-stat-total span {
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.inspiration-stat-group {
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 7px 8px;
   font-size: 12px;
   font-weight: 760;
+}
+
+.inspiration-stat-label {
+  flex: 0 0 100%;
+  color: rgba(18, 29, 27, 0.56);
+  font-size: 11px;
+  font-weight: 860;
+}
+
+.inspiration-stat-group span:not(.inspiration-stat-label) {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  white-space: nowrap;
 }
 
 .inspiration-stats b {
   color: var(--reference-ink);
   font-family: var(--font-data);
-}
-
-.inspiration-stats .wide {
-  max-width: 100%;
-  overflow-wrap: anywhere;
 }
 
 .inspiration-wall {
@@ -5156,6 +5189,10 @@ button.metric:focus-visible {
 
   .inspiration-kind-toggle button {
     flex: 1 1 0;
+  }
+
+  .inspiration-stats {
+    grid-template-columns: 1fr;
   }
 
   .inspiration-wall {
