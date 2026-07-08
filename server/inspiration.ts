@@ -305,7 +305,7 @@ const tiebaBarsBySeedId: Record<string, string[]> = {
 export async function getInspirationResponse(rawQuery: unknown): Promise<InspirationResponse> {
   const query = inspirationQuerySchema.parse(rawQuery);
   const now = new Date();
-  const referenceGame = makeInspirationReferenceGame(query.packs, query.category);
+  const referenceGame = makeInspirationReferenceGame(query.packs, "all");
   const collection = await getInspirationCollection(referenceGame, query.windowHours, query.refresh || query.force, now);
   const matchedAssets = buildInspirationAssets(collection.items, {
     query: query.q,

@@ -29,6 +29,7 @@ import {
   X
 } from "lucide-react";
 import { dashboardGameOptions, normalizeDashboardGameSelection } from "./dashboardGames";
+import { filterInspirationAssets, makeFilteredInspirationStats, type InspirationCategoryFilter, type InspirationKindFilter } from "./inspirationFilters";
 import { currentAnalysisVersion, inspirationSeedPresets } from "./shared";
 import { sourceHealthWarningText } from "./sourceHealth";
 import { feedSourceOptionsForGames, primarySourceOptionsForGames, sourceMetricCount, sourceMetricLabel, sourceTypeText } from "./sourceDisplay";
@@ -44,8 +45,6 @@ import type {
   GameConfig,
   GameId,
   InspirationAsset,
-  InspirationAssetKind,
-  InspirationCategory,
   InspirationResponse,
   InspirationSort,
   KeywordEffectiveness,
@@ -76,6 +75,7 @@ const clientCacheMaxAgeMs = 4 * 3_600_000;
 const searchWindowHours = 24 * 30;
 const feedInitialLimit = 60;
 const feedBatchSize = 60;
+const inspirationResultLimit = 120;
 
 type TrendSeries = "negative" | "neutral" | "positive" | "total";
 type TrendSeriesVisibility = Record<TrendSeries, boolean>;
@@ -108,8 +108,6 @@ const sentimentFilterValues = ["all", "negative", "mixed", "neutral", "positive"
 type SourceFilter = "all" | SourceType;
 type RiskFilter = "all" | RiskLevel;
 type SentimentFilter = "all" | Sentiment;
-type InspirationCategoryFilter = "all" | InspirationCategory;
-type InspirationKindFilter = "all" | InspirationAssetKind;
 type TiebaScopeTextMap = Record<string, string>;
 type InitialUiState = {
   games: GameId[];
@@ -1599,11 +1597,7 @@ function InspirationPage() {
         const params = new URLSearchParams({
           packs: selectedPackIds.join(","),
           windowHours: String(windowHours),
-          limit: "96",
-          category,
-          kind,
-          sort,
-          q: query.trim(),
+          limit: String(inspirationResultLimit),
           ...(refresh ? { refresh: "1" } : {})
         });
         const response = await fetch(`${api.inspiration}?${params.toString()}`);
@@ -1622,15 +1616,33 @@ function InspirationPage() {
         if (refresh) setCollectLoading(false);
       }
     },
-    [category, kind, query, selectedPackIds, sort, windowHours]
+    [selectedPackIds, windowHours]
   );
 
   React.useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void loadInspiration(false);
-    }, query.trim() ? 280 : 0);
-    return () => window.clearTimeout(timer);
-  }, [loadInspiration, query]);
+    void loadInspiration(false);
+  }, [loadInspiration]);
+
+  const displayData = React.useMemo(() => {
+    if (!data) return undefined;
+    const assets = filterInspirationAssets(data.assets, {
+      query,
+      category,
+      kind,
+      sort,
+      limit: inspirationResultLimit
+    });
+    return {
+      ...data,
+      query: query.trim(),
+      category,
+      kind,
+      sort,
+      totalMatched: assets.length,
+      stats: makeFilteredInspirationStats(assets),
+      assets
+    };
+  }, [category, data, kind, query, sort]);
 
   const togglePack = React.useCallback((packId: string) => {
     setSelectedPackIds((current) => {
@@ -1684,7 +1696,7 @@ function InspirationPage() {
         {error ? <div className="error-strip" role="alert" aria-live="polite">{error}</div> : null}
 
         <InspirationStudio
-          data={data}
+          data={displayData}
           loading={loading}
           collectLoading={collectLoading}
           windowHours={windowHours}

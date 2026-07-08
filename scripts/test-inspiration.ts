@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { buildInspirationAssets, makeInspirationReferenceGame, shouldRetainInspirationCache } from "../server/inspiration";
+import { filterInspirationAssets, makeFilteredInspirationStats } from "../src/inspirationFilters";
 import { inspirationSeedPresets, type ContentPart, type GameId, type MonitorItem, type RiskLevel, type Sentiment, type SourceType } from "../src/shared";
 
 const now = new Date("2026-07-08T06:00:00.000Z");
@@ -122,6 +123,18 @@ const relevanceSortedAssets = buildInspirationAssets([popularDesign, nicheDesign
 assert.deepEqual(relevanceSortedAssets.map((asset) => asset.id), ["niche-design", "popular-design"]);
 const heatSortedAssets = buildInspirationAssets([popularDesign, nicheDesign], { now, sort: "heat" });
 assert.deepEqual(heatSortedAssets.map((asset) => asset.id), ["popular-design", "niche-design"]);
+assert.deepEqual(
+  filterInspirationAssets(allAssets, { category: "character_skin", kind: "image" }).map((asset) => asset.id),
+  ["character-image"]
+);
+assert.deepEqual(
+  filterInspirationAssets([popularDesign, nicheDesign].map((item) => buildInspirationAssets([item], { now })[0]), { sort: "heat" })
+    .map((asset) => asset.id),
+  ["popular-design", "niche-design"]
+);
+assert.equal(makeFilteredInspirationStats(allAssets).total, 2);
+assert.equal(makeFilteredInspirationStats(allAssets).videos, 1);
+assert.equal(makeFilteredInspirationStats(allAssets).images, 1);
 
 const referenceGame = makeInspirationReferenceGame([], "weapon_skin");
 assert.equal(referenceGame.id, "fps-tps-reference");
