@@ -13,7 +13,6 @@ import {
   ExternalLink,
   FileText,
   Filter,
-  Image as ImageIcon,
   Info,
   MousePointer2,
   Palette,
@@ -29,7 +28,7 @@ import {
   X
 } from "lucide-react";
 import { dashboardGameOptions, normalizeDashboardGameSelection } from "./dashboardGames";
-import { filterInspirationAssets, makeFilteredInspirationStats, type InspirationCategoryFilter, type InspirationKindFilter } from "./inspirationFilters";
+import { filterInspirationAssets, makeFilteredInspirationStats, type InspirationCategoryFilter } from "./inspirationFilters";
 import { currentAnalysisVersion, inspirationSeedPresets } from "./shared";
 import { sourceHealthWarningText } from "./sourceHealth";
 import { feedSourceOptionsForGames, primarySourceOptionsForGames, sourceMetricCount, sourceMetricLabel, sourceTypeText } from "./sourceDisplay";
@@ -45,6 +44,7 @@ import type {
   GameConfig,
   GameId,
   InspirationAsset,
+  InspirationAssetKind,
   InspirationResponse,
   InspirationSort,
   KeywordEffectiveness,
@@ -1576,7 +1576,6 @@ function InspirationPage() {
   const [collectLoading, setCollectLoading] = React.useState(false);
   const [error, setError] = React.useState("");
   const [category, setCategory] = React.useState<InspirationCategoryFilter>("all");
-  const [kind, setKind] = React.useState<InspirationKindFilter>("all");
   const [sort, setSort] = React.useState<InspirationSort>("relevance");
   const [query, setQuery] = React.useState("");
   const [selectedPackIds, setSelectedPackIds] = React.useState(() => inspirationSeedPresets.map((seed) => seed.id));
@@ -1628,7 +1627,6 @@ function InspirationPage() {
     const assets = filterInspirationAssets(data.assets, {
       query,
       category,
-      kind,
       sort,
       limit: inspirationResultLimit
     });
@@ -1636,13 +1634,12 @@ function InspirationPage() {
       ...data,
       query: query.trim(),
       category,
-      kind,
       sort,
       totalMatched: assets.length,
       stats: makeFilteredInspirationStats(assets),
       assets
     };
-  }, [category, data, kind, query, sort]);
+  }, [category, data, query, sort]);
 
   const togglePack = React.useCallback((packId: string) => {
     setSelectedPackIds((current) => {
@@ -1665,10 +1662,6 @@ function InspirationPage() {
 
   const updateCategory = React.useCallback((value: InspirationCategoryFilter) => {
     setCategory(value);
-  }, []);
-
-  const updateKind = React.useCallback((value: InspirationKindFilter) => {
-    setKind(value);
   }, []);
 
   React.useEffect(() => {
@@ -1701,13 +1694,11 @@ function InspirationPage() {
           collectLoading={collectLoading}
           windowHours={windowHours}
           category={category}
-          kind={kind}
           sort={sort}
           query={query}
           selectedPackIds={selectedPackIds}
           onWindowHoursChange={setWindowHours}
           onCategoryChange={updateCategory}
-          onKindChange={updateKind}
           onSortChange={setSort}
           onQueryChange={setQuery}
           onTogglePack={togglePack}
@@ -1725,13 +1716,11 @@ function InspirationStudio({
   collectLoading = false,
   windowHours,
   category,
-  kind,
   sort,
   query,
   selectedPackIds,
   onWindowHoursChange,
   onCategoryChange,
-  onKindChange,
   onSortChange,
   onQueryChange,
   onTogglePack,
@@ -1743,13 +1732,11 @@ function InspirationStudio({
   collectLoading?: boolean;
   windowHours: number;
   category: InspirationCategoryFilter;
-  kind: InspirationKindFilter;
   sort: InspirationSort;
   query: string;
   selectedPackIds: string[];
   onWindowHoursChange: (value: number) => void;
   onCategoryChange: (value: InspirationCategoryFilter) => void;
-  onKindChange: (value: InspirationKindFilter) => void;
   onSortChange: (value: InspirationSort) => void;
   onQueryChange: (value: string) => void;
   onTogglePack: (packId: string) => void;
@@ -1864,23 +1851,6 @@ function InspirationStudio({
               </div>
             </div>
 
-            <div className="inspiration-filter-cluster media">
-              <span>媒介</span>
-              <div className="inspiration-kind-toggle" aria-label="视频或图片">
-                <button type="button" className={kind === "all" ? "active" : ""} onClick={() => onKindChange("all")} title="全部素材">
-                  <Palette size={15} aria-hidden="true" />
-                  全部
-                </button>
-                <button type="button" className={kind === "video" ? "active" : ""} onClick={() => onKindChange("video")} title="视频素材">
-                  <Video size={15} aria-hidden="true" />
-                  视频
-                </button>
-                <button type="button" className={kind === "image" ? "active" : ""} onClick={() => onKindChange("image")} title="图片素材">
-                  <ImageIcon size={15} aria-hidden="true" />
-                  图片
-                </button>
-              </div>
-            </div>
           </div>
 
           <div className="inspiration-stats" aria-label="灵感素材统计">
@@ -1966,7 +1936,7 @@ function inspirationCategoryLabel(category: InspirationCategoryFilter) {
   return "全部素材";
 }
 
-function inspirationKindLabel(kind: InspirationKindFilter) {
+function inspirationKindLabel(kind: InspirationAssetKind) {
   if (kind === "video") return "视频";
   if (kind === "image") return "图片";
   return "全部";
