@@ -1656,10 +1656,6 @@ function InspirationPage() {
     void loadInspiration(true);
   }, [loadInspiration]);
 
-  const refreshInspiration = React.useCallback(() => {
-    void loadInspiration(true);
-  }, [loadInspiration]);
-
   const updateCategory = React.useCallback((value: InspirationCategoryFilter) => {
     setCategory(value);
   }, []);
@@ -1674,18 +1670,6 @@ function InspirationPage() {
     <>
       <a className="skip-link" href="#main-content">跳到主体内容</a>
       <main className="app-shell inspiration-page" id="main-content">
-        <section className="topbar inspiration-topbar">
-          <div>
-            <p className="eyebrow">Reference Radar</p>
-            <h1>FPS/TPS 灵感素材库</h1>
-          </div>
-          <div className="top-actions">
-            <button className="icon-button primary" type="button" onClick={refreshInspiration} disabled={loading} title="刷新素材库" aria-label="刷新灵感素材库">
-              <RefreshCw size={18} className={loading || collectLoading ? "spin" : ""} aria-hidden="true" />
-            </button>
-          </div>
-        </section>
-
         {error ? <div className="error-strip" role="alert" aria-live="polite">{error}</div> : null}
 
         <InspirationStudio
@@ -1760,10 +1744,10 @@ function InspirationStudio({
       <div className="inspiration-command">
         <div>
           <p className="eyebrow">Competitor Reference</p>
-          <h2 id="inspiration-title">
-            <Crosshair size={19} aria-hidden="true" />
+          <h1 id="inspiration-title">
+            <Crosshair size={21} aria-hidden="true" />
             素材侦察板
-          </h2>
+          </h1>
         </div>
         <div className="inspiration-command-actions">
           <label className="field inspiration-window">

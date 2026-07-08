@@ -3189,11 +3189,6 @@ button.metric:focus-visible {
   --reference-blue: #426d91;
 }
 
-.inspiration-topbar h1 {
-  max-width: 720px;
-  font-size: 32px;
-}
-
 .inspiration-studio {
   margin: 0 0 20px;
   border: 1px solid rgba(18, 29, 27, 0.18);
@@ -3215,24 +3210,24 @@ button.metric:focus-visible {
 .inspiration-command {
   justify-content: space-between;
   gap: 16px;
-  padding: 12px 14px;
+  padding: 16px 18px;
   border-bottom: 1px solid rgba(18, 29, 27, 0.18);
   background:
     linear-gradient(90deg, rgba(21, 29, 27, 0.05) 0, rgba(21, 29, 27, 0.05) 1px, transparent 1px, transparent 24px),
     #f9fbf5;
 }
 
-.inspiration-command h2 {
+.inspiration-command h1 {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   margin: 0;
   color: var(--reference-ink);
-  font-size: 21px;
+  font-size: 28px;
   line-height: 1.15;
 }
 
-.inspiration-command h2 svg {
+.inspiration-command h1 svg {
   color: var(--reference-cyan);
 }
 
@@ -5308,11 +5303,6 @@ button.metric:focus-visible {
 
   .inspiration-page {
     width: min(100% - 16px, 460px);
-  }
-
-  .inspiration-topbar h1 {
-    font-size: 31px;
-    line-height: 1.12;
   }
 
   .inspiration-pack-grid,
