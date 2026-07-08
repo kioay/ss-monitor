@@ -543,6 +543,30 @@ h2 {
   box-shadow: 0 8px 20px rgba(38, 48, 43, 0.08);
 }
 
+.topbar-link-button {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ink-inverse);
+  font-size: 13px;
+  font-weight: 820;
+  text-decoration: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+}
+
+.topbar-link-button:hover,
+.topbar-link-button:focus-visible {
+  border-color: rgba(33, 152, 170, 0.5);
+  background: rgba(33, 152, 170, 0.18);
+}
+
 .topbar .icon-button {
   border-color: rgba(255, 255, 255, 0.16);
   background: rgba(255, 255, 255, 0.08);
@@ -3154,6 +3178,293 @@ button.metric:focus-visible {
   --metric-accent: var(--cyan);
 }
 
+.inspiration-studio {
+  margin: 0 0 20px;
+  border: 1px solid rgba(27, 45, 40, 0.16);
+  border-radius: 8px;
+  padding: 16px;
+  background:
+    linear-gradient(135deg, rgba(33, 152, 170, 0.13), transparent 38%),
+    linear-gradient(180deg, rgba(251, 253, 249, 0.98), rgba(239, 246, 243, 0.94)),
+    var(--paper);
+  box-shadow: var(--shadow-soft);
+}
+
+.inspiration-head,
+.inspiration-controls,
+.inspiration-stats,
+.inspiration-kind-toggle,
+.inspiration-seeds {
+  display: flex;
+  align-items: center;
+}
+
+.inspiration-head {
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.inspiration-head h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+  font-size: 22px;
+}
+
+.inspiration-head p:not(.eyebrow) {
+  max-width: 780px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.inspiration-pack-button {
+  flex: 0 0 auto;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid rgba(33, 152, 170, 0.36);
+  border-radius: 8px;
+  padding: 0 14px;
+  background: linear-gradient(180deg, #2297aa, #1d7182);
+  color: #fff;
+  font-weight: 820;
+  box-shadow: 0 10px 24px rgba(29, 113, 130, 0.18);
+}
+
+.inspiration-pack-button:hover,
+.inspiration-pack-button:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(29, 113, 130, 0.22);
+}
+
+.inspiration-pack-button:disabled {
+  opacity: 0.7;
+  cursor: progress;
+  transform: none;
+}
+
+.inspiration-page-controls {
+  margin-bottom: 16px;
+}
+
+.inspiration-selected-scope {
+  min-width: min(360px, 100%);
+}
+
+.inspiration-selected-scope span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspiration-controls {
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 0 12px;
+}
+
+.inspiration-tabs {
+  flex: 0 1 auto;
+}
+
+.inspiration-kind-toggle {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(251, 253, 249, 0.92);
+}
+
+.inspiration-kind-toggle button {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-left: 1px solid var(--line);
+  padding: 0 12px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.inspiration-kind-toggle button:first-child {
+  border-left: 0;
+}
+
+.inspiration-kind-toggle button.active {
+  background: rgba(33, 152, 170, 0.14);
+  color: #176a79;
+}
+
+.inspiration-search {
+  flex: 1 1 240px;
+}
+
+.inspiration-search input {
+  width: 100%;
+}
+
+.inspiration-stats {
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 0 12px;
+}
+
+.inspiration-stats span,
+.inspiration-seeds span {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid rgba(27, 45, 40, 0.12);
+  border-radius: 999px;
+  padding: 0 9px;
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.inspiration-stats b {
+  color: var(--ink-strong);
+  font-family: var(--font-data);
+}
+
+.inspiration-stats .wide {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.inspiration-seeds {
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-bottom: 12px;
+}
+
+.inspiration-seeds span.active {
+  border-color: rgba(194, 138, 34, 0.36);
+  background: var(--gold-soft);
+  color: #7a5414;
+}
+
+.inspiration-wall {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.inspiration-wall > .empty {
+  grid-column: 1 / -1;
+}
+
+.inspiration-card {
+  --asset-accent: var(--cyan);
+  position: relative;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr) 36px;
+  gap: 12px;
+  align-items: start;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background:
+    linear-gradient(180deg, rgba(251, 253, 249, 0.98), rgba(242, 247, 244, 0.9)),
+    var(--paper);
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+}
+
+.inspiration-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--asset-accent), transparent);
+}
+
+.inspiration-card.weapon_skin {
+  --asset-accent: var(--red);
+}
+
+.inspiration-card.character_skin {
+  --asset-accent: var(--gold);
+}
+
+.inspiration-thumb {
+  position: relative;
+  min-width: 0;
+}
+
+.inspiration-thumb img,
+.inspiration-thumb .fallback-thumb {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+}
+
+.inspiration-thumb > span {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  border-radius: 6px;
+  padding: 3px 6px;
+  background: rgba(18, 29, 27, 0.84);
+  color: var(--ink-inverse);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.inspiration-card-body {
+  min-width: 0;
+}
+
+.inspiration-card h3 {
+  margin: 7px 0;
+  color: var(--ink-strong);
+  font-size: 15px;
+  line-height: 1.38;
+}
+
+.inspiration-card p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.inspiration-card .pill-row {
+  margin-top: 9px;
+}
+
+.inspiration-card .seed-pill {
+  background: rgba(33, 152, 170, 0.11);
+  color: #176a79;
+}
+
+.inspiration-card > a {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(251, 253, 249, 0.88);
+  color: var(--ink);
+}
+
+.inspiration-card > a:hover,
+.inspiration-card > a:focus-visible {
+  border-color: rgba(33, 152, 170, 0.36);
+  background: var(--cyan-soft);
+  color: #176a79;
+}
+
 .lab-overview .metric.green {
   border-top: 2px solid rgba(46, 139, 104, 0.45);
 }
@@ -4557,6 +4868,10 @@ button.metric:focus-visible {
     width: 100%;
   }
 
+  .topbar-link-button {
+    width: 100%;
+  }
+
   .topbar .timestamp {
     justify-content: flex-start;
   }
@@ -4663,6 +4978,37 @@ button.metric:focus-visible {
   .scope-panel-actions .keyword-add-button,
   .scope-restore-button {
     width: 100%;
+  }
+
+  .inspiration-head,
+  .inspiration-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .inspiration-pack-button,
+  .inspiration-tabs,
+  .inspiration-kind-toggle,
+  .inspiration-search,
+  .inspiration-selected-scope {
+    width: 100%;
+  }
+
+  .inspiration-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .inspiration-kind-toggle button {
+    flex: 1 1 0;
+  }
+
+  .inspiration-card {
+    grid-template-columns: 1fr 34px;
+  }
+
+  .inspiration-thumb,
+  .inspiration-card-body {
+    grid-column: 1 / -1;
   }
 
   .keyword-row {

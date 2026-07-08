@@ -9,6 +9,7 @@ import { games, getUpdatePolicy, runtimeConfig } from "./config";
 import { sendDingTalkDailyReport, sendDingTalkTest } from "./dingtalk";
 import { getBettaFishLabResponse, runBettaFishLabAction } from "./bettafishLab";
 import { getDouyinCrawlStatus, startDouyinRemoteLogin } from "./douyinStatus";
+import { getInspirationResponse } from "./inspiration";
 import { getMonitorResponse } from "./monitor";
 import { getRiskBacktestStatus, warmRiskBacktest } from "./riskBacktest";
 import { getSearchResponse } from "./search";
@@ -133,6 +134,17 @@ app.get("/api/search", async (request, response) => {
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "未知错误"
+    });
+  }
+});
+
+app.get("/api/inspiration", async (request, response) => {
+  try {
+    const data = await getInspirationResponse(request.query);
+    response.json(data);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "鏈煡閿欒"
     });
   }
 });

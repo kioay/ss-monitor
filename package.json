@@ -17,6 +17,7 @@
     "test:source-health-warning": "tsx scripts/test-source-health-warning.ts",
     "test:topic-bars": "tsx scripts/test-topic-bars.ts",
     "test:monitor-history": "tsx scripts/test-monitor-history.ts",
+    "test:inspiration": "tsx scripts/test-inspiration.ts",
     "test:custom-games-config": "tsx scripts/test-custom-games-config.ts",
     "test:douyin-game-routing": "tsx scripts/test-douyin-game-routing.ts",
     "test:risk-alerts": "tsx scripts/test-risk-alerts.ts",

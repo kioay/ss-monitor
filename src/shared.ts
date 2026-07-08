@@ -3,8 +3,85 @@ export type SourceType = "bilibili" | "tieba" | "douyin" | "forum4399" | "bettaf
 export type Sentiment = "positive" | "neutral" | "negative" | "mixed";
 export type RiskLevel = "low" | "medium" | "high";
 export type RiskSignalSource = "thread" | "new_reply" | "stale_thread";
+export type InspirationCategory = "weapon_skin" | "character_skin" | "general_reference";
+export type InspirationAssetKind = "video" | "image";
 
 export const currentAnalysisVersion = 3;
+
+export interface InspirationSeedPreset {
+  id: string;
+  label: string;
+  category: InspirationCategory;
+  description: string;
+  keywords: string[];
+}
+
+export const inspirationSeedPresets: InspirationSeedPreset[] = [
+  {
+    id: "weapon-skins",
+    label: "武器皮肤",
+    category: "weapon_skin",
+    description: "枪械、近战、武器外观、检视动画和特效展示",
+    keywords: [
+      "枪械皮肤",
+      "武器皮肤",
+      "武器外观",
+      "枪皮",
+      "近战皮肤",
+      "检视动画",
+      "换弹动画",
+      "击杀特效",
+      "无畏契约皮肤",
+      "Apex皮肤",
+      "使命召唤皮肤",
+      "三角洲行动皮肤",
+      "PUBG皮肤",
+      "CS2皮肤"
+    ]
+  },
+  {
+    id: "character-skins",
+    label: "角色皮肤",
+    category: "character_skin",
+    description: "角色、干员、套装、时装、英雄外观和入场展示",
+    keywords: [
+      "角色皮肤",
+      "干员皮肤",
+      "人物皮肤",
+      "英雄皮肤",
+      "套装外观",
+      "角色时装",
+      "无畏契约套装",
+      "Apex传家宝",
+      "使命召唤干员",
+      "守望先锋皮肤",
+      "堡垒之夜皮肤",
+      "三角洲行动干员"
+    ]
+  },
+  {
+    id: "fps-tps-reference",
+    label: "FPS/TPS 参考",
+    category: "general_reference",
+    description: "射击游戏素材展示、赛季通行证、商城轮换和玩家二创参考",
+    keywords: [
+      "FPS皮肤",
+      "TPS皮肤",
+      "射击游戏皮肤",
+      "赛季皮肤",
+      "通行证皮肤",
+      "商城皮肤",
+      "皮肤展示",
+      "外观展示",
+      "无畏契约",
+      "Apex英雄",
+      "使命召唤",
+      "三角洲行动",
+      "守望先锋",
+      "绝地求生"
+    ]
+  }
+];
 
 export interface GameConfig {
   id: GameId;
@@ -211,6 +288,41 @@ export interface SearchResponse {
   sources: SearchSourceSummary[];
   items: SearchResult[];
   errors: string[];
+}
+
+export interface InspirationAsset {
+  id: string;
+  item: MonitorItem;
+  kind: InspirationAssetKind;
+  category: InspirationCategory;
+  score: number;
+  matchedSeeds: string[];
+  visualTags: string[];
+  reason: string;
+}
+
+export interface InspirationStats {
+  total: number;
+  videos: number;
+  images: number;
+  weaponSkins: number;
+  characterSkins: number;
+  sourceBreakdown: Array<{
+    source: SourceType;
+    count: number;
+  }>;
+}
+
+export interface InspirationResponse {
+  generatedAt: string;
+  windowHours: number;
+  query: string;
+  category: "all" | InspirationCategory;
+  kind: "all" | InspirationAssetKind;
+  totalMatched: number;
+  stats: InspirationStats;
+  seeds: InspirationSeedPreset[];
+  assets: InspirationAsset[];
 }
 
 export type BettaFishProbeStatus = "ok" | "warning" | "error" | "skipped";
