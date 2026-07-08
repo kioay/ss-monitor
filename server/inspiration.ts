@@ -88,6 +88,164 @@ const visualTagLexicon: Array<{ tag: string; terms: string[] }> = [
   { tag: "二创参考", terms: ["同人", "二创", "概念", "设计", "concept", "fan art"] }
 ];
 
+const specificDesignMaterialTerms = [
+  "武器皮肤",
+  "枪械皮肤",
+  "武器外观",
+  "枪械外观",
+  "近战皮肤",
+  "角色皮肤",
+  "人物皮肤",
+  "干员皮肤",
+  "英雄皮肤",
+  "角色时装",
+  "套装外观",
+  "皮肤展示",
+  "外观展示",
+  "赛季皮肤",
+  "通行证皮肤",
+  "商城皮肤",
+  "蓝图枪",
+  "枪械蓝图",
+  "传家宝",
+  "weapon skin",
+  "gun skin",
+  "melee skin",
+  "operator skin",
+  "character skin",
+  "hero skin",
+  "skin bundle",
+  "cosmetic bundle",
+  "weapon blueprint",
+  "tracer pack"
+];
+
+const weakDesignMaterialTerms = [
+  "皮肤",
+  "枪皮",
+  "刀皮",
+  "手套",
+  "套装",
+  "外观",
+  "商城",
+  "商店",
+  "轮换",
+  "通行证",
+  "联名",
+  "换弹",
+  "手感",
+  "skin",
+  "outfit",
+  "cosmetic",
+  "store",
+  "bundle"
+];
+
+const designPresentationTerms = [
+  "展示",
+  "外观",
+  "图集",
+  "预览",
+  "一览",
+  "合集",
+  "鉴赏",
+  "爆料",
+  "上架",
+  "商城",
+  "商店",
+  "轮换",
+  "套装",
+  "通行证",
+  "联名",
+  "检视",
+  "击杀特效",
+  "淘汰特效",
+  "终结特效",
+  "特效",
+  "蓝图",
+  "传家宝",
+  "原画",
+  "概念",
+  "设计",
+  "建模",
+  "渲染",
+  "立绘",
+  "showcase",
+  "preview",
+  "bundle",
+  "cosmetic",
+  "outfit",
+  "inspect",
+  "kill effect",
+  "finisher",
+  "heirloom",
+  "blueprint",
+  "concept",
+  "fan art",
+  "render",
+  "model",
+  "battle pass",
+  "tracer pack"
+];
+
+const designSearchKeywordTerms = [
+  ...specificDesignMaterialTerms,
+  ...weakDesignMaterialTerms,
+  ...designPresentationTerms
+];
+
+const hardNonDesignTerms = [
+  "加速器",
+  "口令",
+  "兑换码",
+  "cdk",
+  "人手可得",
+  "全平台通用",
+  "直播录像",
+  "直播录播",
+  "直播回放",
+  "开播",
+  "小群",
+  "群号",
+  "加群",
+  "进群",
+  "聊天截图"
+];
+
+const softNonDesignTerms = [
+  "赛事",
+  "比赛",
+  "赛段",
+  "排名",
+  "预测",
+  "指挥",
+  "冠军",
+  "战队",
+  "抽象",
+  "小视频",
+  "精彩集锦",
+  "高光",
+  "攻略",
+  "教学",
+  "教程",
+  "打法",
+  "配装",
+  "性价比",
+  "ttk",
+  "中近作战",
+  "胸腹同伤",
+  "排位",
+  "上分",
+  "单排",
+  "开局",
+  "吃鸡",
+  "开黑",
+  "闲聊",
+  "吐槽",
+  "竞猜",
+  "抽奖"
+];
+
 const sourceOrder: SourceType[] = ["bilibili", "douyin", "tieba", "forum4399", "bettafish"];
 
 type InspirationCollection = {
@@ -220,7 +378,8 @@ function inspirationSearchKeywords(seeds: InspirationSeedPreset[], category: "al
   const pairedKeywords = seeds.flatMap((seed) =>
     categoryTerms.slice(0, 5).map((term) => `${seed.label} ${term}`)
   );
-  return uniq([...seeds.flatMap((seed) => seed.keywords), ...pairedKeywords])
+  const seedKeywords = seeds.flatMap((seed) => seed.keywords).filter(isDesignSearchKeyword);
+  return uniq([...seedKeywords, ...pairedKeywords])
     .filter((keyword) => !isOwnedProjectKeyword(keyword))
     .slice(0, 28);
 }
@@ -237,6 +396,12 @@ function tiebaKeywordsForCategory(category: "all" | InspirationCategory) {
 
 function isOwnedProjectKeyword(keyword: string) {
   return /生死狙击|生死1|生死2|SS1|SS2|热油/i.test(keyword);
+}
+
+function isDesignSearchKeyword(keyword: string) {
+  const normalized = normalizeText(keyword);
+  const compact = normalized.replace(/\s+/g, "");
+  return countTermHits(normalized, compact, designSearchKeywordTerms) > 0;
 }
 
 function inspirationCollectionKey(referenceGame: GameConfig, windowHours: number) {
@@ -284,14 +449,16 @@ function classifyInspirationItem(item: MonitorItem, queryTerms: string[], now: D
   const text = inspirationText(item);
   const normalized = normalizeText(text);
   const compact = normalized.replace(/\s+/g, "");
+  const primaryText = inspirationPrimaryText(item);
+  const primaryNormalized = normalizeText(primaryText);
+  const primaryCompact = primaryNormalized.replace(/\s+/g, "");
   if (queryTerms.length && !queryTerms.every((term) => containsTerm(normalized, compact, term))) return undefined;
 
   const categoryScores = categoryScoreMap(normalized, compact);
   const category = pickCategory(categoryScores);
   const matchedSeeds = matchedSeedLabels(normalized, compact);
   const visualTags = matchedVisualTags(normalized, compact);
-  const hasInspirationSignal = matchedSeeds.length > 0 || visualTags.length > 0 || Math.max(...Object.values(categoryScores)) > 0;
-  if (!hasInspirationSignal && !queryTerms.length) return undefined;
+  if (!isDesignInspirationCandidate(normalized, compact, primaryNormalized, primaryCompact, categoryScores, matchedSeeds.length > 0)) return undefined;
 
   const kind = inspirationKind(item);
   const score =
@@ -321,6 +488,30 @@ function categoryScoreMap(normalized: string, compact: string): Record<Inspirati
     character_skin: countTermHits(normalized, compact, categoryLexicon.character_skin),
     general_reference: countTermHits(normalized, compact, categoryLexicon.general_reference)
   };
+}
+
+function isDesignInspirationCandidate(
+  normalized: string,
+  compact: string,
+  primaryNormalized: string,
+  primaryCompact: string,
+  categoryScores: Record<InspirationCategory, number>,
+  hasMatchedSeed: boolean
+) {
+  const specificDesignHits = countTermHits(normalized, compact, specificDesignMaterialTerms);
+  const weakDesignHits = countTermHits(normalized, compact, weakDesignMaterialTerms);
+  const presentationHits = countTermHits(normalized, compact, designPresentationTerms);
+  const categoryHits = Math.max(...Object.values(categoryScores));
+
+  if (countTermHits(primaryNormalized, primaryCompact, hardNonDesignTerms) > 0) return false;
+
+  const hasDesignSignal =
+    specificDesignHits > 0
+    || (presentationHits > 0 && (weakDesignHits > 0 || categoryHits > 0 || hasMatchedSeed));
+  if (!hasDesignSignal) return false;
+
+  const hasSoftNoise = countTermHits(primaryNormalized, primaryCompact, softNonDesignTerms) > 0;
+  return !hasSoftNoise || specificDesignHits > 0 || presentationHits > 1;
 }
 
 function pickCategory(scores: Record<InspirationCategory, number>): InspirationCategory {
@@ -365,6 +556,20 @@ function inspirationText(item: MonitorItem) {
     item.topics.join(" "),
     item.riskReasons.join(" "),
     ...item.contentParts.map((part) => part.text)
+  ].join("\n");
+}
+
+function inspirationPrimaryText(item: MonitorItem) {
+  return [
+    item.title,
+    item.summary,
+    item.author,
+    item.keywords.join(" "),
+    item.topics.join(" "),
+    item.riskReasons.join(" "),
+    ...item.contentParts
+      .filter((part) => part.type === "title" || part.type === "description" || part.type === "tag" || part.type === "post")
+      .map((part) => part.text)
   ].join("\n");
 }
 

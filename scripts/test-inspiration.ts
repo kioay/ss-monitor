@@ -25,6 +25,54 @@ const unrelated = makeItem("unrelated", {
   contentParts: [{ type: "comment", text: "匹配时间太长了", count: 1 }]
 });
 
+const nonDesignNoise = [
+  makeItem("accelerator-code", {
+    source: "bilibili",
+    title: "【7月8日】海豚加速器最新口令 全平台通用 人手可得",
+    summary: "Apex、三角洲行动加速器口令领取",
+    keywords: ["Apex", "三角洲行动"],
+    thumbnail: "https://i0.hdslb.com/bfs/archive/accelerator.jpg"
+  }),
+  makeItem("chat-gun-skin", {
+    source: "bilibili",
+    title: "单枪皮真不错",
+    summary: "聊天截图讨论枪皮",
+    keywords: ["VALORANT"],
+    thumbnail: "https://i0.hdslb.com/bfs/archive/chat.jpg"
+  }),
+  makeItem("gameplay-feel", {
+    source: "bilibili",
+    title: "胸腹同伤！ttk反超常规改法 兼顾中近作战性价比刺客AS Val",
+    summary: "视频素材，射击游戏参考，换弹手感",
+    keywords: ["Apex", "三角洲行动"],
+    thumbnail: "https://i0.hdslb.com/bfs/archive/gameplay.jpg"
+  }),
+  makeItem("livestream-record", {
+    source: "bilibili",
+    title: "y神开播了【2026-07-08】【lyyy】直播录像",
+    summary: "视频素材，射击游戏参考",
+    keywords: ["VALORANT", "PUBG"],
+    thumbnail: "https://i0.hdslb.com/bfs/archive/live.jpg"
+  }),
+  makeItem("esports-prediction", {
+    source: "bilibili",
+    title: "无畏契约VCT众指挥预测第二赛段最终排名！谁又王朝了？",
+    summary: "视频素材，射击游戏参考",
+    keywords: ["VALORANT"],
+    thumbnail: "https://i0.hdslb.com/bfs/archive/esports.jpg"
+  }),
+  makeItem("tieba-group-noise", {
+    source: "tieba",
+    title: "小群18=2",
+    summary: "普通吧帖截图，不是外观展示",
+    keywords: ["武器皮肤", "枪械皮肤"],
+    contentParts: [{ type: "post", text: "小群18=2，加群闲聊。", count: 1 }]
+  })
+];
+
+const noiseAssets = buildInspirationAssets(nonDesignNoise, { now });
+assert.deepEqual(noiseAssets.map((asset) => asset.id), []);
+
 const allAssets = buildInspirationAssets([weaponVideo, characterImage, unrelated], { now });
 assert.deepEqual(allAssets.map((asset) => asset.id), ["weapon-video", "character-image"]);
 assert.equal(allAssets[0].category, "weapon_skin");
@@ -53,6 +101,8 @@ assert.equal(referenceGame.name, "FPS/TPS 竞品素材");
 assert.ok(referenceGame.bilibiliKeywords.some((keyword) => keyword.includes("VALORANT")));
 assert.ok(referenceGame.tiebaBars.includes("无畏契约"));
 assert.ok(referenceGame.tiebaBars.includes("三角洲行动"));
+assert.ok(!referenceGame.bilibiliKeywords.includes("Apex"));
+assert.ok(!referenceGame.bilibiliKeywords.includes("三角洲行动"));
 assert.ok(!referenceGame.bilibiliKeywords.join("\n").includes("生死狙击"));
 
 function makeItem(
