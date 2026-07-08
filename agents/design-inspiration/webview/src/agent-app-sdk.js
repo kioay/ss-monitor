@@ -53,6 +53,13 @@
   }
 
   function resultMatches(result, options = {}) {
+    const turnId = textValue(options.turnId);
+    const taskRunId = textValue(options.taskRunId);
+    if (turnId || taskRunId) {
+      const resultTurnId = resultTurnIdOf(result);
+      const resultTaskRunId = resultTaskRunIdOf(result);
+      if ((turnId && resultTurnId !== turnId) || (taskRunId && resultTaskRunId !== taskRunId)) return false;
+    }
     if (typeof options.match === "function" && options.match(result)) return true;
     if (options.structuredMode && result && typeof result === "object") {
       const structured = result.structuredResult;
@@ -492,14 +499,13 @@
     async function waitForResult(input = {}) {
       const timeoutMs = normalizeWaitTimeout(input.timeoutMs);
       const intervalMs = Math.max(100, Number(input.intervalMs || 1800));
-      const afterResultCount = Math.max(0, Number(input.afterResultCount || 0));
       const deadline = timeoutMs === undefined ? undefined : Date.now() + timeoutMs;
       while (deadline === undefined || Date.now() < deadline) {
         const detail = await getSessionDetail(input.sessionId);
         await input.onPoll?.(detail);
         assertSubmittedTurnStillRunning(detail, input);
         const results = Array.isArray(detail && detail.results) ? detail.results : [];
-        const candidates = results.slice(afterResultCount).reverse();
+        const candidates = results.slice().reverse();
         for (const result of candidates) {
           if (!resultMatches(result, input)) continue;
           return {
@@ -1282,15 +1288,12 @@
           return submitTurn(input, sessionId);
         },
         async submitTurnAndWaitForResult(input, options = {}, sessionId) {
-          const before = await getSessionDetail(sessionId);
-          const afterResultCount = Array.isArray(before && before.results) ? before.results.length : 0;
           const submitResponse = await submitTurn(input, sessionId);
           await options.onSubmitted?.(submitResponse);
           const taskRunId = taskRunIdOf(submitResponse);
           const turnId = turnIdOf(submitResponse);
           const waited = await waitForResult({
             ...options,
-            afterResultCount,
             sessionId: options.sessionId || sessionId,
             taskRunId: options.taskRunId || taskRunId,
             turnId: options.turnId || turnId,
