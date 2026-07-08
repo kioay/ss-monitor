@@ -1,0 +1,171 @@
+id: design-inspiration
+name: 设计灵感素材库
+version: 0.1.0
+summary: 收集并整理 FPS/TPS 竞品武器、角色皮肤设计灵感素材。
+codexModel: gpt-5.5
+ownerTeam: self
+project: Design Inspiration
+department: Art
+tags:
+  - WDCloud
+  - Agent App
+  - Design Inspiration
+  - FPS TPS
+runtime:
+  mode: per-task-job
+  sessionBinding: task-run
+  sharingPolicy: task-isolated
+  workerCommand:
+    - python3
+    - /agent/worker/worker.py
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+jobPolicy:
+  timeoutMinutes: 15
+  retryLimit: 0
+  ttlAfterFinishedMinutes: 30
+  artifactRetentionDays: 14
+networkRequests:
+  - https://wdclaw-artifacts-dev.oss-cn-hangzhou.aliyuncs.com
+  - http://192.168.8.242:8788
+ui:
+  mode: web-view-app
+  entryArtifactId: webviewBundle
+  entry: index.html
+  defaultSurface: app
+  fallback: task-detail
+webView:
+  version: 1
+  sourceDir: webview
+  buildCommand: npm run build
+  entryArtifactId: webviewBundle
+  entry: index.html
+  bootstrap: app-scoped-token
+  transport: sdk
+  apiScopes:
+    - app.context.read
+    - task.status.read
+    - session.events.read
+    - session.presence.read
+    - session.presence.write
+    - session.actions.read
+    - session.actions.submit
+    - session.turns.create
+    - session.state.read
+    - session.state.write
+  maxBundleBytes: 10485760
+  maxRuntimeMemoryMb: 256
+invocation:
+  version: 1
+  defaultAction: inspiration.collect
+  actions:
+    - id: inspiration.collect
+      title: 收集设计灵感素材
+      description: 读取设计灵感素材库，按竞品包、关键词、素材类型和热度整理可直接查看的中文素材报告。
+      inputDefaults:
+        mode: inspiration.collect
+        inspirationBaseUrl: http://192.168.8.242:8788
+        packs: ""
+        windowHours: 720
+        limit: 80
+        query: ""
+        category: all
+        sort: heat
+        force: false
+      inputSchema:
+        type: object
+        additionalProperties: true
+        properties:
+          mode:
+            type: string
+            description: 业务模式；默认 inspiration.collect。
+          inspirationBaseUrl:
+            type: string
+            description: 灵感素材库服务地址；默认使用生产设计灵感库。
+          packs:
+            type: string
+            description: 逗号分隔的竞品包 id；留空表示使用全部竞品包。
+          windowHours:
+            type: integer
+            description: 采集窗口小时数。
+            minimum: 1
+            maximum: 720
+          limit:
+            type: integer
+            description: 最多返回素材条目数。
+            minimum: 1
+            maximum: 120
+          query:
+            type: string
+            description: 关键词，例如 科幻、近战、检视、通行证。
+          category:
+            type: string
+            enum:
+              - all
+              - weapon_skin
+              - character_skin
+              - general_reference
+            description: 素材类型筛选。
+          sort:
+            type: string
+            enum:
+              - relevance
+              - heat
+              - latest
+            description: 排序方式。
+          force:
+            type: boolean
+            description: 是否强制刷新采集缓存。
+          question:
+            type: string
+            description: 本次素材报告需要重点回答的问题。
+          message:
+            type: string
+            description: 兼容外部调用传入的自然语言需求；调用方可映射为 question。
+          channelContext:
+            type: object
+            additionalProperties: true
+      resultMapping:
+        textPath:
+          - $.finalMessage
+          - $.resultMarkdown
+        summaryPath:
+          - $.finalMessage
+          - $.resultMarkdown
+    - id: inspiration.health
+      title: 检查灵感素材库健康
+      description: 检查设计灵感素材库服务、更新策略和采集状态。
+      inputDefaults:
+        mode: inspiration.health
+        inspirationBaseUrl: http://192.168.8.242:8788
+      inputSchema:
+        type: object
+        additionalProperties: true
+        properties:
+          mode:
+            type: string
+            description: 业务模式；默认 inspiration.health。
+          inspirationBaseUrl:
+            type: string
+            description: 灵感素材库服务地址；默认使用生产设计灵感库。
+          channelContext:
+            type: object
+            additionalProperties: true
+      resultMapping:
+        textPath:
+          - $.finalMessage
+          - $.resultMarkdown
+        summaryPath:
+          - $.finalMessage
+          - $.resultMarkdown
+smoke:
+  payload: smoke/payload.json
+  expectedArtifacts:
+    - webviewBundle
+    - manifest
+    - logs

@@ -1,0 +1,21 @@
+{
+  "title": "Design Inspiration Agent App smoke",
+  "app": {
+    "bootstrap": true,
+    "openSurface": "app"
+  },
+  "actions": [
+    {
+      "type": "task.runs.create",
+      "payload": {
+        "message": "Run the Design Inspiration Agent App shell smoke."
+      }
+    }
+  ],
+  "expectedArtifacts": ["webviewBundle", "manifest", "logs"],
+  "contentAssertions": [
+    "WebView bundle contains index.html",
+    "Manifest records webView.transport=sdk",
+    "Logs describe bundle creation"
+  ]
+}

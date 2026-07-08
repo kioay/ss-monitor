@@ -1,0 +1,993 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>设计灵感素材库</title>
+    <script src="./agent-app-sdk.js"></script>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        --paper: #eef4f1;
+        --surface: #fbfdf9;
+        --panel: #ffffff;
+        --ink: #17211f;
+        --muted: #63716d;
+        --line: #d7e2dc;
+        --line-strong: #b8cec5;
+        --signal: #128c96;
+        --signal-dark: #0e5e66;
+        --signal-soft: #e3f4f3;
+        --blue: #38688f;
+        --blue-soft: #eaf2f8;
+        --amber: #a66b18;
+        --amber-soft: #fff4df;
+        --red: #ad4540;
+        --red-soft: #fdeceb;
+        background: var(--paper);
+        color: var(--ink);
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; background: var(--paper); }
+      button, input, select, textarea { font: inherit; }
+      .app { min-height: 100vh; display: grid; grid-template-rows: auto 1fr; }
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 20px 26px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--line);
+      }
+      .brand { min-width: 0; }
+      .eyebrow {
+        margin: 0 0 6px;
+        color: #4d6a69;
+        font-size: 12px;
+        line-height: 1;
+        font-weight: 900;
+        text-transform: uppercase;
+      }
+      h1 {
+        margin: 0;
+        color: var(--ink);
+        font-size: 28px;
+        line-height: 1.16;
+        letter-spacing: 0;
+      }
+      .subtitle { margin: 7px 0 0; color: var(--muted); font-size: 14px; }
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex: 0 0 auto;
+      }
+      .status {
+        min-width: 84px;
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
+        padding: 8px 12px;
+        background: #f6fbf8;
+        color: #274844;
+        font-size: 13px;
+        font-weight: 900;
+        text-align: center;
+      }
+      .open-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 38px;
+        border: 1px solid #aac6c2;
+        border-radius: 8px;
+        padding: 0 12px;
+        background: #ffffff;
+        color: #174c55;
+        font-size: 13px;
+        font-weight: 900;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      .open-link[aria-disabled="true"] { pointer-events: none; opacity: 0.55; }
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(300px, 390px) minmax(0, 1fr);
+        gap: 18px;
+        padding: 18px 26px 26px;
+      }
+      .panel {
+        min-width: 0;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .panel h2 {
+        margin: 0;
+        padding: 15px 18px;
+        border-bottom: 1px solid #e3ebe6;
+        color: #233331;
+        font-size: 16px;
+        line-height: 1.2;
+      }
+      .panel-body { padding: 16px 18px 18px; }
+      .field { display: grid; gap: 7px; margin-bottom: 13px; }
+      .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      label, legend {
+        padding: 0;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 900;
+      }
+      input, select, textarea {
+        width: 100%;
+        min-width: 0;
+        border: 1px solid #c3d4cd;
+        border-radius: 8px;
+        background: #fbfdfb;
+        color: var(--ink);
+        outline: none;
+      }
+      input, select { height: 40px; padding: 0 10px; }
+      textarea {
+        min-height: 88px;
+        resize: vertical;
+        padding: 10px;
+        line-height: 1.5;
+      }
+      input:focus, select:focus, textarea:focus {
+        border-color: var(--signal);
+        box-shadow: 0 0 0 3px rgba(18, 140, 150, 0.14);
+      }
+      .category-control {
+        border: 0;
+        margin: 0 0 13px;
+        padding: 0;
+      }
+      .segments {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-top: 7px;
+      }
+      .segment {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 38px;
+        border: 1px solid #c3d4cd;
+        border-radius: 8px;
+        background: #fbfdfb;
+        color: #354946;
+        font-size: 13px;
+        font-weight: 900;
+        cursor: pointer;
+      }
+      .segment input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+      }
+      .segment:has(input:checked) {
+        border-color: rgba(18, 140, 150, 0.58);
+        background: var(--signal-soft);
+        color: var(--signal-dark);
+      }
+      .toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 38px;
+        color: #40534f;
+        font-size: 13px;
+        font-weight: 900;
+      }
+      .toggle input {
+        width: 16px;
+        height: 16px;
+        margin: 0;
+        accent-color: var(--signal);
+      }
+      .actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 14px;
+      }
+      .action {
+        height: 42px;
+        border: 0;
+        border-radius: 8px;
+        color: #ffffff;
+        font-weight: 900;
+        cursor: pointer;
+      }
+      .action.primary { background: var(--signal-dark); }
+      .action.secondary { background: var(--blue); }
+      .action:disabled { cursor: wait; opacity: 0.58; }
+      .notice {
+        min-height: 42px;
+        margin-top: 14px;
+        border: 1px solid #e8c873;
+        border-radius: 8px;
+        padding: 10px 12px;
+        background: var(--amber-soft);
+        color: #68490f;
+        font-size: 13px;
+        line-height: 1.45;
+      }
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 14px;
+      }
+      .tag {
+        border: 1px solid #ccdbd6;
+        border-radius: 999px;
+        padding: 5px 9px;
+        background: #f7fbf8;
+        color: #455a56;
+        font-size: 12px;
+        font-weight: 900;
+      }
+      .run-progress {
+        margin-bottom: 16px;
+        border-bottom: 1px solid #e3ebe6;
+        padding-bottom: 14px;
+      }
+      .run-progress[data-state="idle"] { display: none; }
+      .progress-copy {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+      .progress-title { color: var(--ink); font-size: 14px; font-weight: 900; }
+      .progress-detail { color: var(--muted); font-size: 12px; text-align: right; }
+      .step-track {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+      }
+      .step {
+        position: relative;
+        min-width: 0;
+        border-top: 3px solid #d4e0dc;
+        padding-top: 8px;
+        color: #71827d;
+        font-size: 12px;
+        font-weight: 900;
+      }
+      .step::before {
+        content: "";
+        position: absolute;
+        top: -6px;
+        left: 0;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: #d4e0dc;
+      }
+      .step.is-active { border-color: var(--blue); color: #1e5275; }
+      .step.is-active::before { background: var(--blue); }
+      .step.is-done { border-color: var(--signal); color: var(--signal-dark); }
+      .step.is-done::before { background: var(--signal); }
+      .run-progress[data-state="error"] .step.is-active {
+        border-color: var(--red);
+        color: var(--red);
+      }
+      .run-progress[data-state="error"] .step.is-active::before { background: var(--red); }
+      .result {
+        min-height: 480px;
+        color: #273633;
+        line-height: 1.58;
+      }
+      .empty {
+        display: grid;
+        place-items: center;
+        min-height: 420px;
+        border: 1px dashed #bfd0ca;
+        border-radius: 8px;
+        color: #697b76;
+        text-align: center;
+        padding: 22px;
+      }
+      .report {
+        display: grid;
+        gap: 16px;
+      }
+      .report-summary {
+        border-left: 4px solid var(--signal);
+        padding-left: 14px;
+        white-space: pre-wrap;
+      }
+      .asset-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+        gap: 12px;
+      }
+      .asset-card {
+        min-width: 0;
+        border: 1px solid #d8e4df;
+        border-radius: 8px;
+        background: #fbfdfb;
+        overflow: hidden;
+      }
+      .asset-thumb {
+        display: grid;
+        place-items: center;
+        aspect-ratio: 16 / 9;
+        background: linear-gradient(135deg, #deeeec, #f8fbf8);
+        color: #35615e;
+        font-size: 13px;
+        font-weight: 900;
+      }
+      .asset-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .asset-body {
+        display: grid;
+        gap: 8px;
+        padding: 11px 12px 12px;
+      }
+      .asset-title {
+        color: var(--ink);
+        font-size: 14px;
+        line-height: 1.36;
+        font-weight: 900;
+        text-decoration: none;
+      }
+      .asset-title:hover { color: var(--signal-dark); text-decoration: underline; }
+      .asset-copy {
+        margin: 0;
+        color: #586965;
+        font-size: 12px;
+        line-height: 1.45;
+      }
+      .asset-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .asset-tags span {
+        border: 1px solid #c9d9d4;
+        border-radius: 999px;
+        padding: 3px 7px;
+        background: #f5faf8;
+        color: #405651;
+        font-size: 11px;
+        font-weight: 900;
+      }
+      .raw-result {
+        border-top: 1px solid #e3ebe6;
+        padding-top: 10px;
+      }
+      .raw-result summary {
+        cursor: pointer;
+        color: #566b66;
+        font-size: 13px;
+        font-weight: 900;
+      }
+      .raw-result pre {
+        max-height: 280px;
+        overflow: auto;
+        margin: 10px 0 0;
+        border: 1px solid #d8e4df;
+        border-radius: 8px;
+        padding: 12px;
+        background: #fbfdfb;
+        color: #273633;
+        white-space: pre-wrap;
+      }
+      @media (max-width: 900px) {
+        .topbar { align-items: flex-start; flex-direction: column; padding: 18px; }
+        .header-actions { width: 100%; }
+        .status { flex: 1; }
+        .layout { grid-template-columns: 1fr; padding: 14px; }
+      }
+      @media (max-width: 520px) {
+        .field-row, .actions, .segments { grid-template-columns: 1fr; }
+        h1 { font-size: 24px; }
+        .progress-copy { align-items: flex-start; flex-direction: column; }
+        .progress-detail { text-align: left; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <header class="topbar">
+        <div class="brand">
+          <p class="eyebrow">Competitor Reference</p>
+          <h1>素材侦察板</h1>
+          <p class="subtitle">全网 FPS/TPS 竞品武器与角色皮肤素材收集</p>
+        </div>
+        <div class="header-actions">
+          <a class="open-link" id="openLibrary" href="#" target="_blank" rel="noopener noreferrer" aria-disabled="true">素材库</a>
+          <div class="status" id="status">初始化</div>
+        </div>
+      </header>
+      <section class="layout">
+        <aside class="panel">
+          <h2>采集条件</h2>
+          <div class="panel-body">
+            <div class="field">
+              <label for="inspirationBaseUrl">素材库地址</label>
+              <input id="inspirationBaseUrl" autocomplete="off" spellcheck="false" />
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="windowHours">窗口</label>
+                <select id="windowHours">
+                  <option value="72">72 小时</option>
+                  <option value="168">7 天</option>
+                  <option value="336">14 天</option>
+                  <option value="720">30 天</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="limit">条目上限</label>
+                <input id="limit" inputmode="numeric" />
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="sort">排序</label>
+                <select id="sort">
+                  <option value="heat">热度优先</option>
+                  <option value="relevance">综合优先</option>
+                  <option value="latest">最新优先</option>
+                </select>
+              </div>
+              <label class="toggle" for="force">
+                <input id="force" type="checkbox" />
+                强制刷新
+              </label>
+            </div>
+            <fieldset class="category-control">
+              <legend>素材类型</legend>
+              <div class="segments" role="radiogroup" aria-label="素材类型">
+                <label class="segment"><input type="radio" name="category" value="all" />全部素材</label>
+                <label class="segment"><input type="radio" name="category" value="weapon_skin" />武器皮肤</label>
+                <label class="segment"><input type="radio" name="category" value="character_skin" />角色皮肤</label>
+                <label class="segment"><input type="radio" name="category" value="general_reference" />综合参考</label>
+              </div>
+            </fieldset>
+            <div class="field">
+              <label for="query">关键词</label>
+              <input id="query" autocomplete="off" placeholder="例如 科幻、近战、检视、通行证" />
+            </div>
+            <div class="field">
+              <label for="packs">竞品包</label>
+              <textarea id="packs" spellcheck="false" placeholder="留空表示全部竞品包；也可输入 valorant,apex,warframe"></textarea>
+            </div>
+            <div class="field">
+              <label for="question">报告重点</label>
+              <textarea id="question"></textarea>
+            </div>
+            <div class="actions">
+              <button class="action primary" id="collect" type="button">采集素材</button>
+              <button class="action secondary" id="health" type="button">检查接口</button>
+            </div>
+            <div class="notice" id="notice">正在连接 Agent App SDK。</div>
+          </div>
+        </aside>
+        <section class="panel">
+          <h2>素材报告</h2>
+          <div class="panel-body">
+            <div class="meta" id="meta"></div>
+            <div class="run-progress" id="runProgress" data-state="idle" aria-live="polite">
+              <div class="progress-copy">
+                <span class="progress-title" id="runPhase">等待任务</span>
+                <span class="progress-detail" id="runDetail">配置条件后采集素材</span>
+              </div>
+              <div class="step-track" aria-label="采集进度">
+                <span class="step" data-run-step="submit">提交任务</span>
+                <span class="step" data-run-step="fetch">读取素材</span>
+                <span class="step" data-run-step="analyze">归纳方向</span>
+                <span class="step" data-run-step="publish">整理结果</span>
+              </div>
+            </div>
+            <div class="result" id="result">
+              <div class="empty">等待第一次素材采集</div>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+    <script>
+      const defaults = {
+        inspirationBaseUrl: "http://192.168.8.242:8788",
+        windowHours: "720",
+        limit: "80",
+        sort: "heat",
+        category: "all",
+        query: "",
+        packs: "",
+        force: false,
+        question: "请根据当前素材列表归纳最值得参考的 FPS/TPS 竞品武器和角色皮肤设计方向。",
+        lastResult: "",
+        lastAssets: [],
+        lastStats: null,
+        lastMode: "",
+        taskRunId: ""
+      };
+
+      const runSteps = [
+        { key: "submit", label: "提交任务" },
+        { key: "fetch", label: "读取素材" },
+        { key: "analyze", label: "归纳方向" },
+        { key: "publish", label: "整理结果" }
+      ];
+
+      const appState = {
+        busy: false,
+        composing: false,
+        context: null,
+        currentStep: "",
+        permissions: { readOnly: false, scopes: [] },
+        progressTimers: [],
+        sdk: null,
+        uiState: null
+      };
+
+      const els = {
+        category: Array.from(document.querySelectorAll('input[name="category"]')),
+        collect: document.getElementById("collect"),
+        force: document.getElementById("force"),
+        health: document.getElementById("health"),
+        inspirationBaseUrl: document.getElementById("inspirationBaseUrl"),
+        limit: document.getElementById("limit"),
+        meta: document.getElementById("meta"),
+        notice: document.getElementById("notice"),
+        openLibrary: document.getElementById("openLibrary"),
+        packs: document.getElementById("packs"),
+        query: document.getElementById("query"),
+        question: document.getElementById("question"),
+        result: document.getElementById("result"),
+        runDetail: document.getElementById("runDetail"),
+        runPhase: document.getElementById("runPhase"),
+        runProgress: document.getElementById("runProgress"),
+        runSteps: Array.from(document.querySelectorAll("[data-run-step]")),
+        sort: document.getElementById("sort"),
+        status: document.getElementById("status"),
+        windowHours: document.getElementById("windowHours")
+      };
+
+      init();
+
+      async function init() {
+        try {
+          if (!window.WDCloudAgentApp || typeof window.WDCloudAgentApp.connectAgentApp !== "function") {
+            throw new Error("Agent App SDK 未加载。");
+          }
+          appState.sdk = await window.WDCloudAgentApp.connectAgentApp({
+            clientEventIdPrefix: "design-inspiration"
+          });
+          appState.context = await appState.sdk.context();
+          appState.permissions = await appState.sdk.permissions.load();
+          appState.uiState = await appState.sdk.state.create({
+            storageKey: `design-inspiration:${appState.context?.sessionId || "session"}`,
+            defaults,
+            fields: {
+              inspirationBaseUrl: { sync: "persistent" },
+              windowHours: { sync: "persistent" },
+              limit: { sync: "persistent" },
+              sort: { sync: "persistent" },
+              category: { sync: "persistent" },
+              query: { sync: "persistent" },
+              packs: { sync: "persistent" },
+              force: { sync: "persistent" },
+              question: { sync: "persistent" },
+              lastResult: { sync: "persistent" },
+              lastAssets: { sync: "persistent" },
+              lastStats: { sync: "persistent" },
+              lastMode: { sync: "persistent" },
+              taskRunId: { sync: "persistent" }
+            }
+          });
+          appState.uiState.subscribe((next) => {
+            renderFromState(next);
+          });
+          bindEvents();
+          setStatus("已就绪");
+          const permissionIssue = submitPermissionIssue();
+          if (permissionIssue) {
+            showNotice(permissionIssue);
+            setButtonsDisabled(true);
+          } else {
+            showNotice("SDK 已连接。点击“采集素材”会提交真实 worker turn。");
+          }
+        } catch (error) {
+          setStatus("加载失败");
+          showNotice(error.message || String(error));
+        }
+      }
+
+      function bindEvents() {
+        els.collect.addEventListener("click", () => submitTurn("inspiration.collect"));
+        els.health.addEventListener("click", () => submitTurn("inspiration.health"));
+        els.inspirationBaseUrl.addEventListener("input", updateLibraryLink);
+        [els.packs, els.question].forEach((node) => {
+          node.addEventListener("compositionstart", () => {
+            appState.composing = true;
+          });
+          node.addEventListener("compositionend", () => {
+            appState.composing = false;
+          });
+        });
+      }
+
+      function submitPermissionIssue() {
+        if (appState.permissions.readOnly) {
+          return "当前是只读共享页面，不能提交 worker turn。请打开自己的会话，或使用 operator/co-owner 权限的共享链接。";
+        }
+        const scopes = Array.isArray(appState.permissions.scopes) ? appState.permissions.scopes : [];
+        const hasSubmitScope = ["session.turns.create", "session.actions.submit"].some((scope) =>
+          scopes.includes(scope) || appState.sdk?.permissions?.can(scope) === true
+        );
+        if (!hasSubmitScope) {
+          return `当前 WebView token 缺少提交权限：session.turns.create / session.actions.submit。当前 scopes: ${scopes.join(", ") || "none"}`;
+        }
+        return "";
+      }
+
+      async function submitTurn(mode) {
+        if (appState.busy) return;
+        const permissionIssue = submitPermissionIssue();
+        if (permissionIssue) {
+          showNotice(permissionIssue);
+          return;
+        }
+        if (!appState.sdk?.session?.submitTurnAndWaitForResult) {
+          showNotice("当前 SDK 不支持 submitTurnAndWaitForResult。");
+          return;
+        }
+        setBusy(true);
+        try {
+          const input = readForm(mode);
+          appState.uiState?.patch({ ...input, lastMode: mode });
+          setStatus("worker 运行中");
+          setRunProgress("submit", "正在提交任务", "running");
+          scheduleProgressCues(mode);
+          showNotice("已提交 worker turn。");
+          const waited = await appState.sdk.session.submitTurnAndWaitForResult({
+            title: mode === "inspiration.health" ? "检查灵感素材库" : "采集设计灵感素材",
+            content: input.question || input.query || "设计灵感素材",
+            input,
+            idempotencyKey: `design-inspiration:${mode}:${Date.now()}:${Math.random().toString(36).slice(2)}`
+          }, {
+            intervalMs: 1600,
+            timeoutMs: 300000,
+            structuredMode: mode,
+            onSubmitted: (submitted) => {
+              const taskRunId = extractTaskRunId(submitted);
+              if (taskRunId) appState.uiState?.set("taskRunId", taskRunId);
+              setRunProgress("fetch", taskRunId ? `任务 ${shortId(taskRunId)} 已创建` : "worker 正在排队", "running");
+              renderMeta();
+            },
+            onPoll: (detail) => {
+              updateProgressFromDetail(detail, mode);
+              renderMeta(detail);
+            }
+          });
+          const structured = waited.structuredResult || {};
+          const lastResult = structured.resultMarkdown || structured.finalMessage || "worker 已完成，但没有返回可显示文本。";
+          const lastAssets = Array.isArray(structured.assets) ? structured.assets : [];
+          const lastStats = structured.stats || null;
+          const taskRunId = extractTaskRunId(waited.submitResponse) || appState.uiState?.get("taskRunId") || "";
+          appState.uiState?.patch({ lastResult, lastAssets, lastStats, taskRunId, lastMode: mode });
+          await appState.uiState?.flush();
+          setRunProgress("publish", "结果已整理完成", "done");
+          setStatus("已完成");
+          showNotice("结果已保存到 session.state。");
+        } catch (error) {
+          setRunProgress(appState.currentStep || "submit", error.message || String(error), "error");
+          setStatus("失败");
+          showNotice(error.message || String(error));
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      function readForm(mode) {
+        return {
+          mode,
+          inspirationBaseUrl: els.inspirationBaseUrl.value.trim(),
+          windowHours: Number(els.windowHours.value) || 720,
+          limit: clampNumber(els.limit.value, 1, 120, 80),
+          sort: els.sort.value || "heat",
+          category: selectedCategory(),
+          query: els.query.value.trim(),
+          packs: els.packs.value.trim(),
+          force: els.force.checked,
+          question: els.question.value.trim()
+        };
+      }
+
+      function renderFromState(state) {
+        syncValue("inspirationBaseUrl", state.inspirationBaseUrl || defaults.inspirationBaseUrl);
+        syncValue("limit", state.limit || defaults.limit);
+        syncValue("query", state.query || "");
+        syncTextArea("packs", state.packs || "");
+        syncTextArea("question", state.question || defaults.question);
+        syncSelect("windowHours", state.windowHours || defaults.windowHours);
+        syncSelect("sort", state.sort || defaults.sort);
+        syncCategory(state.category || defaults.category);
+        if (els.force.checked !== Boolean(state.force)) els.force.checked = Boolean(state.force);
+        updateLibraryLink();
+        renderResult(state);
+      }
+
+      function syncValue(key, value) {
+        if (document.activeElement === els[key]) return;
+        if (els[key].value !== String(value)) els[key].value = String(value);
+      }
+
+      function syncTextArea(key, value) {
+        if (document.activeElement === els[key] || appState.composing) return;
+        if (els[key].value !== String(value)) els[key].value = String(value);
+      }
+
+      function syncSelect(key, value) {
+        if (els[key].value !== String(value)) els[key].value = String(value);
+      }
+
+      function selectedCategory() {
+        return els.category.find((item) => item.checked)?.value || "all";
+      }
+
+      function syncCategory(value) {
+        const next = ["all", "weapon_skin", "character_skin", "general_reference"].includes(String(value)) ? String(value) : "all";
+        els.category.forEach((item) => {
+          item.checked = item.value === next;
+        });
+      }
+
+      function updateLibraryLink() {
+        const href = libraryUrl();
+        if (!href) {
+          els.openLibrary.href = "#";
+          els.openLibrary.setAttribute("aria-disabled", "true");
+          return;
+        }
+        els.openLibrary.href = href;
+        els.openLibrary.removeAttribute("aria-disabled");
+      }
+
+      function libraryUrl() {
+        try {
+          const url = new URL((els.inspirationBaseUrl.value || defaults.inspirationBaseUrl).trim());
+          if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || !url.host) return "";
+          url.pathname = "/inspiration";
+          url.search = "";
+          url.hash = "";
+          return url.href;
+        } catch {
+          return "";
+        }
+      }
+
+      function setRunProgress(stepKey, detail, state = "running") {
+        const normalizedStep = runSteps.some((step) => step.key === stepKey) ? stepKey : "submit";
+        appState.currentStep = normalizedStep;
+        const activeIndex = stepIndex(normalizedStep);
+        els.runProgress.dataset.state = state;
+        els.runPhase.textContent = state === "done" ? "任务完成" : state === "error" ? "任务失败" : runSteps[activeIndex].label;
+        els.runDetail.textContent = detail || "";
+        els.runSteps.forEach((node, index) => {
+          node.classList.toggle("is-done", state === "done" || index < activeIndex);
+          node.classList.toggle("is-active", state !== "done" && index === activeIndex);
+        });
+      }
+
+      function stepIndex(stepKey) {
+        return Math.max(0, runSteps.findIndex((step) => step.key === stepKey));
+      }
+
+      function scheduleProgressCues(mode) {
+        clearProgressTimers();
+        const cues = mode === "inspiration.health"
+          ? [
+              { delay: 1000, step: "fetch", detail: "正在检查 health 接口" },
+              { delay: 3200, step: "publish", detail: "正在整理健康结果" }
+            ]
+          : [
+              { delay: 1200, step: "fetch", detail: "正在读取素材索引" },
+              { delay: 6200, step: "analyze", detail: "正在归纳设计方向" },
+              { delay: 16000, step: "publish", detail: "正在整理素材报告" }
+            ];
+        appState.progressTimers = cues.map((cue) => window.setTimeout(() => {
+          if (!appState.busy) return;
+          if (stepIndex(appState.currentStep) < stepIndex(cue.step)) {
+            setRunProgress(cue.step, cue.detail, "running");
+          }
+        }, cue.delay));
+      }
+
+      function clearProgressTimers() {
+        appState.progressTimers.forEach((timer) => window.clearTimeout(timer));
+        appState.progressTimers = [];
+      }
+
+      function updateProgressFromDetail(detail, mode) {
+        const turn = currentTurnFromDetail(detail);
+        if (!turn) return;
+        const text = [
+          turn.stage,
+          turn.phaseMessage,
+          turn.phase,
+          turn.status,
+          turn.message
+        ].filter(Boolean).join(" ").toLowerCase();
+        const label = turn.phaseMessage || turn.message || turn.stage || turn.status || "";
+        if (/publish|upload|artifact|result|complete|succeed/.test(text)) {
+          setRunProgress("publish", label || "正在整理结果", "running");
+        } else if (/codex|analy|summary|归纳|报告/.test(text) || (mode === "inspiration.collect" && /running/.test(text))) {
+          setRunProgress("analyze", label || "正在归纳方向", "running");
+        } else if (/collect|fetch|health|inspiration|读取|检查/.test(text)) {
+          setRunProgress("fetch", label || "正在读取素材", "running");
+        }
+      }
+
+      function currentTurnFromDetail(detail) {
+        if (!detail || !Array.isArray(detail.turns)) return null;
+        const taskRunId = appState.uiState?.get("taskRunId") || "";
+        if (taskRunId) {
+          const matched = detail.turns.find((turn) => turn && turn.taskRunId === taskRunId);
+          if (matched) return matched;
+        }
+        return detail.turns[detail.turns.length - 1] || null;
+      }
+
+      function renderResult(state = appState.uiState?.get() || {}) {
+        renderMeta();
+        if (!state.lastResult) {
+          els.result.innerHTML = '<div class="empty">等待第一次素材采集</div>';
+          return;
+        }
+        const assets = Array.isArray(state.lastAssets) ? state.lastAssets : [];
+        const stats = state.lastStats && typeof state.lastStats === "object" ? state.lastStats : null;
+        els.result.innerHTML = `
+          <article class="report">
+            ${renderStats(stats)}
+            <section class="report-summary">${escapeHtml(cleanRuntime(state.lastResult))}</section>
+            ${renderAssetCards(assets)}
+            <details class="raw-result">
+              <summary>原始结果</summary>
+              <pre>${escapeHtml(state.lastResult)}</pre>
+            </details>
+          </article>
+        `;
+      }
+
+      function renderStats(stats) {
+        if (!stats) return "";
+        const items = [
+          `素材 ${stats.total ?? 0}`,
+          `视频 ${stats.videos ?? 0}`,
+          `图片 ${stats.images ?? 0}`,
+          `武器 ${stats.weaponSkins ?? 0}`,
+          `角色 ${stats.characterSkins ?? 0}`
+        ];
+        return `<div class="meta">${items.map((item) => `<span class="tag">${escapeHtml(item)}</span>`).join("")}</div>`;
+      }
+
+      function renderAssetCards(assets) {
+        if (!assets.length) return "";
+        return `
+          <section>
+            <div class="asset-grid">
+              ${assets.slice(0, 24).map(renderAssetCard).join("")}
+            </div>
+          </section>
+        `;
+      }
+
+      function renderAssetCard(asset) {
+        const title = asset.title || "未命名素材";
+        const href = validUrl(asset.sourceUrl) ? asset.sourceUrl : "";
+        const thumb = validUrl(asset.thumbnailUrl) ? asset.thumbnailUrl : "";
+        const tags = [
+          categoryLabel(asset.category),
+          asset.kind === "video" ? "视频" : "图文",
+          ...(Array.isArray(asset.visualTags) ? asset.visualTags.slice(0, 2) : [])
+        ].filter(Boolean);
+        const titleHtml = href
+          ? `<a class="asset-title" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(title)}</a>`
+          : `<span class="asset-title">${escapeHtml(title)}</span>`;
+        return `
+          <article class="asset-card">
+            <div class="asset-thumb">${thumb ? `<img src="${escapeHtml(thumb)}" alt="" loading="lazy" />` : `<span>${escapeHtml(asset.sourceLabel || asset.source || "素材")}</span>`}</div>
+            <div class="asset-body">
+              ${titleHtml}
+              <p class="asset-copy">${escapeHtml(asset.reason || asset.summary || "暂无摘要")}</p>
+              <div class="asset-tags">${tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")}</div>
+            </div>
+          </article>
+        `;
+      }
+
+      function categoryLabel(value) {
+        if (value === "weapon_skin") return "武器皮肤";
+        if (value === "character_skin") return "角色皮肤";
+        if (value === "general_reference") return "综合参考";
+        return "";
+      }
+
+      function cleanRuntime(markdown) {
+        return String(markdown || "").replace(/^#\s*设计灵感素材报告\s*/i, "").replace(/\n## Runtime[\s\S]*$/i, "").trim();
+      }
+
+      function renderMeta(detail) {
+        const state = appState.uiState?.get() || {};
+        const tags = [];
+        if (appState.context?.agentId) tags.push(`agent ${appState.context.agentId}`);
+        if (state.lastMode) tags.push(state.lastMode);
+        if (state.taskRunId) tags.push(`task ${shortId(state.taskRunId)}`);
+        if (state.lastStats?.total !== undefined) tags.push(`${state.lastStats.total} assets`);
+        if (detail?.turns?.length) tags.push(`${detail.turns.length} turns`);
+        els.meta.innerHTML = tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("");
+      }
+
+      function extractTaskRunId(value) {
+        if (!value || typeof value !== "object") return "";
+        return value.taskRunId || value.task?.taskRunId || value.turn?.taskRunId || "";
+      }
+
+      function clampNumber(value, min, max, fallback) {
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed)) return fallback;
+        return Math.max(min, Math.min(max, Math.trunc(parsed)));
+      }
+
+      function validUrl(value) {
+        try {
+          const url = new URL(String(value || ""));
+          return ["http:", "https:"].includes(url.protocol) ? url.href : "";
+        } catch {
+          return "";
+        }
+      }
+
+      function shortId(value) {
+        const text = String(value || "");
+        return text.length > 18 ? `${text.slice(0, 8)}...${text.slice(-6)}` : text;
+      }
+
+      function setBusy(nextBusy) {
+        appState.busy = nextBusy;
+        if (!nextBusy) clearProgressTimers();
+        setButtonsDisabled(nextBusy || Boolean(submitPermissionIssue()));
+      }
+
+      function setButtonsDisabled(disabled) {
+        els.collect.disabled = disabled;
+        els.health.disabled = disabled;
+      }
+
+      function setStatus(text) {
+        els.status.textContent = text;
+      }
+
+      function showNotice(text) {
+        els.notice.textContent = text;
+      }
+
+      function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, (char) => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;"
+        })[char]);
+      }
+    </script>
+  </body>
+</html>

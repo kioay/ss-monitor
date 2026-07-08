@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "entry": "index.html",
+  "sdk": {
+    "bundle": "agent-app-sdk.js",
+    "source": "wdcloud-agent-app-sdk-browser"
+  },
+  "assets": ["index.html", "agent-app-sdk.js"],
+  "capabilities": [
+    "app.context.read",
+    "task.status.read",
+    "session.events.read",
+    "session.presence.read",
+    "session.presence.write",
+    "session.actions.read",
+    "session.actions.submit",
+    "session.turns.create",
+    "session.state.read",
+    "session.state.write"
+  ]
+}
