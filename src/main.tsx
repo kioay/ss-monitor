@@ -1775,7 +1775,7 @@ function InspirationStudio({
       </div>
 
       <div className="inspiration-workbench">
-        <aside className="inspiration-rail" aria-label="素材筛选">
+        <aside className="inspiration-rail" aria-label="竞品包筛选">
           <section className="inspiration-rail-block">
             <div className="inspiration-rail-title">
               <span>竞品包</span>
@@ -1802,56 +1802,57 @@ function InspirationStudio({
               })}
             </div>
           </section>
-
-          <section className="inspiration-rail-block">
-            <div className="inspiration-rail-title">
-              <span>素材类型</span>
-            </div>
-            <div className="inspiration-filter-stack">
-              {(["all", "weapon_skin", "character_skin", "general_reference"] as InspirationCategoryFilter[]).map((value) => (
-                <button
-                  type="button"
-                  className={category === value ? "active" : ""}
-                  aria-pressed={category === value}
-                  onClick={() => onCategoryChange(value)}
-                  key={value}
-                >
-                  {inspirationCategoryLabel(value)}
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <section className="inspiration-rail-block">
-            <div className="inspiration-kind-toggle" aria-label="视频或图片">
-              <button type="button" className={kind === "all" ? "active" : ""} onClick={() => onKindChange("all")} title="全部素材">
-                <Palette size={15} aria-hidden="true" />
-                全部
-              </button>
-              <button type="button" className={kind === "video" ? "active" : ""} onClick={() => onKindChange("video")} title="视频素材">
-                <Video size={15} aria-hidden="true" />
-                视频
-              </button>
-              <button type="button" className={kind === "image" ? "active" : ""} onClick={() => onKindChange("image")} title="图片素材">
-                <ImageIcon size={15} aria-hidden="true" />
-                图片
-              </button>
-            </div>
-          </section>
-
-          <label className="field inspiration-search">
-            <Search size={16} aria-hidden="true" />
-            <span className="sr-only">搜索灵感素材</span>
-            <input
-              value={query}
-              onChange={(event) => onQueryChange(event.target.value)}
-              placeholder="搜索游戏、武器、角色、特效"
-              autoComplete="off"
-            />
-          </label>
         </aside>
 
         <section className="inspiration-board" aria-label="灵感素材列表">
+          <div className="inspiration-board-filters" aria-label="素材结果筛选">
+            <label className="field inspiration-search">
+              <Search size={16} aria-hidden="true" />
+              <span className="sr-only">搜索灵感素材</span>
+              <input
+                value={query}
+                onChange={(event) => onQueryChange(event.target.value)}
+                placeholder="搜索游戏、武器、角色、特效"
+                autoComplete="off"
+              />
+            </label>
+
+            <div className="inspiration-filter-cluster">
+              <span>素材类型</span>
+              <div className="inspiration-filter-stack">
+                {(["all", "weapon_skin", "character_skin", "general_reference"] as InspirationCategoryFilter[]).map((value) => (
+                  <button
+                    type="button"
+                    className={category === value ? "active" : ""}
+                    aria-pressed={category === value}
+                    onClick={() => onCategoryChange(value)}
+                    key={value}
+                  >
+                    {inspirationCategoryLabel(value)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="inspiration-filter-cluster">
+              <span>媒介</span>
+              <div className="inspiration-kind-toggle" aria-label="视频或图片">
+                <button type="button" className={kind === "all" ? "active" : ""} onClick={() => onKindChange("all")} title="全部素材">
+                  <Palette size={15} aria-hidden="true" />
+                  全部
+                </button>
+                <button type="button" className={kind === "video" ? "active" : ""} onClick={() => onKindChange("video")} title="视频素材">
+                  <Video size={15} aria-hidden="true" />
+                  视频
+                </button>
+                <button type="button" className={kind === "image" ? "active" : ""} onClick={() => onKindChange("image")} title="图片素材">
+                  <ImageIcon size={15} aria-hidden="true" />
+                  图片
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div className="inspiration-stats" aria-label="灵感素材统计">
             <div className="inspiration-stat-total">
               <b>{totalAssets}</b>

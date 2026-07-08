@@ -3443,6 +3443,30 @@ button.metric:focus-visible {
   min-width: 0;
 }
 
+.inspiration-board-filters {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(360px, 0.95fr) minmax(240px, 0.65fr);
+  align-items: end;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.inspiration-filter-cluster {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.inspiration-filter-cluster > span {
+  color: rgba(18, 29, 27, 0.62);
+  font-size: 11px;
+  font-weight: 860;
+}
+
+.inspiration-board-filters .inspiration-filter-stack {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .inspiration-board {
   min-width: 0;
   padding: 14px;
@@ -4971,6 +4995,10 @@ button.metric:focus-visible {
   .inspiration-pack-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
+
+  .inspiration-board-filters {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 720px) {
@@ -5182,8 +5210,16 @@ button.metric:focus-visible {
     width: 100%;
   }
 
+  .inspiration-board-filters {
+    grid-template-columns: 1fr;
+  }
+
   .inspiration-pack-grid,
   .inspiration-filter-stack {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .inspiration-board-filters .inspiration-filter-stack {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -5267,6 +5303,10 @@ button.metric:focus-visible {
   .inspiration-pack-grid,
   .inspiration-filter-stack,
   .inspiration-wall {
+    grid-template-columns: 1fr;
+  }
+
+  .inspiration-board-filters .inspiration-filter-stack {
     grid-template-columns: 1fr;
   }
 }
