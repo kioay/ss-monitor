@@ -158,8 +158,20 @@ assert.equal(referenceGame.name, "FPS/TPS 竞品素材");
 assert.ok(referenceGame.bilibiliKeywords.some((keyword) => keyword.includes("VALORANT")));
 assert.ok(referenceGame.bilibiliKeywords.some((keyword) => keyword.includes("暗区突围")));
 assert.ok(referenceGame.bilibiliKeywords.some((keyword) => keyword.includes("Helldivers 2")));
+assert.ok(referenceGame.bilibiliKeywords.some((keyword) => keyword.includes("CF")));
+assert.ok(referenceGame.bilibiliKeywords.some((keyword) => keyword.includes("CF手游")));
+assert.ok(referenceGame.bilibiliKeywords.some((keyword) => keyword.includes("CFHD")));
+assert.ok(referenceGame.bilibiliKeywords.some((keyword) => keyword.includes("CSonline")));
+assert.ok(referenceGame.bilibiliKeywords.some((keyword) => keyword.includes("逆战")));
+assert.ok(referenceGame.bilibiliKeywords.some((keyword) => keyword.includes("逆战未来")));
 assert.ok(referenceGame.tiebaBars.includes("无畏契约"));
 assert.ok(referenceGame.tiebaBars.includes("三角洲行动"));
+assert.ok(referenceGame.tiebaBars.includes("穿越火线"));
+assert.ok(referenceGame.tiebaBars.includes("CF手游"));
+assert.ok(referenceGame.tiebaBars.includes("CFHD"));
+assert.ok(referenceGame.tiebaBars.includes("CSOL"));
+assert.ok(referenceGame.tiebaBars.includes("逆战"));
+assert.ok(referenceGame.tiebaBars.includes("逆战未来"));
 assert.ok(!referenceGame.bilibiliKeywords.includes("Apex"));
 assert.ok(!referenceGame.bilibiliKeywords.includes("三角洲行动"));
 assert.ok(!referenceGame.bilibiliKeywords.join("\n").includes("生死狙击"));
@@ -172,6 +184,12 @@ const expectedSeedIds = [
   "bloodstrike",
   "peace-elite",
   "knives-out",
+  "crossfire",
+  "crossfire-mobile",
+  "crossfire-hd",
+  "counter-strike-online",
+  "nz",
+  "nz-future",
   "halo",
   "doom",
   "destiny-2",
@@ -190,6 +208,12 @@ const selectedReferenceGame = makeInspirationReferenceGame(["destiny-2", "rainbo
 assert.ok(selectedReferenceGame.tiebaBars.includes("命运2"));
 assert.ok(selectedReferenceGame.tiebaBars.includes("彩虹六号"));
 assert.ok(selectedReferenceGame.tiebaBars.includes("THE FINALS"));
+
+const selectedChineseShooterGame = makeInspirationReferenceGame(["crossfire", "crossfire-mobile", "crossfire-hd", "counter-strike-online", "nz", "nz-future"], "all");
+assert.ok(selectedChineseShooterGame.bilibiliKeywords.some((keyword) => keyword.includes("CF手游")));
+assert.ok(selectedChineseShooterGame.bilibiliKeywords.some((keyword) => keyword.includes("逆战未来")));
+assert.ok(selectedChineseShooterGame.tiebaBars.includes("穿越火线"));
+assert.ok(selectedChineseShooterGame.tiebaBars.includes("逆战未来"));
 
 assert.equal(
   shouldRetainInspirationCache({ candidateAssetCount: 0, previousAssetCount: 67, hasBlockedSource: false }),

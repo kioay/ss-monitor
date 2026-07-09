@@ -145,6 +145,110 @@ export const inspirationSeedPresets: InspirationSeedPreset[] = [
     ]
   },
   {
+    id: "crossfire",
+    label: "CF",
+    category: "general_reference",
+    description: "穿越火线武器皮肤、英雄级武器、近战武器、角色套装和活动外观",
+    keywords: [
+      "CF 武器皮肤",
+      "CF 枪皮",
+      "CF 英雄级武器",
+      "CF 近战武器",
+      "CF 角色皮肤",
+      "CF 套装",
+      "CF 外观展示",
+      "穿越火线 武器皮肤",
+      "穿越火线 角色皮肤",
+      "CrossFire weapon skin"
+    ]
+  },
+  {
+    id: "crossfire-mobile",
+    label: "CF手游",
+    category: "general_reference",
+    description: "穿越火线手游武器皮肤、王者武器、角色套装、近战和联动外观",
+    keywords: [
+      "CF手游 武器皮肤",
+      "CF手游 枪皮",
+      "CF手游 王者武器",
+      "CF手游 近战武器",
+      "CF手游 角色皮肤",
+      "CF手游 套装",
+      "CF手游 外观展示",
+      "穿越火线手游 武器皮肤",
+      "穿越火线手游 角色皮肤",
+      "CrossFire Mobile weapon skin"
+    ]
+  },
+  {
+    id: "crossfire-hd",
+    label: "CFHD",
+    category: "weapon_skin",
+    description: "CFHD 高清枪械皮肤、角色外观、近战武器和竞技皮肤参考",
+    keywords: [
+      "CFHD",
+      "CFHD 武器皮肤",
+      "CFHD 枪皮",
+      "CFHD 角色皮肤",
+      "CFHD 近战武器",
+      "CFHD 外观展示",
+      "穿越火线HD 武器皮肤",
+      "穿越火线HD 角色皮肤",
+      "CrossFire HD weapon skin"
+    ]
+  },
+  {
+    id: "counter-strike-online",
+    label: "CSonline",
+    category: "general_reference",
+    description: "反恐精英Online 枪械皮肤、角色装扮、生化武器和活动套装",
+    keywords: [
+      "CSonline",
+      "CSOL",
+      "CSonline 武器皮肤",
+      "CSonline 枪皮",
+      "CSonline 角色皮肤",
+      "CSonline 外观展示",
+      "反恐精英Online 武器皮肤",
+      "反恐精英OL 枪皮",
+      "Counter-Strike Online weapon skin"
+    ]
+  },
+  {
+    id: "nz",
+    label: "逆战",
+    category: "general_reference",
+    description: "逆战枪械皮肤、神器武器、机甲装备、角色套装和 PVE 科幻外观",
+    keywords: [
+      "逆战 武器皮肤",
+      "逆战 枪皮",
+      "逆战 神器",
+      "逆战 角色皮肤",
+      "逆战 套装",
+      "逆战 机甲",
+      "逆战 外观展示",
+      "NZ weapon skin",
+      "NZ cosmetics"
+    ]
+  },
+  {
+    id: "nz-future",
+    label: "逆战未来",
+    category: "general_reference",
+    description: "逆战未来科幻武器、角色装备、机甲道具和战术外观参考",
+    keywords: [
+      "逆战未来",
+      "逆战未来 武器皮肤",
+      "逆战未来 武器外观",
+      "逆战未来 角色皮肤",
+      "逆战未来 套装",
+      "逆战未来 机甲",
+      "逆战未来 外观展示",
+      "NZ Future weapon skin",
+      "NZ Future cosmetics"
+    ]
+  },
+  {
     id: "fortnite",
     label: "堡垒之夜",
     category: "character_skin",

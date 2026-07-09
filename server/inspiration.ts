@@ -294,8 +294,8 @@ const inspirationCollectionInFlight = new Map<string, Promise<InspirationCollect
 const inspirationCollectionTtlMs = 45 * 60_000;
 const inspirationSnapshotMaxEntries = 24;
 const referenceGameId = "fps-tps-reference";
-const inspirationMaxSearchKeywords = 56;
-const inspirationMaxTiebaBars = 20;
+const inspirationMaxSearchKeywords = 120;
+const inspirationMaxTiebaBars = 32;
 let inspirationSnapshotLoaded = false;
 
 const tiebaBarsBySeedId: Record<string, string[]> = {
@@ -306,6 +306,12 @@ const tiebaBarsBySeedId: Record<string, string[]> = {
   overwatch: ["守望先锋"],
   pubg: ["绝地求生", "PUBG"],
   cs2: ["CS2", "反恐精英"],
+  crossfire: ["穿越火线"],
+  "crossfire-mobile": ["穿越火线手游", "CF手游"],
+  "crossfire-hd": ["CFHD", "穿越火线HD"],
+  "counter-strike-online": ["反恐精英online", "CSOL"],
+  nz: ["逆战"],
+  "nz-future": ["逆战未来"],
   fortnite: ["堡垒之夜"],
   "arena-breakout": ["暗区突围"],
   "lost-light": ["萤火突击"],
