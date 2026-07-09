@@ -77,6 +77,22 @@ const nonDesignNoise = [
     summary: "普通吧帖截图，不是外观展示",
     keywords: ["武器皮肤", "枪械皮肤"],
     contentParts: [{ type: "post", text: "小群18=2，加群闲聊。", count: 1 }]
+  }),
+  makeItem("gcoin-return-question", {
+    source: "tieba",
+    title: "18年老玩家回归 请问现在限时G币大伙都用来买什么",
+    summary: "G-COIN、限时G币购买建议，讨论角色套装和赛季通行证买什么。",
+    keywords: ["PUBG", "角色套装", "赛季通行证"],
+    thumbnail: "https://imgsa.baidu.com/forum/pic/item/gcoin-question.jpg",
+    contentParts: [{ type: "post", text: "回归玩家问限时G币用来买什么，不是设计展示。", count: 1 }]
+  }),
+  makeItem("skin-reward-guide", {
+    source: "bilibili",
+    title: "【三角洲】限时三角券别忘领！兑换新刀皮完整攻略来了，手慢真的亏",
+    summary: "教程攻略，教你领取三角券兑换刀皮，不是武器皮肤展示。",
+    keywords: ["三角洲行动", "武器皮肤", "近战武器"],
+    thumbnail: "https://i0.hdslb.com/bfs/archive/reward-guide.jpg",
+    contentParts: [{ type: "description", text: "限时三角券领取、兑换新刀皮攻略。", count: 1 }]
   })
 ];
 
