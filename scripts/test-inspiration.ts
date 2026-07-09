@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { buildInspirationAssets, makeInspirationReferenceGame, shouldRetainInspirationCache } from "../server/inspiration";
 import { filterInspirationAssets, makeFilteredInspirationStats } from "../src/inspirationFilters";
+import { allInspirationPackIds, invertInspirationPackSelection, toggleInspirationPackSelection } from "../src/inspirationPackSelection";
 import { inspirationSeedPresets, type ContentPart, type GameId, type MonitorItem, type RiskLevel, type Sentiment, type SourceType } from "../src/shared";
 
 const now = new Date("2026-07-08T06:00:00.000Z");
@@ -215,6 +216,10 @@ const expectedSeedIds = [
 ];
 const seedIds = new Set(inspirationSeedPresets.map((seed) => seed.id));
 for (const id of expectedSeedIds) assert.ok(seedIds.has(id), id);
+assert.deepEqual(allInspirationPackIds(), inspirationSeedPresets.map((seed) => seed.id));
+assert.deepEqual(invertInspirationPackSelection(allInspirationPackIds()), []);
+assert.deepEqual(toggleInspirationPackSelection(["halo"], "halo"), []);
+assert.deepEqual(toggleInspirationPackSelection([], "halo"), ["halo"]);
 
 const selectedReferenceGame = makeInspirationReferenceGame(["destiny-2", "rainbow-six-siege", "the-finals"], "all");
 assert.ok(selectedReferenceGame.tiebaBars.includes("命运2"));

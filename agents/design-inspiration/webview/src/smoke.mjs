@@ -26,6 +26,7 @@ const requiredHtmlMarkers = [
   "data-pack-option",
   "selectedPackIds",
   "syncPacks",
+  "__none__",
   "crossfire",
   "crossfire-mobile",
   "crossfire-hd",
@@ -77,4 +78,10 @@ for (const marker of requiredSdkMarkers) {
 }
 if (sdk.includes("WDCloud Agent App SDK is not connected")) {
   throw new Error("dist/agent-app-sdk.js is still the stub SDK");
+}
+if (html.includes("为避免空筛选，已恢复为全选")) {
+  throw new Error("dist/index.html still restores inverse selection to all packs");
+}
+if (!html.includes("ids.length ? ids.join(\",\") : noPackSelectionValue")) {
+  throw new Error("dist/index.html does not persist empty pack selection");
 }

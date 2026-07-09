@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { dashboardGameOptions, normalizeDashboardGameSelection } from "./dashboardGames";
 import { filterInspirationAssets, makeFilteredInspirationStats, type InspirationCategoryFilter } from "./inspirationFilters";
+import { allInspirationPackIds, invertInspirationPackSelection, toggleInspirationPackSelection } from "./inspirationPackSelection";
 import { currentAnalysisVersion, inspirationSeedPresets } from "./shared";
 import { sourceHealthWarningText } from "./sourceHealth";
 import { feedSourceOptionsForGames, primarySourceOptionsForGames, sourceMetricCount, sourceMetricLabel, sourceTypeText } from "./sourceDisplay";
@@ -76,6 +77,28 @@ const searchWindowHours = 24 * 30;
 const feedInitialLimit = 60;
 const feedBatchSize = 60;
 const inspirationResultLimit = 120;
+
+function makeEmptyInspirationResponse(windowHours: number, sort: InspirationSort): InspirationResponse {
+  return {
+    generatedAt: new Date().toISOString(),
+    windowHours,
+    query: "",
+    category: "all",
+    kind: "all",
+    sort,
+    totalMatched: 0,
+    stats: {
+      total: 0,
+      videos: 0,
+      images: 0,
+      weaponSkins: 0,
+      characterSkins: 0,
+      sourceBreakdown: []
+    },
+    seeds: inspirationSeedPresets,
+    assets: []
+  };
+}
 
 type TrendSeries = "negative" | "neutral" | "positive" | "total";
 type TrendSeriesVisibility = Record<TrendSeries, boolean>;
@@ -1578,7 +1601,7 @@ function InspirationPage() {
   const [category, setCategory] = React.useState<InspirationCategoryFilter>("all");
   const [sort, setSort] = React.useState<InspirationSort>("relevance");
   const [query, setQuery] = React.useState("");
-  const [selectedPackIds, setSelectedPackIds] = React.useState(() => inspirationSeedPresets.map((seed) => seed.id));
+  const [selectedPackIds, setSelectedPackIds] = React.useState(() => allInspirationPackIds());
   const latestRequestRef = React.useRef(0);
 
   React.useEffect(() => {
@@ -1589,6 +1612,13 @@ function InspirationPage() {
     async (refresh = false) => {
       const requestId = latestRequestRef.current + 1;
       latestRequestRef.current = requestId;
+      if (!selectedPackIds.length) {
+        setLoading(false);
+        if (refresh) setCollectLoading(false);
+        setError(refresh ? "请至少选择一个竞品包，或点击“全部”。" : "");
+        setData(makeEmptyInspirationResponse(windowHours, sort));
+        return;
+      }
       setLoading(true);
       if (refresh) setCollectLoading(true);
       setError("");
@@ -1615,7 +1645,7 @@ function InspirationPage() {
         if (refresh) setCollectLoading(false);
       }
     },
-    [selectedPackIds, windowHours]
+    [selectedPackIds, sort, windowHours]
   );
 
   React.useEffect(() => {
@@ -1642,22 +1672,15 @@ function InspirationPage() {
   }, [category, data, query, sort]);
 
   const togglePack = React.useCallback((packId: string) => {
-    setSelectedPackIds((current) => {
-      if (current.includes(packId)) return current.length === 1 ? current : current.filter((id) => id !== packId);
-      return [...current, packId];
-    });
+    setSelectedPackIds((current) => toggleInspirationPackSelection(current, packId));
   }, []);
 
   const selectAllPacks = React.useCallback(() => {
-    setSelectedPackIds(inspirationSeedPresets.map((seed) => seed.id));
+    setSelectedPackIds(allInspirationPackIds());
   }, []);
 
   const invertPackSelection = React.useCallback(() => {
-    setSelectedPackIds((current) => {
-      const selected = new Set(current);
-      const inverted = inspirationSeedPresets.map((seed) => seed.id).filter((id) => !selected.has(id));
-      return inverted.length ? inverted : inspirationSeedPresets.map((seed) => seed.id);
-    });
+    setSelectedPackIds((current) => invertInspirationPackSelection(current));
   }, []);
 
   const collectInspiration = React.useCallback(() => {
@@ -1667,12 +1690,6 @@ function InspirationPage() {
   const updateCategory = React.useCallback((value: InspirationCategoryFilter) => {
     setCategory(value);
   }, []);
-
-  React.useEffect(() => {
-    if (!selectedPackIds.length) {
-      setSelectedPackIds(inspirationSeedPresets.map((seed) => seed.id));
-    }
-  }, [selectedPackIds.length]);
 
   return (
     <>
@@ -1883,7 +1900,10 @@ function InspirationStudio({
 
           <div className="inspiration-wall">
             {loading ? <p className="empty compact">素材索引刷新中...</p> : null}
-            {!loading && assets.length === 0 ? (
+            {!loading && !selectedPackIds.length ? (
+              <p className="empty compact">请先选择一个竞品包，再采集或查看素材。</p>
+            ) : null}
+            {!loading && selectedPackIds.length > 0 && assets.length === 0 ? (
               <p className="empty compact">未命中素材。调整竞品包或时间窗口后采集。</p>
             ) : null}
             {assets.map((asset) => (
