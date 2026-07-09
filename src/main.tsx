@@ -93,7 +93,11 @@ function makeEmptyInspirationResponse(windowHours: number, sort: InspirationSort
       images: 0,
       weaponSkins: 0,
       characterSkins: 0,
-      sourceBreakdown: []
+      sourceBreakdown: [],
+      sourceTierBreakdown: [],
+      commercialSignalBreakdown: [],
+      detailTagBreakdown: [],
+      gapInsights: []
     },
     seeds: inspirationSeedPresets,
     assets: []
@@ -1666,7 +1670,10 @@ function InspirationPage() {
       category,
       sort,
       totalMatched: assets.length,
-      stats: makeFilteredInspirationStats(assets),
+      stats: {
+        ...makeFilteredInspirationStats(assets),
+        gapInsights: data.stats.gapInsights
+      },
       assets
     };
   }, [category, data, query, sort]);
@@ -1765,6 +1772,10 @@ function InspirationStudio({
   const characterSkinAssets = stats?.characterSkins ?? 0;
   const uncategorizedAssets = Math.max(0, totalAssets - weaponSkinAssets - characterSkinAssets);
   const sourceEntries = stats?.sourceBreakdown || [];
+  const sourceTierEntries = stats?.sourceTierBreakdown || [];
+  const commercialSignalEntries = stats?.commercialSignalBreakdown || [];
+  const detailTagEntries = stats?.detailTagBreakdown || [];
+  const gapInsights = stats?.gapInsights || [];
   const allPacksSelected = selectedPackIds.length === seeds.length;
 
   return (
@@ -1896,7 +1907,62 @@ function InspirationStudio({
                 <span>暂无命中</span>
               )}
             </div>
+            <div className="inspiration-stat-group" aria-label="可信度统计">
+              <span className="inspiration-stat-label">可信</span>
+              {sourceTierEntries.length ? (
+                sourceTierEntries.slice(0, 3).map((entry) => (
+                  <span key={entry.tier}><b>{entry.count}</b>{entry.label}</span>
+                ))
+              ) : (
+                <span>暂无分级</span>
+              )}
+            </div>
+            <div className="inspiration-stat-group" aria-label="商业信号统计">
+              <span className="inspiration-stat-label">商业</span>
+              {commercialSignalEntries.length ? (
+                commercialSignalEntries.slice(0, 3).map((entry) => (
+                  <span key={entry.level}><b>{entry.count}</b>{entry.label}</span>
+                ))
+              ) : (
+                <span>暂无信号</span>
+              )}
+            </div>
           </div>
+
+          {gapInsights.length || detailTagEntries.length ? (
+            <section className="inspiration-intel-panel" aria-label="侦查缺口">
+              <div className="inspiration-intel-head">
+                <div>
+                  <span>侦查缺口</span>
+                  <strong>{gapInsights.length ? `${gapInsights.length} 个待补强项` : "当前无高优先级缺口"}</strong>
+                </div>
+                <div className="inspiration-tag-strip">
+                  {detailTagEntries.slice(0, 6).map((entry) => (
+                    <span key={entry.tag}>{entry.tag}<b>{entry.count}</b></span>
+                  ))}
+                </div>
+              </div>
+              {gapInsights.length ? (
+                <div className="inspiration-gap-grid">
+                  {gapInsights.map((gap) => (
+                    <article className={`inspiration-gap-card ${gap.priority}`} key={gap.id}>
+                      <div>
+                        <span>{gapPriorityLabel(gap.priority)}</span>
+                        <h3>{gap.title}</h3>
+                      </div>
+                      <p>{gap.impact}</p>
+                      <div className="inspiration-gap-actions">
+                        {gap.actions.slice(0, 3).map((action) => <span key={action}>{action}</span>)}
+                      </div>
+                      <div className="inspiration-gap-keywords">
+                        {gap.keywords.slice(0, 4).map((keyword) => <code key={keyword}>{keyword}</code>)}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
 
           <div className="inspiration-wall">
             {loading ? <p className="empty compact">素材索引刷新中...</p> : null}
@@ -1930,6 +1996,8 @@ function InspirationAssetCard({ asset, highlightQuery }: { asset: InspirationAss
       <div className="inspiration-card-body">
         <div className="item-meta">
           <span>{item.sourceLabel}</span>
+          <span>{asset.sourceTierLabel}</span>
+          <span>{asset.commercialSignal.label}</span>
           <span>{formatAgo(item.publishedAt)}</span>
           <span>{asset.score} 分</span>
         </div>
@@ -1942,6 +2010,9 @@ function InspirationAssetCard({ asset, highlightQuery }: { asset: InspirationAss
           ))}
           {asset.matchedSeeds.slice(0, 2).map((seed) => (
             <span className="seed-pill" key={seed}>{seed}</span>
+          ))}
+          {asset.commercialSignal.reasons.slice(0, 2).map((reason) => (
+            <span className="signal-pill" key={reason}>{reason}</span>
           ))}
         </div>
       </div>
@@ -1960,6 +2031,12 @@ function inspirationKindLabel(kind: InspirationAssetKind) {
   if (kind === "video") return "视频";
   if (kind === "image") return "图片";
   return "全部";
+}
+
+function gapPriorityLabel(priority: "high" | "medium" | "low") {
+  if (priority === "high") return "高优先";
+  if (priority === "medium") return "中优先";
+  return "低优先";
 }
 
 function BettaFishLabPage({ windowHours }: { windowHours: number }) {

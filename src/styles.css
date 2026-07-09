@@ -3541,6 +3541,142 @@ button.metric:focus-visible {
   font-family: var(--font-data);
 }
 
+.inspiration-intel-panel {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+  border: 1px solid rgba(18, 29, 27, 0.14);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.inspiration-intel-head {
+  display: grid;
+  grid-template-columns: minmax(160px, 260px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.inspiration-intel-head > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.inspiration-intel-head span {
+  color: rgba(18, 29, 27, 0.58);
+  font-size: 11px;
+  font-weight: 860;
+}
+
+.inspiration-intel-head strong {
+  color: var(--reference-ink);
+  font-size: 15px;
+}
+
+.inspiration-tag-strip {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.inspiration-tag-strip span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid rgba(18, 29, 27, 0.1);
+  border-radius: 999px;
+  padding: 4px 7px;
+  background: rgba(241, 245, 238, 0.86);
+  color: var(--muted);
+}
+
+.inspiration-tag-strip b {
+  color: var(--reference-ink);
+}
+
+.inspiration-gap-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.inspiration-gap-card {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+  border: 1px solid rgba(18, 29, 27, 0.12);
+  border-radius: 8px;
+  padding: 9px;
+  background: #fbfcf8;
+  box-shadow: inset 3px 0 0 rgba(66, 109, 145, 0.44);
+}
+
+.inspiration-gap-card.high {
+  box-shadow: inset 3px 0 0 #c45646;
+}
+
+.inspiration-gap-card.medium {
+  box-shadow: inset 3px 0 0 #c68b2b;
+}
+
+.inspiration-gap-card > div:first-child {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.inspiration-gap-card h3 {
+  margin: 0;
+  color: var(--reference-ink);
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.inspiration-gap-card > div:first-child span {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 2px 6px;
+  background: rgba(18, 29, 27, 0.06);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 820;
+}
+
+.inspiration-gap-card p {
+  margin: 0;
+  color: rgba(18, 29, 27, 0.72);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.inspiration-gap-actions,
+.inspiration-gap-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.inspiration-gap-actions span,
+.inspiration-gap-keywords code {
+  border-radius: 6px;
+  padding: 3px 6px;
+  background: rgba(19, 153, 168, 0.08);
+  color: #126f78;
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.inspiration-gap-keywords code {
+  border: 1px solid rgba(18, 29, 27, 0.09);
+  background: rgba(248, 251, 246, 0.9);
+  color: var(--muted);
+  font-family: inherit;
+}
+
 .inspiration-wall {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -3678,6 +3814,11 @@ button.metric:focus-visible {
 .inspiration-card .seed-pill {
   background: rgba(19, 153, 168, 0.11);
   color: #126f78;
+}
+
+.inspiration-card .signal-pill {
+  background: rgba(198, 139, 43, 0.13);
+  color: #8a5b15;
 }
 
 .lab-overview .metric.green {
@@ -5258,6 +5399,15 @@ button.metric:focus-visible {
 
   .inspiration-stat-group:last-child {
     border-bottom: 0;
+  }
+
+  .inspiration-intel-head,
+  .inspiration-gap-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .inspiration-tag-strip {
+    justify-content: flex-start;
   }
 
   .inspiration-wall {

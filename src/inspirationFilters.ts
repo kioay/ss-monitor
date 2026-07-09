@@ -37,8 +37,20 @@ export function filterInspirationAssets(
 
 export function makeFilteredInspirationStats(assets: InspirationAsset[]): InspirationStats {
   const sourceCounts = new Map<SourceType, number>();
+  const sourceTierCounts = new Map<string, { label: string; count: number }>();
+  const commercialSignalCounts = new Map<string, { label: string; count: number }>();
+  const detailTagCounts = new Map<string, number>();
   for (const asset of assets) {
     sourceCounts.set(asset.item.source, (sourceCounts.get(asset.item.source) || 0) + 1);
+    sourceTierCounts.set(asset.sourceTier, {
+      label: asset.sourceTierLabel,
+      count: (sourceTierCounts.get(asset.sourceTier)?.count || 0) + 1
+    });
+    commercialSignalCounts.set(asset.commercialSignal.level, {
+      label: asset.commercialSignal.label,
+      count: (commercialSignalCounts.get(asset.commercialSignal.level)?.count || 0) + 1
+    });
+    for (const tag of asset.visualTags) detailTagCounts.set(tag, (detailTagCounts.get(tag) || 0) + 1);
   }
 
   return {
@@ -49,7 +61,18 @@ export function makeFilteredInspirationStats(assets: InspirationAsset[]): Inspir
     characterSkins: assets.filter((asset) => asset.category === "character_skin").length,
     sourceBreakdown: Array.from(sourceCounts.entries())
       .sort((left, right) => sourceOrder.indexOf(left[0]) - sourceOrder.indexOf(right[0]))
-      .map(([source, count]) => ({ source, count }))
+      .map(([source, count]) => ({ source, count })),
+    sourceTierBreakdown: Array.from(sourceTierCounts.entries())
+      .map(([tier, entry]) => ({ tier: tier as InspirationStats["sourceTierBreakdown"][number]["tier"], label: entry.label, count: entry.count }))
+      .sort((left, right) => right.count - left.count),
+    commercialSignalBreakdown: Array.from(commercialSignalCounts.entries())
+      .map(([level, entry]) => ({ level: level as InspirationStats["commercialSignalBreakdown"][number]["level"], label: entry.label, count: entry.count }))
+      .sort((left, right) => right.count - left.count),
+    detailTagBreakdown: Array.from(detailTagCounts.entries())
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((left, right) => right.count - left.count || left.tag.localeCompare(right.tag, "zh-CN"))
+      .slice(0, 8),
+    gapInsights: []
   };
 }
 

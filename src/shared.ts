@@ -6,6 +6,9 @@ export type RiskSignalSource = "thread" | "new_reply" | "stale_thread";
 export type InspirationCategory = "weapon_skin" | "character_skin" | "general_reference";
 export type InspirationAssetKind = "video" | "image";
 export type InspirationSort = "relevance" | "heat" | "latest";
+export type InspirationSourceTier = "official" | "creator_video" | "community_image" | "community_discussion" | "derived_reference";
+export type InspirationCommercialSignalLevel = "strong" | "moderate" | "weak" | "unknown";
+export type InspirationGapPriority = "high" | "medium" | "low";
 
 export const currentAnalysisVersion = 3;
 
@@ -765,6 +768,15 @@ export interface InspirationAsset {
   score: number;
   matchedSeeds: string[];
   visualTags: string[];
+  sourceTier: InspirationSourceTier;
+  sourceTierLabel: string;
+  sourceReliability: number;
+  commercialSignal: {
+    level: InspirationCommercialSignalLevel;
+    score: number;
+    label: string;
+    reasons: string[];
+  };
   reason: string;
 }
 
@@ -777,6 +789,28 @@ export interface InspirationStats {
   sourceBreakdown: Array<{
     source: SourceType;
     count: number;
+  }>;
+  sourceTierBreakdown: Array<{
+    tier: InspirationSourceTier;
+    label: string;
+    count: number;
+  }>;
+  commercialSignalBreakdown: Array<{
+    level: InspirationCommercialSignalLevel;
+    label: string;
+    count: number;
+  }>;
+  detailTagBreakdown: Array<{
+    tag: string;
+    count: number;
+  }>;
+  gapInsights: Array<{
+    id: string;
+    priority: InspirationGapPriority;
+    title: string;
+    impact: string;
+    actions: string[];
+    keywords: string[];
   }>;
 }
 

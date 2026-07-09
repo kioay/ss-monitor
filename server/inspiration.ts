@@ -11,7 +11,9 @@ import {
   type InspirationAsset,
   type InspirationAssetKind,
   type InspirationCategory,
+  type InspirationCommercialSignalLevel,
   type InspirationSort,
+  type InspirationSourceTier,
   type InspirationSeedPreset,
   type InspirationResponse,
   type InspirationStats,
@@ -93,6 +95,64 @@ const visualTagLexicon: Array<{ tag: string; terms: string[] }> = [
   { tag: "赛季通行证", terms: ["赛季", "通行证", "battle pass", "season"] },
   { tag: "商城轮换", terms: ["商城", "商店", "轮换", "store", "bundle"] },
   { tag: "二创参考", terms: ["同人", "二创", "概念", "设计", "concept", "fan art"] }
+];
+
+const sourceTierLabels: Record<InspirationSourceTier, string> = {
+  official: "官方/商城",
+  creator_video: "实录视频",
+  community_image: "玩家图帖",
+  community_discussion: "社区讨论",
+  derived_reference: "二创/转载"
+};
+
+const commercialSignalLabels: Record<InspirationCommercialSignalLevel, string> = {
+  strong: "强商业信号",
+  moderate: "中商业信号",
+  weak: "弱商业信号",
+  unknown: "待验证"
+};
+
+const officialSourceTerms = [
+  "官方",
+  "官网",
+  "官号",
+  "官方账号",
+  "official",
+  "store page",
+  "商城页",
+  "赛季页",
+  "公告"
+];
+
+const derivedReferenceTerms = [
+  "二创",
+  "同人",
+  "转载",
+  "搬运",
+  "fan art",
+  "concept",
+  "concept art",
+  "概念设计",
+  "原画"
+];
+
+const commercialMarketTerms = [
+  "商城",
+  "商店",
+  "上架",
+  "轮换",
+  "礼包",
+  "套装",
+  "通行证",
+  "赛季",
+  "限时",
+  "联名",
+  "battle pass",
+  "store",
+  "shop",
+  "bundle",
+  "collab",
+  "limited"
 ];
 
 const specificDesignMaterialTerms = [
@@ -650,6 +710,8 @@ function classifyInspirationItem(item: MonitorItem, queryTerms: string[], now: D
   const matchedSeeds = matchedSeedLabels(normalized, compact);
   const visualTags = matchedVisualTags(normalized, compact);
   if (!isDesignInspirationCandidate(normalized, compact, primaryNormalized, primaryCompact, categoryScores, matchedSeeds.length > 0)) return undefined;
+  const sourceTier = inspirationSourceTier(item, normalized, compact);
+  const commercialSignal = inspirationCommercialSignal(item, normalized, compact, sourceTier);
 
   const score =
     categoryScores[category] * 18
@@ -657,6 +719,8 @@ function classifyInspirationItem(item: MonitorItem, queryTerms: string[], now: D
     + visualTags.length * 9
     + (item.thumbnail ? 10 : 0)
     + (kind === "video" ? 8 : 4)
+    + sourceReliabilityScore(sourceTier) / 10
+    + commercialSignal.score / 10
     + recencyScore(item, now)
     + engagementScore(item);
 
@@ -668,6 +732,10 @@ function classifyInspirationItem(item: MonitorItem, queryTerms: string[], now: D
     score: Math.round(score),
     matchedSeeds,
     visualTags,
+    sourceTier,
+    sourceTierLabel: sourceTierLabels[sourceTier],
+    sourceReliability: sourceReliabilityScore(sourceTier),
+    commercialSignal,
     reason: inspirationReason(kind, category, visualTags)
   };
 }
@@ -731,6 +799,57 @@ function containsTerm(normalized: string, compact: string, term: string) {
   const normalizedTerm = normalizeText(term);
   if (!normalizedTerm) return false;
   return normalized.includes(normalizedTerm) || compact.includes(normalizedTerm.replace(/\s+/g, ""));
+}
+
+function inspirationSourceTier(item: MonitorItem, normalized: string, compact: string): InspirationSourceTier {
+  if (officialSourceTerms.some((term) => containsTerm(normalized, compact, term))) return "official";
+  if (derivedReferenceTerms.some((term) => containsTerm(normalized, compact, term))) return "derived_reference";
+  if (item.source === "bilibili" || item.source === "douyin") return "creator_video";
+  if (item.thumbnail) return "community_image";
+  return "community_discussion";
+}
+
+function sourceReliabilityScore(tier: InspirationSourceTier) {
+  if (tier === "official") return 96;
+  if (tier === "creator_video") return 76;
+  if (tier === "community_image") return 58;
+  if (tier === "community_discussion") return 42;
+  return 34;
+}
+
+function inspirationCommercialSignal(
+  item: MonitorItem,
+  normalized: string,
+  compact: string,
+  sourceTier: InspirationSourceTier
+): InspirationAsset["commercialSignal"] {
+  const metrics = item.metrics || {};
+  const comments = metrics.comments || metrics.replies || 0;
+  const marketHits = countTermHits(normalized, compact, commercialMarketTerms);
+  const metricScore =
+    Math.min(34, (metrics.views || 0) / 18_000)
+    + Math.min(24, (metrics.likes || 0) / 800)
+    + Math.min(18, comments / 180)
+    + Math.min(16, (metrics.favorites || 0) / 240)
+    + Math.min(14, (metrics.shares || 0) / 120)
+    + Math.min(10, (metrics.danmaku || 0) / 500);
+  const score = Math.min(100, Math.round(metricScore + marketHits * 12 + (sourceTier === "official" ? 20 : 0)));
+  const reasons: string[] = [];
+  if (sourceTier === "official") reasons.push("官方或商城源");
+  if (marketHits > 0) reasons.push("命中商城/礼包/通行证信号");
+  if ((metrics.views || 0) >= 100_000) reasons.push(`播放${formatCompactNumber(metrics.views || 0)}`);
+  if ((metrics.likes || 0) >= 3000) reasons.push(`点赞${formatCompactNumber(metrics.likes || 0)}`);
+  if (comments >= 500) reasons.push(`评论${formatCompactNumber(comments)}`);
+  if ((metrics.favorites || 0) >= 1000) reasons.push(`收藏${formatCompactNumber(metrics.favorites || 0)}`);
+
+  const level: InspirationCommercialSignalLevel =
+    score >= 68 ? "strong" : score >= 34 ? "moderate" : score > 0 ? "weak" : "unknown";
+  return {
+    level,
+    score,
+    label: commercialSignalLabels[level],
+    reasons: reasons.slice(0, 4)
+  };
 }
 
 function inspirationKind(item: MonitorItem): InspirationAssetKind {
@@ -816,6 +935,11 @@ function publishedTime(item: MonitorItem) {
   return Number.isFinite(value) ? value : 0;
 }
 
+function formatCompactNumber(value: number) {
+  if (value >= 10_000) return `${Math.round(value / 1000) / 10}万`;
+  return String(value);
+}
+
 function inspirationReason(kind: InspirationAssetKind, category: InspirationCategory, tags: string[]) {
   const kindLabel = kind === "video" ? "视频素材" : "图文素材";
   const categoryLabel = category === "weapon_skin" ? "武器皮肤" : category === "character_skin" ? "角色皮肤" : "射击游戏参考";
@@ -823,13 +947,19 @@ function inspirationReason(kind: InspirationAssetKind, category: InspirationCate
   return `${kindLabel} · ${categoryLabel}${tagText}`;
 }
 
-function makeInspirationStats(assets: InspirationAsset[]): InspirationStats {
+export function makeInspirationStats(assets: InspirationAsset[]): InspirationStats {
   const sourceCounts = new Map<SourceType, number>();
+  const sourceTierCounts = new Map<InspirationSourceTier, number>();
+  const commercialSignalCounts = new Map<InspirationCommercialSignalLevel, number>();
+  const detailTagCounts = new Map<string, number>();
   for (const asset of assets) {
     sourceCounts.set(asset.item.source, (sourceCounts.get(asset.item.source) || 0) + 1);
+    sourceTierCounts.set(asset.sourceTier, (sourceTierCounts.get(asset.sourceTier) || 0) + 1);
+    commercialSignalCounts.set(asset.commercialSignal.level, (commercialSignalCounts.get(asset.commercialSignal.level) || 0) + 1);
+    for (const tag of asset.visualTags) detailTagCounts.set(tag, (detailTagCounts.get(tag) || 0) + 1);
   }
 
-  return {
+  const stats: InspirationStats = {
     total: assets.length,
     videos: assets.filter((asset) => asset.kind === "video").length,
     images: assets.filter((asset) => asset.kind === "image").length,
@@ -837,6 +967,111 @@ function makeInspirationStats(assets: InspirationAsset[]): InspirationStats {
     characterSkins: assets.filter((asset) => asset.category === "character_skin").length,
     sourceBreakdown: Array.from(sourceCounts.entries())
       .sort((left, right) => sourceOrder.indexOf(left[0]) - sourceOrder.indexOf(right[0]))
-      .map(([source, count]) => ({ source, count }))
+      .map(([source, count]) => ({ source, count })),
+    sourceTierBreakdown: Array.from(sourceTierCounts.entries())
+      .map(([tier, count]) => ({ tier, label: sourceTierLabels[tier], count }))
+      .sort((left, right) => right.count - left.count),
+    commercialSignalBreakdown: Array.from(commercialSignalCounts.entries())
+      .map(([level, count]) => ({ level, label: commercialSignalLabels[level], count }))
+      .sort((left, right) => commercialSignalRank(left.level) - commercialSignalRank(right.level)),
+    detailTagBreakdown: Array.from(detailTagCounts.entries())
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((left, right) => right.count - left.count || left.tag.localeCompare(right.tag, "zh-CN"))
+      .slice(0, 8),
+    gapInsights: []
   };
+  return {
+    ...stats,
+    gapInsights: makeInspirationGapInsights(stats)
+  };
+}
+
+function commercialSignalRank(level: InspirationCommercialSignalLevel) {
+  if (level === "strong") return 0;
+  if (level === "moderate") return 1;
+  if (level === "weak") return 2;
+  return 3;
+}
+
+function makeInspirationGapInsights(stats: InspirationStats): InspirationStats["gapInsights"] {
+  const gaps: InspirationStats["gapInsights"] = [];
+  const officialCount = stats.sourceTierBreakdown.find((entry) => entry.tier === "official")?.count || 0;
+  const creatorVideoCount = stats.sourceTierBreakdown.find((entry) => entry.tier === "creator_video")?.count || 0;
+  const derivedCount = stats.sourceTierBreakdown.find((entry) => entry.tier === "derived_reference")?.count || 0;
+  const strongSignals = stats.commercialSignalBreakdown.find((entry) => entry.level === "strong")?.count || 0;
+  const moderateSignals = stats.commercialSignalBreakdown.find((entry) => entry.level === "moderate")?.count || 0;
+  const tagSet = new Set(stats.detailTagBreakdown.map((entry) => entry.tag));
+
+  if (stats.total < 12) {
+    gaps.push({
+      id: "sample-size",
+      priority: "high",
+      title: "有效素材样本偏少",
+      impact: "趋势判断容易被单个爆款或转载样本带偏。",
+      actions: ["扩大窗口到30天", "增加强制刷新后再按热度排序", "优先补采商城礼包、检视动画、角色套装关键词"],
+      keywords: ["皮肤展示", "bundle", "operator skin", "weapon inspect"]
+    });
+  }
+  if (stats.weaponSkins < 6 || stats.characterSkins < 4) {
+    gaps.push({
+      id: "category-balance",
+      priority: "high",
+      title: "武器/角色分类覆盖不均",
+      impact: "无法判断当前竞品到底在推枪械外观、角色套装还是综合礼包。",
+      actions: ["按武器皮肤和角色皮肤分别采集", "补充近战武器、干员皮肤、通行证套装关键词", "检查未分类素材的细分标签"],
+      keywords: ["武器皮肤", "近战皮肤", "角色皮肤", "通行证皮肤"]
+    });
+  }
+  if (stats.sourceBreakdown.length <= 2 || officialCount === 0) {
+    gaps.push({
+      id: "source-coverage",
+      priority: "high",
+      title: "官方/海外来源不足",
+      impact: "B站和贴吧能反映热度线索，但不能替代官方商城、赛季页和海外实录。",
+      actions: ["补接游戏官网公告、商城页、Steam/Epic/主机商店页", "补采YouTube、Reddit、X/Twitter等海外实录", "把官方源作为高可信素材优先展示"],
+      keywords: ["official store", "season pass", "YouTube showcase", "reddit skin"]
+    });
+  }
+  if (strongSignals + moderateSignals < Math.min(4, Math.max(1, Math.ceil(stats.total * 0.35)))) {
+    gaps.push({
+      id: "commercial-signal",
+      priority: "medium",
+      title: "商业表现信号偏弱",
+      impact: "只有视觉素材，缺少播放、互动、商城上架或限时礼包信号时，不适合判断商业吸引力。",
+      actions: ["优先查看强/中商业信号素材", "补采带商城、礼包、限时、联名、通行证的内容", "对二创转载只作为视觉参考，不纳入商业判断"],
+      keywords: ["商城", "礼包", "限时", "联名"]
+    });
+  }
+  if (!tagSet.has("检视动画") || !tagSet.has("击杀特效")) {
+    gaps.push({
+      id: "motion-vfx",
+      priority: "medium",
+      title: "动态检视和特效素材不足",
+      impact: "静态图能看造型，但不能判断第一人称观感、击杀反馈和特效包装强度。",
+      actions: ["补采inspect、reload、kill effect、finisher关键词", "优先筛选视频素材", "把缩略图裂开或无视频的样本降权"],
+      keywords: ["inspect", "reload", "kill effect", "finisher"]
+    });
+  }
+  if (stats.total > 0 && derivedCount / stats.total > 0.35) {
+    gaps.push({
+      id: "derived-ratio",
+      priority: "low",
+      title: "二创/转载占比偏高",
+      impact: "二创能提供方向灵感，但不能代表真实上架品质和玩家付费反馈。",
+      actions: ["保留二创为灵感线索", "同款主题回查官方/实机展示", "商业判断只采用官方或实录视频"],
+      keywords: ["官方展示", "实机展示", "store bundle"]
+    });
+  }
+  if (creatorVideoCount === 0 && stats.total > 0) {
+    gaps.push({
+      id: "video-proof",
+      priority: "medium",
+      title: "缺少视频实录佐证",
+      impact: "无法验证模型细节、动效节奏和第一人称遮挡。",
+      actions: ["优先采集视频源", "补搜showcase、preview、inspect", "图片素材仅作为造型参考"],
+      keywords: ["showcase", "preview", "inspect"]
+    });
+  }
+
+  return gaps.slice(0, 5);
 }

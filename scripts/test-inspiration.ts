@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { buildInspirationAssets, makeInspirationReferenceGame, shouldRetainInspirationCache } from "../server/inspiration";
+import { buildInspirationAssets, makeInspirationReferenceGame, makeInspirationStats, shouldRetainInspirationCache } from "../server/inspiration";
 import { filterInspirationAssets, makeFilteredInspirationStats } from "../src/inspirationFilters";
 import { allInspirationPackIds, invertInspirationPackSelection, toggleInspirationPackSelection } from "../src/inspirationPackSelection";
 import { inspirationSeedPresets, type ContentPart, type GameId, type MonitorItem, type RiskLevel, type Sentiment, type SourceType } from "../src/shared";
@@ -119,6 +119,11 @@ assert.equal(allAssets[0].kind, "video");
 assert.ok(allAssets[0].visualTags.includes("枪械皮肤"));
 assert.ok(allAssets[0].visualTags.includes("击杀特效"));
 assert.ok(allAssets[0].matchedSeeds.includes("VALORANT"));
+assert.equal(allAssets[0].sourceTier, "creator_video");
+assert.equal(allAssets[0].sourceTierLabel, "实录视频");
+assert.ok(allAssets[0].sourceReliability > 70);
+assert.ok(allAssets[0].commercialSignal.score > 0);
+assert.ok(["strong", "moderate", "weak"].includes(allAssets[0].commercialSignal.level));
 
 const characterAssets = buildInspirationAssets([weaponVideo, characterImage], {
   now,
@@ -164,6 +169,9 @@ assert.deepEqual(
 assert.equal(makeFilteredInspirationStats(allAssets).total, 2);
 assert.equal(makeFilteredInspirationStats(allAssets).videos, 1);
 assert.equal(makeFilteredInspirationStats(allAssets).images, 1);
+assert.ok(makeFilteredInspirationStats(allAssets).sourceTierBreakdown.some((entry) => entry.tier === "creator_video"));
+assert.ok(makeFilteredInspirationStats(allAssets).commercialSignalBreakdown.length > 0);
+assert.ok(makeFilteredInspirationStats(allAssets).detailTagBreakdown.some((entry) => entry.tag === "枪械皮肤"));
 
 const referenceGame = makeInspirationReferenceGame([], "weapon_skin");
 assert.equal(referenceGame.id, "fps-tps-reference");
@@ -231,6 +239,11 @@ assert.ok(selectedChineseShooterGame.bilibiliKeywords.some((keyword) => keyword.
 assert.ok(selectedChineseShooterGame.bilibiliKeywords.some((keyword) => keyword.includes("逆战未来")));
 assert.ok(selectedChineseShooterGame.tiebaBars.includes("穿越火线"));
 assert.ok(selectedChineseShooterGame.tiebaBars.includes("逆战未来"));
+
+const sparseStats = buildInspirationAssets([weaponVideo, characterImage], { now });
+assert.ok(makeFilteredInspirationStats(sparseStats).gapInsights.length === 0);
+assert.ok(makeInspirationStats(sparseStats).gapInsights.some((gap) => gap.id === "sample-size"));
+assert.ok(makeInspirationStats(sparseStats).gapInsights.some((gap) => gap.id === "source-coverage"));
 
 assert.equal(
   shouldRetainInspirationCache({ candidateAssetCount: 0, previousAssetCount: 67, hasBlockedSource: false }),
