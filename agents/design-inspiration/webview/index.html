@@ -1215,12 +1215,13 @@
         }
         const assets = Array.isArray(state.lastAssets) ? state.lastAssets : [];
         const stats = state.lastStats && typeof state.lastStats === "object" ? state.lastStats : null;
-        const visibleMarkdown = stripSuppressedReportContent(cleanRuntime(state.lastResult));
+        const citationMap = buildCitationMap(assets);
+        const visibleMarkdown = stripSuppressedReportContent(cleanReportText(cleanRuntime(state.lastResult), citationMap));
         const report = parseReport(visibleMarkdown);
         els.result.innerHTML = `
           <article class="report">
-            ${renderReportOverview(stats, report)}
-            ${renderReportSections(report)}
+            ${renderReportOverview(stats, report, citationMap)}
+            ${renderReportSections(report, citationMap)}
             ${renderAssetCards(assets)}
             <details class="raw-result">
               <summary>报告原文</summary>
@@ -1230,13 +1231,13 @@
         `;
       }
 
-      function renderReportOverview(stats, report) {
+      function renderReportOverview(stats, report, citationMap) {
         const lead = report.lead || "报告已生成。请查看下方章节和素材引用。";
         return `
           <section class="report-overview" aria-label="报告概览">
             <div>
               <span class="report-kicker">Report Brief</span>
-              <p class="report-lead">${renderInlineMarkdown(lead)}</p>
+              <p class="report-lead">${renderInlineMarkdown(lead, citationMap)}</p>
             </div>
             ${renderStats(stats)}
           </section>
@@ -1278,23 +1279,23 @@
         `;
       }
 
-      function renderReportSections(report) {
+      function renderReportSections(report, citationMap) {
         const sections = report.sections.filter((section) => section.items.length || section.paragraphs.length);
         if (!sections.length) return "";
         return `
           <section class="report-section-list" aria-label="报告正文">
-            ${sections.map(renderReportSection).join("")}
+            ${sections.map((section) => renderReportSection(section, citationMap)).join("")}
           </section>
         `;
       }
 
-      function renderReportSection(section) {
+      function renderReportSection(section, citationMap) {
         return `
           <section class="report-section">
             <h3>${escapeHtml(section.title)}</h3>
             <div class="report-section-body">
-              ${section.paragraphs.map((text) => `<p>${renderInlineMarkdown(text)}</p>`).join("")}
-              ${section.items.length ? `<ul>${section.items.map((text) => `<li>${renderInlineMarkdown(text)}</li>`).join("")}</ul>` : ""}
+              ${section.paragraphs.map((text) => `<p>${renderInlineMarkdown(text, citationMap)}</p>`).join("")}
+              ${section.items.length ? `<ul>${section.items.map((text) => `<li>${renderInlineMarkdown(text, citationMap)}</li>`).join("")}</ul>` : ""}
             </div>
           </section>
         `;
@@ -1326,6 +1327,7 @@
         const tags = [
           categoryLabel(asset.category),
           asset.kind === "video" ? "视频" : "图文",
+          ...(Array.isArray(asset.designTags) ? asset.designTags.slice(0, 2) : []),
           ...(Array.isArray(asset.visualTags) ? asset.visualTags.slice(0, 2) : [])
         ].filter(Boolean);
         const meta = [
@@ -1359,6 +1361,39 @@
 
       function cleanRuntime(markdown) {
         return String(markdown || "").replace(/^#\s*设计灵感素材报告\s*/i, "").replace(/\n## Runtime[\s\S]*$/i, "").trim();
+      }
+
+      function cleanReportText(markdown, citationMap = new Map()) {
+        let value = String(markdown || "");
+        value = value.replace(/(?:[，,、]\s*)?sourceReliability\s*[:：]?\s*\d+(?:\.\d+)?\s*[，,、]?\s*/gi, "");
+        const replacements = [
+          ["sourceTrustLabel", "来源可信度"],
+          ["sourceTierLabel", "来源可信度"],
+          ["sourceReliability", "来源可信度"],
+          ["sourceTier", "来源类型"],
+          ["commercialSignalLabel", "商业信号"],
+          ["commercialSignal", "商业信号"],
+          ["categoryLabel", "分类"],
+          ["competitorGames", "竞品游戏"],
+          ["sourceCitation", "来源引用"],
+          ["detailTagBreakdown", "细分标签"],
+          ["matchedSeeds", "对应竞品"],
+          ["visualTags", "视觉标签"],
+          ["weapon_skin", "武器皮肤"],
+          ["character_skin", "角色皮肤"],
+          ["general_reference", "综合参考"]
+        ];
+        replacements.forEach(([raw, label]) => {
+          value = value.split(raw).join(label);
+        });
+        if (citationMap.size) {
+          value = value.replace(/https?:\/\/[^\s<>)，,。；;]+/g, (url, offset, fullText) => {
+            const prefix = fullText.slice(Math.max(0, offset - 96), offset);
+            if (prefix.includes("｜") && !/[：:链接来源参考]\s*$/.test(prefix)) return url;
+            return citationLabelForUrl(url, citationMap, true) || url;
+          });
+        }
+        return value.replace(/[ \t]{2,}/g, " ").trim();
       }
 
       function stripSuppressedReportContent(markdown) {
@@ -1493,7 +1528,51 @@
           .trim();
       }
 
-      function renderInlineMarkdown(value) {
+      function buildCitationMap(assets) {
+        const map = new Map();
+        (Array.isArray(assets) ? assets : []).forEach((asset) => {
+          if (!asset || typeof asset !== "object") return;
+          const href = validUrl(asset.sourceUrl);
+          if (!href) return;
+          const citation = asset.sourceCitation || assetCitation(asset);
+          if (!citation) return;
+          map.set(normalizeCitationUrl(href), citation);
+          map.set(normalizeCitationUrl(href).replace(/\/+$/, ""), citation);
+        });
+        return map;
+      }
+
+      function assetCitation(asset) {
+        const games = Array.isArray(asset.competitorGames) && asset.competitorGames.length
+          ? asset.competitorGames.join("、")
+          : "未标注竞品";
+        const source = asset.sourceLabel || asset.source || "来源";
+        const title = asset.title || "未命名素材";
+        return `${games}｜${source}｜${title}`;
+      }
+
+      function citationLabelForUrl(url, citationMap, includeUrl = false) {
+        const normalized = normalizeCitationUrl(url);
+        const citation = citationMap.get(normalized) || citationMap.get(normalized.replace(/\/+$/, "")) || "";
+        if (!citation) return "";
+        if (includeUrl) return citation;
+        return citation.replace(/｜https?:\/\/.+$/i, "");
+      }
+
+      function normalizeCitationUrl(value) {
+        return String(value || "").replace(/&amp;/g, "&").trim();
+      }
+
+      function unescapeInlineToken(value) {
+        return String(value || "")
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'");
+      }
+
+      function renderInlineMarkdown(value, citationMap = new Map()) {
         let html = escapeHtml(cleanupInline(value));
         const placeholders = [];
         const hold = (markup) => {
@@ -1502,12 +1581,21 @@
           return token;
         };
         html = html.replace(/`([^`]+)`/g, (_, code) => hold(`<code>${code}</code>`));
-        html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (_, label, url) =>
-          hold(`<a href="${url}" target="_blank" rel="noopener noreferrer">${label}</a>`)
-        );
+        html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (_, label, url) => {
+          const rawLabel = unescapeInlineToken(label);
+          const rawUrl = normalizeCitationUrl(url);
+          const readable = rawLabel === rawUrl || /^https?:\/\//i.test(rawLabel)
+            ? citationLabelForUrl(rawUrl, citationMap) || rawLabel
+            : rawLabel;
+          return hold(`<a href="${escapeHtml(rawUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(readable)}</a>`);
+        });
         html = html
           .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-          .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+          .replace(/(https?:\/\/[^\s<]+)/g, (url) => {
+            const rawUrl = normalizeCitationUrl(url);
+            const readable = citationLabelForUrl(rawUrl, citationMap) || rawUrl;
+            return `<a href="${escapeHtml(rawUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(readable)}</a>`;
+          });
         placeholders.forEach((markup, index) => {
           html = html.replace(`__REPORT_TOKEN_${index}__`, markup);
         });

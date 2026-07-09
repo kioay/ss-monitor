@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 import urllib.error
 import urllib.parse
@@ -27,6 +28,39 @@ DEFAULT_BASE_URL = "http://192.168.8.242:8788"
 BUSINESS_MODES = {"inspiration.collect", "inspiration.health"}
 CATEGORY_VALUES = {"all", "weapon_skin", "character_skin", "general_reference"}
 SORT_VALUES = {"relevance", "heat", "latest"}
+CATEGORY_LABELS = {
+    "weapon_skin": "武器皮肤",
+    "character_skin": "角色皮肤",
+    "general_reference": "综合参考",
+}
+COMPETITOR_ALIASES = {
+    "CF手游": ["CFM", "穿越火线手游", "穿越火线：枪战王者"],
+    "CF": ["穿越火线"],
+    "COD": ["使命召唤", "Call of Duty"],
+    "三角洲行动": ["三角洲"],
+    "CSonline": ["CSOL", "反恐精英Online"],
+    "命运2": ["Destiny 2"],
+    "彩虹六号": ["Rainbow Six"],
+    "塔科夫": ["Escape from Tarkov", "Tarkov"],
+    "和平精英": ["PUBG Mobile"],
+}
+REPORT_TERM_REPLACEMENTS = {
+    "sourceTrustLabel": "来源可信度",
+    "sourceTierLabel": "来源可信度",
+    "sourceReliability": "来源可信度",
+    "sourceTier": "来源类型",
+    "commercialSignalLabel": "商业信号",
+    "commercialSignal": "商业信号",
+    "categoryLabel": "分类",
+    "competitorGames": "竞品游戏",
+    "sourceCitation": "来源引用",
+    "detailTagBreakdown": "细分标签",
+    "matchedSeeds": "对应竞品",
+    "visualTags": "视觉标签",
+    "weapon_skin": "武器皮肤",
+    "character_skin": "角色皮肤",
+    "general_reference": "综合参考",
+}
 
 
 def main() -> int:
@@ -148,6 +182,7 @@ def run_collect_turn(worker: WorkerClient, output_dir: Path, mode: str, turn_inp
     final_message = sanitize_text(str(codex_result.get("finalMessage") or "")).strip()
     if not final_message:
         raise RuntimeError("Codex produced an empty final message")
+    final_message = sanitize_report_markdown(final_message, inspiration_snapshot)
 
     result_markdown = "\n".join(
         [
@@ -200,7 +235,7 @@ def run_collect_turn(worker: WorkerClient, output_dir: Path, mode: str, turn_inp
         "inspirationStatus": inspiration_snapshot.get("status"),
         "stats": inspiration_snapshot.get("stats"),
         "totalMatched": inspiration_snapshot.get("totalMatched"),
-        "assets": compact_assets_for_result(inspiration_snapshot.get("assets"), 24),
+        "assets": public_assets_for_result(inspiration_snapshot.get("assets"), 24),
         "resultMarkdown": result_markdown,
         "finalMessage": final_message,
         "usage": codex_result.get("usage"),
@@ -402,6 +437,11 @@ def fetch_json(url: str, timeout_seconds: int) -> Any:
 def compact_inspiration_payload(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict):
         return {"raw": compact_json_value(value)}
+    seed_labels = [
+        sanitize_text(str(seed.get("label") or "")).strip()
+        for seed in list_or_empty(value.get("seeds"))[:40]
+        if isinstance(seed, dict) and str(seed.get("label") or "").strip()
+    ]
     return {
         "generatedAt": value.get("generatedAt"),
         "windowHours": value.get("windowHours"),
@@ -409,7 +449,7 @@ def compact_inspiration_payload(value: Any) -> dict[str, Any]:
         "category": value.get("category"),
         "sort": value.get("sort"),
         "totalMatched": value.get("totalMatched"),
-        "stats": compact_json_value(value.get("stats")),
+        "stats": compact_inspiration_stats(value.get("stats")),
         "seeds": [
             {
                 "id": seed.get("id"),
@@ -419,37 +459,81 @@ def compact_inspiration_payload(value: Any) -> dict[str, Any]:
             for seed in list_or_empty(value.get("seeds"))[:40]
             if isinstance(seed, dict)
         ],
-        "assets": compact_assets_for_result(value.get("assets"), 60),
+        "assets": compact_assets_for_result(value.get("assets"), 60, seed_labels),
     }
 
 
-def compact_assets_for_result(value: Any, limit: int) -> list[dict[str, Any]]:
+def compact_inspiration_stats(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    total = value.get("total")
+    weapon_skins = value.get("weaponSkins")
+    character_skins = value.get("characterSkins")
+    return {
+        "total": total,
+        "videos": value.get("videos"),
+        "images": value.get("images"),
+        "weaponSkins": weapon_skins,
+        "characterSkins": character_skins,
+        "generalReferences": value.get("generalReferences") if value.get("generalReferences") is not None else safe_general_reference_count(total, weapon_skins, character_skins),
+        "sources": compact_json_value(value.get("sourceBreakdown")),
+        "sourceTrust": [
+            {"label": entry.get("label"), "count": entry.get("count")}
+            for entry in list_or_empty(value.get("sourceTierBreakdown"))
+            if isinstance(entry, dict)
+        ],
+        "commercialSignals": [
+            {"label": entry.get("label"), "count": entry.get("count")}
+            for entry in list_or_empty(value.get("commercialSignalBreakdown"))
+            if isinstance(entry, dict)
+        ],
+    }
+
+
+def safe_general_reference_count(total: Any, weapon_skins: Any, character_skins: Any) -> int | None:
+    try:
+        return max(0, int(total) - int(weapon_skins or 0) - int(character_skins or 0))
+    except (TypeError, ValueError):
+        return None
+
+
+def compact_assets_for_result(value: Any, limit: int, seed_labels: list[str] | None = None) -> list[dict[str, Any]]:
     assets: list[dict[str, Any]] = []
     for asset in list_or_empty(value)[:limit]:
         if not isinstance(asset, dict):
             continue
         item = asset.get("item") if isinstance(asset.get("item"), dict) else asset
         metrics = item.get("metrics") if isinstance(item.get("metrics"), dict) else {}
+        title = sanitize_text(str(item.get("title") or asset.get("title") or ""))[:240]
+        summary = sanitize_text(str(item.get("summary") or asset.get("summary") or ""))[:600]
+        source_url = item.get("url") or asset.get("sourceUrl")
+        competitor_games = competitor_game_labels(asset, item, seed_labels or [])
+        commercial_signal = asset.get("commercialSignal") if isinstance(asset.get("commercialSignal"), dict) else {}
+        design_tags = compact_list(asset.get("designTags") or asset.get("visualTags"), 8)
+        source_trust_label = asset.get("sourceTrustLabel") or asset.get("sourceTierLabel")
+        commercial_signal_label = asset.get("commercialSignalLabel") or commercial_signal.get("label")
+        commercial_reasons = asset.get("commercialReasons") or commercial_signal.get("reasons")
         assets.append(
             {
                 "id": asset.get("id") or item.get("id"),
                 "kind": asset.get("kind"),
                 "category": asset.get("category"),
+                "categoryLabel": asset.get("categoryLabel") or CATEGORY_LABELS.get(str(asset.get("category") or ""), "综合参考"),
                 "score": asset.get("score"),
                 "reason": sanitize_text(str(asset.get("reason") or "")),
-                "matchedSeeds": compact_list(asset.get("matchedSeeds"), 8),
-                "visualTags": compact_list(asset.get("visualTags"), 8),
-                "sourceTier": asset.get("sourceTier"),
-                "sourceTierLabel": asset.get("sourceTierLabel"),
-                "sourceReliability": asset.get("sourceReliability"),
-                "commercialSignal": compact_json_value(asset.get("commercialSignal")),
-                "title": sanitize_text(str(item.get("title") or asset.get("title") or ""))[:240],
-                "summary": sanitize_text(str(item.get("summary") or asset.get("summary") or ""))[:600],
+                "competitorGames": competitor_games,
+                "designTags": design_tags,
+                "sourceTrustLabel": source_trust_label,
+                "commercialSignalLabel": commercial_signal_label,
+                "commercialReasons": compact_list(commercial_reasons, 4),
+                "title": title,
+                "summary": summary,
                 "source": item.get("source"),
                 "sourceLabel": item.get("sourceLabel"),
                 "author": sanitize_text(str(item.get("author") or ""))[:120],
                 "publishedAt": item.get("publishedAt"),
-                "sourceUrl": item.get("url") or asset.get("sourceUrl"),
+                "sourceUrl": source_url,
+                "sourceCitation": asset.get("sourceCitation") or source_citation(competitor_games, str(item.get("sourceLabel") or ""), title, source_url),
                 "thumbnailUrl": item.get("thumbnail") or asset.get("thumbnailUrl"),
                 "metrics": {
                     "views": metrics.get("views"),
@@ -462,6 +546,104 @@ def compact_assets_for_result(value: Any, limit: int) -> list[dict[str, Any]]:
             }
         )
     return assets
+
+
+def public_assets_for_result(value: Any, limit: int) -> list[dict[str, Any]]:
+    return compact_assets_for_result(value, limit)
+
+
+def competitor_game_labels(asset: dict[str, Any], item: dict[str, Any], seed_labels: list[str]) -> list[str]:
+    existing = [
+        sanitize_text(str(game)).strip()
+        for game in list_or_empty(asset.get("competitorGames"))
+        if str(game or "").strip()
+    ]
+    if existing:
+        return unique_labels(existing)[:3]
+    matched = [
+        sanitize_text(str(seed)).strip()
+        for seed in list_or_empty(asset.get("matchedSeeds"))
+        if str(seed or "").strip()
+    ]
+    if matched:
+        return unique_labels(matched)[:3]
+    text_parts = [
+        item.get("title"),
+        item.get("summary"),
+        item.get("author"),
+        " ".join([str(keyword) for keyword in list_or_empty(item.get("keywords"))]),
+    ]
+    text = normalize_match_text(" ".join([str(part or "") for part in text_parts]))
+    candidates = sorted([label for label in seed_labels if label], key=len, reverse=True)
+    inferred: list[str] = []
+    for label in candidates:
+        terms = [label, *COMPETITOR_ALIASES.get(label, [])]
+        if any(normalize_match_text(term) in text for term in terms if term):
+            if not any(normalize_match_text(label) in normalize_match_text(existing) for existing in inferred):
+                inferred.append(label)
+    return inferred[:3] or ["未标注竞品"]
+
+
+def unique_labels(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        key = normalize_match_text(value)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        result.append(value)
+    return result
+
+
+def normalize_match_text(value: str) -> str:
+    return sanitize_text(value).replace(" ", "").lower()
+
+
+def source_citation(competitor_games: list[str], source_label: str, title: str, source_url: Any) -> str:
+    game_text = "、".join([game for game in competitor_games if game]) or "未标注竞品"
+    source_text = source_label or "来源"
+    title_text = title or "未命名素材"
+    if source_url:
+        return f"{game_text}｜{source_text}｜{title_text}｜{source_url}"
+    return f"{game_text}｜{source_text}｜{title_text}"
+
+
+def sanitize_report_markdown(markdown: str, inspiration_snapshot: dict[str, Any]) -> str:
+    text = sanitize_text(str(markdown or ""))
+    text = re.sub(r"(?:[，,、]\s*)?sourceReliability\s*[:：]?\s*\d+(?:\.\d+)?\s*[，,、]?\s*", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bsourceReliability\s*[:：]?\s*", "来源可信度", text, flags=re.IGNORECASE)
+    for raw, label in REPORT_TERM_REPLACEMENTS.items():
+        text = text.replace(raw, label)
+    citations = source_citations_by_url(inspiration_snapshot)
+    if citations:
+        text = replace_bare_source_urls(text, citations)
+    return re.sub(r"[ \t]{2,}", " ", text).strip()
+
+
+def source_citations_by_url(inspiration_snapshot: dict[str, Any]) -> dict[str, str]:
+    citations: dict[str, str] = {}
+    for asset in list_or_empty(inspiration_snapshot.get("assets")):
+        if not isinstance(asset, dict):
+            continue
+        source_url = str(asset.get("sourceUrl") or "").strip()
+        citation = sanitize_text(str(asset.get("sourceCitation") or "")).strip()
+        if source_url and citation:
+            citations[source_url] = citation
+            citations[source_url.rstrip("/")] = citation
+    return citations
+
+
+def replace_bare_source_urls(text: str, citations: dict[str, str]) -> str:
+    def replace(match: re.Match[str]) -> str:
+        url = match.group(0)
+        prefix = text[max(0, match.start() - 96) : match.start()]
+        if "｜" in prefix and not prefix.rstrip().endswith(("参考", "链接", "来源", "：", ":")):
+            return url
+        citation = citations.get(url) or citations.get(url.rstrip("/"))
+        return citation or url
+
+    return re.sub(r"https?://[^\s<>)，,。；;]+", replace, text)
 
 
 def build_codex_prompt(
@@ -501,7 +683,9 @@ def build_codex_prompt(
             "- Use concise Chinese design-review language.",
             "- Start with whether the current material snapshot is useful for design inspiration.",
             "- Highlight popular designs when the sort is heat, using only available metrics.",
-            "- Use platform-provided sourceTier, sourceReliability, commercialSignal, and detailTagBreakdown as evidence; do not invent missing commercial conclusions.",
+            "- Use only the Chinese label values already present in each asset for 来源可信度、商业信号、分类、竞品游戏 and 来源引用; do not invent missing commercial conclusions.",
+            "- Never output internal field names or enum ids such as sourceReliability, sourceTier, commercialSignal, detailTagBreakdown, matchedSeeds, visualTags, weapon_skin, character_skin, general_reference, sourceTrustLabel, commercialSignalLabel, categoryLabel, competitorGames, or sourceCitation.",
+            "- Every cited source URL must name the competitor game first, formatted as 竞品游戏｜来源｜素材标题｜URL. Do not output bare URLs.",
             "- Treat platform gapInsights as internal diagnostics only. Do not output a 侦查缺口/缺口 section or bullets about platform/data coverage defects.",
             "- Worker turns are stateless. Do not output 下一轮补采, 后续采集方向, 建议补充素材, or 下一步 sections because the user cannot apply report text as future collection constraints.",
             "- Keep weapon skins, character skins, and general references separated.",
