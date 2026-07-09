@@ -1776,6 +1776,7 @@ function InspirationStudio({
   const commercialSignalEntries = stats?.commercialSignalBreakdown || [];
   const detailTagEntries = stats?.detailTagBreakdown || [];
   const gapInsights = stats?.gapInsights || [];
+  const primaryGap = gapInsights[0];
   const allPacksSelected = selectedPackIds.length === seeds.length;
 
   return (
@@ -1930,18 +1931,22 @@ function InspirationStudio({
           </div>
 
           {gapInsights.length || detailTagEntries.length ? (
-            <section className="inspiration-intel-panel" aria-label="侦查缺口">
-              <div className="inspiration-intel-head">
-                <div>
-                  <span>侦查缺口</span>
-                  <strong>{gapInsights.length ? `${gapInsights.length} 个待补强项` : "当前无高优先级缺口"}</strong>
+            <details className="inspiration-intel-panel">
+              <summary className="inspiration-intel-summary" aria-label="查看侦查缺口">
+                <div className="inspiration-intel-status">
+                  <span className={`inspiration-gap-priority ${primaryGap?.priority || "low"}`}>
+                    {primaryGap ? gapPriorityLabel(primaryGap.priority) : "已覆盖"}
+                  </span>
+                  <strong>{gapInsights.length ? `侦查缺口 ${gapInsights.length} 项` : "侦查缺口暂无高优先级"}</strong>
+                  {primaryGap ? <em>{primaryGap.title}</em> : null}
                 </div>
                 <div className="inspiration-tag-strip">
-                  {detailTagEntries.slice(0, 6).map((entry) => (
+                  {detailTagEntries.slice(0, 5).map((entry) => (
                     <span key={entry.tag}>{entry.tag}<b>{entry.count}</b></span>
                   ))}
                 </div>
-              </div>
+                <ChevronDown size={15} aria-hidden="true" />
+              </summary>
               {gapInsights.length ? (
                 <div className="inspiration-gap-grid">
                   {gapInsights.map((gap) => (
@@ -1961,7 +1966,7 @@ function InspirationStudio({
                   ))}
                 </div>
               ) : null}
-            </section>
+            </details>
           ) : null}
 
           <div className="inspiration-wall">

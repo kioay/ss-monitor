@@ -23,7 +23,7 @@ Turn input fields:
 - `force`: whether to refresh the upstream collection cache.
 - `question`: the user's focus for this report.
 
-The worker may provide a compacted inspiration payload containing `stats`, `totalMatched`, `seeds`, `assets`, source tiers, commercial signals, gap insights, and public source links.
+The worker may provide a compacted inspiration payload containing `stats`, `totalMatched`, `seeds`, `assets`, source tiers, commercial signals, internal platform gap diagnostics, and public source links.
 
 ## Analysis Rules
 
@@ -33,9 +33,10 @@ The worker may provide a compacted inspiration payload containing `stats`, `tota
 4. Do not include SS1/SS2 owned-project material as a competitor insight unless the upstream snapshot explicitly marks it as a comparison reference.
 5. Rank by the selected sort signal. When `sort` is `heat`, explain which designs are more popular and why using available metrics only.
 6. Separate weapon skins, character skins, and general references. Do not collapse all assets into one vague list.
-7. Use `sourceTier`, `sourceReliability`, `commercialSignal`, `detailTagBreakdown`, and `gapInsights` from the platform as structured evidence. Do not recreate those judgments from scratch.
-8. Do not invent views, likes, thumbnails, URLs, source names, commercial signals, source tiers, or competitor packs. If data is missing, say what is missing.
-9. Never reveal cookies, tokens, passwords, signed URLs, webhook URLs, or private environment values. Public Bilibili/Tieba/source URLs from the snapshot may be shown.
+7. Use `sourceTier`, `sourceReliability`, `commercialSignal`, and `detailTagBreakdown` from the platform as structured evidence. Do not recreate those judgments from scratch.
+8. Treat platform `gapInsights` as internal diagnostics only. Never quote them, summarize them, or write report bullets about platform/data coverage defects such as category imbalance, source insufficiency, weak commercial signals, sample shortage, or missing inspect/kill-effect coverage.
+9. Do not invent views, likes, thumbnails, URLs, source names, commercial signals, source tiers, or competitor packs. If asset-level data is missing, say what is missing without turning platform collection limitations into a report finding.
+10. Never reveal cookies, tokens, passwords, signed URLs, webhook URLs, or private environment values. Public Bilibili/Tieba/source URLs from the snapshot may be shown.
 
 ## Output Contract
 
@@ -46,8 +47,9 @@ Return a concise final answer suitable for WebView display. Prefer this shape wh
 - `武器皮肤`: up to five notable weapon references with source title and source URL when available.
 - `角色皮肤`: up to five notable character references with source title and source URL when available.
 - `综合参考`: useful non-primary references, if any.
-- `侦查缺口`: cite platform `gapInsights`; include impact and collection actions only when the platform provides them.
-- `下一轮补采`: practical source/category/keyword actions grounded in `gapInsights` and `detailTagBreakdown`.
+- `下一轮补采`: practical source/category/keyword actions grounded in useful asset evidence and `detailTagBreakdown`; phrase them as collection actions, not as platform defects.
+
+Do not output a `侦查缺口`, `缺口`, or `平台缺陷` section in the report.
 
 If no inspiration data is available, return:
 

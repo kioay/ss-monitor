@@ -3542,55 +3542,107 @@ button.metric:focus-visible {
 }
 
 .inspiration-intel-panel {
-  display: grid;
-  gap: 10px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   border: 1px solid rgba(18, 29, 27, 0.14);
   border-radius: 8px;
-  padding: 10px;
   background: rgba(255, 255, 255, 0.76);
+  overflow: hidden;
 }
 
-.inspiration-intel-head {
+.inspiration-intel-panel[open] {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.inspiration-intel-summary {
+  min-height: 44px;
   display: grid;
-  grid-template-columns: minmax(160px, 260px) minmax(0, 1fr);
-  gap: 12px;
-  align-items: start;
+  grid-template-columns: minmax(240px, 0.9fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  cursor: pointer;
+  list-style: none;
 }
 
-.inspiration-intel-head > div:first-child {
-  display: grid;
-  gap: 3px;
+.inspiration-intel-summary::-webkit-details-marker {
+  display: none;
 }
 
-.inspiration-intel-head span {
-  color: rgba(18, 29, 27, 0.58);
-  font-size: 11px;
-  font-weight: 860;
+.inspiration-intel-summary > svg {
+  color: rgba(18, 29, 27, 0.44);
+  transition: transform 160ms ease;
 }
 
-.inspiration-intel-head strong {
+.inspiration-intel-panel[open] .inspiration-intel-summary > svg {
+  transform: rotate(180deg);
+}
+
+.inspiration-intel-status {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inspiration-intel-status strong {
+  flex: 0 0 auto;
   color: var(--reference-ink);
-  font-size: 15px;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.inspiration-intel-status em {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(18, 29, 27, 0.62);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 720;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspiration-gap-priority {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 2px 6px;
+  background: rgba(18, 29, 27, 0.06);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 840;
+}
+
+.inspiration-gap-priority.high {
+  background: rgba(196, 86, 70, 0.1);
+  color: #9b3f33;
+}
+
+.inspiration-gap-priority.medium {
+  background: rgba(198, 139, 43, 0.12);
+  color: #8b611f;
 }
 
 .inspiration-tag-strip {
   min-width: 0;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
   gap: 6px;
+  overflow: hidden;
 }
 
 .inspiration-tag-strip span {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   gap: 5px;
   border: 1px solid rgba(18, 29, 27, 0.1);
   border-radius: 999px;
-  padding: 4px 7px;
+  padding: 3px 7px;
   background: rgba(241, 245, 238, 0.86);
   color: var(--muted);
+  font-size: 11px;
+  font-weight: 780;
 }
 
 .inspiration-tag-strip b {
@@ -3599,41 +3651,48 @@ button.metric:focus-visible {
 
 .inspiration-gap-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  border-top: 1px solid rgba(18, 29, 27, 0.1);
+  padding: 8px 10px 10px;
 }
 
 .inspiration-gap-card {
   min-width: 0;
   display: grid;
-  gap: 7px;
+  grid-template-columns: minmax(180px, 0.76fr) minmax(0, 1fr);
+  gap: 6px 10px;
   border: 1px solid rgba(18, 29, 27, 0.12);
   border-radius: 8px;
-  padding: 9px;
+  padding: 7px 9px;
   background: #fbfcf8;
-  box-shadow: inset 3px 0 0 rgba(66, 109, 145, 0.44);
+  box-shadow: inset 2px 0 0 rgba(66, 109, 145, 0.44);
 }
 
 .inspiration-gap-card.high {
-  box-shadow: inset 3px 0 0 #c45646;
+  box-shadow: inset 2px 0 0 #c45646;
 }
 
 .inspiration-gap-card.medium {
-  box-shadow: inset 3px 0 0 #c68b2b;
+  box-shadow: inset 2px 0 0 #c68b2b;
 }
 
 .inspiration-gap-card > div:first-child {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 7px;
+  min-width: 0;
 }
 
 .inspiration-gap-card h3 {
+  min-width: 0;
   margin: 0;
+  overflow: hidden;
   color: var(--reference-ink);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .inspiration-gap-card > div:first-child span {
@@ -3648,9 +3707,12 @@ button.metric:focus-visible {
 
 .inspiration-gap-card p {
   margin: 0;
+  overflow: hidden;
   color: rgba(18, 29, 27, 0.72);
   font-size: 12px;
-  line-height: 1.45;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .inspiration-gap-actions,
@@ -3660,10 +3722,18 @@ button.metric:focus-visible {
   gap: 5px;
 }
 
+.inspiration-gap-actions {
+  grid-column: 1 / -1;
+}
+
+.inspiration-gap-keywords {
+  grid-column: 1 / -1;
+}
+
 .inspiration-gap-actions span,
 .inspiration-gap-keywords code {
   border-radius: 6px;
-  padding: 3px 6px;
+  padding: 2px 6px;
   background: rgba(19, 153, 168, 0.08);
   color: #126f78;
   font-size: 11px;
@@ -5401,9 +5471,18 @@ button.metric:focus-visible {
     border-bottom: 0;
   }
 
-  .inspiration-intel-head,
-  .inspiration-gap-grid {
+  .inspiration-intel-summary,
+  .inspiration-gap-card {
     grid-template-columns: 1fr;
+  }
+
+  .inspiration-intel-status {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .inspiration-intel-status em {
+    flex-basis: 100%;
   }
 
   .inspiration-tag-strip {
