@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>设计灵感素材库</title>
+    <title>竞品素材侦查</title>
     <script src="./agent-app-sdk.js"></script>
     <style>
       :root {
@@ -373,12 +373,159 @@
       }
       .report {
         display: grid;
-        gap: 16px;
+        gap: 18px;
       }
-      .report-summary {
-        border-left: 4px solid var(--signal);
+      .report-overview {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(220px, 310px);
+        gap: 16px;
+        border: 1px solid #cbdcd5;
+        border-left: 5px solid var(--signal);
+        border-radius: 8px;
+        padding: 15px 16px;
+        background:
+          linear-gradient(90deg, rgba(18, 140, 150, 0.08), rgba(18, 140, 150, 0)),
+          #f8fbf8;
+      }
+      .report-kicker {
+        display: block;
+        margin-bottom: 7px;
+        color: #43615c;
+        font-size: 11px;
+        font-weight: 900;
+        text-transform: uppercase;
+      }
+      .report-lead {
+        margin: 0;
+        color: var(--ink);
+        font-size: 15px;
+        line-height: 1.55;
+        font-weight: 780;
+      }
+      .report-stat-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+      .report-stat {
+        min-width: 0;
+        border: 1px solid #d7e5df;
+        border-radius: 8px;
+        padding: 8px 9px;
+        background: rgba(255, 255, 255, 0.68);
+      }
+      .report-stat b {
+        display: block;
+        color: var(--ink);
+        font-size: 18px;
+        line-height: 1.1;
+      }
+      .report-stat span {
+        color: #5d706b;
+        font-size: 11px;
+        font-weight: 900;
+      }
+      .report-section-list {
+        display: grid;
+        gap: 0;
+        border-top: 1px solid #dfe8e3;
+      }
+      .report-section {
+        display: grid;
+        grid-template-columns: minmax(112px, 150px) minmax(0, 1fr);
+        gap: 18px;
+        border-bottom: 1px solid #dfe8e3;
+        padding: 15px 0;
+      }
+      .report-section h3 {
+        margin: 0;
+        color: #203330;
+        font-size: 14px;
+        line-height: 1.3;
+      }
+      .report-section-body {
+        display: grid;
+        gap: 9px;
+        min-width: 0;
+      }
+      .report-section-body p {
+        margin: 0;
+        color: #3c4d49;
+        font-size: 13px;
+        line-height: 1.62;
+      }
+      .report-section-body ul {
+        display: grid;
+        gap: 7px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .report-section-body li {
+        position: relative;
+        margin: 0;
         padding-left: 14px;
-        white-space: pre-wrap;
+        color: #3c4d49;
+        font-size: 13px;
+        line-height: 1.55;
+      }
+      .report-section-body li::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0.7em;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--signal);
+      }
+      .report-section-body a,
+      .report-lead a {
+        color: #0c6770;
+        font-weight: 900;
+        text-decoration: none;
+      }
+      .report-section-body a:hover,
+      .report-lead a:hover {
+        text-decoration: underline;
+      }
+      .report-section-body code,
+      .report-lead code {
+        border: 1px solid #d9e6e0;
+        border-radius: 5px;
+        padding: 1px 4px;
+        background: #f5faf7;
+        color: #2e5551;
+        font-size: 0.92em;
+      }
+      .asset-section {
+        display: grid;
+        gap: 12px;
+      }
+      .asset-section-head {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 12px;
+        border-bottom: 1px solid #dfe8e3;
+        padding-bottom: 10px;
+      }
+      .asset-section-head h3 {
+        margin: 0;
+        color: #203330;
+        font-size: 15px;
+        line-height: 1.3;
+      }
+      .asset-section-head p {
+        margin: 3px 0 0;
+        color: #657873;
+        font-size: 12px;
+      }
+      .asset-count {
+        flex: 0 0 auto;
+        color: #45605b;
+        font-size: 12px;
+        font-weight: 900;
       }
       .asset-grid {
         display: grid;
@@ -420,6 +567,14 @@
         text-decoration: none;
       }
       .asset-title:hover { color: var(--signal-dark); text-decoration: underline; }
+      .asset-meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 8px;
+        color: #71817d;
+        font-size: 11px;
+        font-weight: 820;
+      }
       .asset-copy {
         margin: 0;
         color: #586965;
@@ -474,6 +629,9 @@
         h1 { font-size: 24px; }
         .progress-copy { align-items: flex-start; flex-direction: column; }
         .progress-detail { text-align: left; }
+        .report-overview { grid-template-columns: 1fr; }
+        .report-section { grid-template-columns: 1fr; gap: 8px; }
+        .asset-section-head { align-items: flex-start; flex-direction: column; }
       }
     </style>
   </head>
@@ -482,7 +640,7 @@
       <header class="topbar">
         <div class="brand">
           <p class="eyebrow">Competitor Reference</p>
-          <h1>素材侦察板</h1>
+          <h1>竞品素材侦查</h1>
           <p class="subtitle">全网 FPS/TPS 竞品武器与角色皮肤素材收集</p>
         </div>
         <div class="header-actions">
@@ -1035,10 +1193,11 @@
         }
         const assets = Array.isArray(state.lastAssets) ? state.lastAssets : [];
         const stats = state.lastStats && typeof state.lastStats === "object" ? state.lastStats : null;
+        const report = parseReport(cleanRuntime(state.lastResult));
         els.result.innerHTML = `
           <article class="report">
-            ${renderStats(stats)}
-            <section class="report-summary">${escapeHtml(cleanRuntime(state.lastResult))}</section>
+            ${renderReportOverview(stats, report)}
+            ${renderReportSections(report)}
             ${renderAssetCards(assets)}
             <details class="raw-result">
               <summary>原始结果</summary>
@@ -1048,24 +1207,90 @@
         `;
       }
 
+      function renderReportOverview(stats, report) {
+        const lead = report.lead || "报告已生成。请查看下方章节和素材引用。";
+        return `
+          <section class="report-overview" aria-label="报告概览">
+            <div>
+              <span class="report-kicker">Report Brief</span>
+              <p class="report-lead">${renderInlineMarkdown(lead)}</p>
+            </div>
+            ${renderStats(stats)}
+          </section>
+        `;
+      }
+
       function renderStats(stats) {
-        if (!stats) return "";
+        if (!stats) {
+          return `
+            <div class="report-stat-grid">
+              <div class="report-stat">
+                <b>-</b>
+                <span>暂无统计</span>
+              </div>
+            </div>
+          `;
+        }
+        const total = Number(stats.total ?? 0);
+        const weaponSkins = Number(stats.weaponSkins ?? 0);
+        const characterSkins = Number(stats.characterSkins ?? 0);
+        const generalReferences = stats.generalReferences ?? stats.references ?? Math.max(0, total - weaponSkins - characterSkins);
         const items = [
-          `素材 ${stats.total ?? 0}`,
-          `视频 ${stats.videos ?? 0}`,
-          `图片 ${stats.images ?? 0}`,
-          `武器 ${stats.weaponSkins ?? 0}`,
-          `角色 ${stats.characterSkins ?? 0}`
+          ["素材", total],
+          ["视频", stats.videos ?? 0],
+          ["图片", stats.images ?? 0],
+          ["武器", weaponSkins],
+          ["角色", characterSkins],
+          ["综合", generalReferences]
         ];
-        return `<div class="meta">${items.map((item) => `<span class="tag">${escapeHtml(item)}</span>`).join("")}</div>`;
+        return `
+          <div class="report-stat-grid">
+            ${items.map(([label, value]) => `
+              <div class="report-stat">
+                <b>${escapeHtml(value)}</b>
+                <span>${escapeHtml(label)}</span>
+              </div>
+            `).join("")}
+          </div>
+        `;
+      }
+
+      function renderReportSections(report) {
+        const sections = report.sections.filter((section) => section.items.length || section.paragraphs.length);
+        if (!sections.length) return "";
+        return `
+          <section class="report-section-list" aria-label="报告正文">
+            ${sections.map(renderReportSection).join("")}
+          </section>
+        `;
+      }
+
+      function renderReportSection(section) {
+        return `
+          <section class="report-section">
+            <h3>${escapeHtml(section.title)}</h3>
+            <div class="report-section-body">
+              ${section.paragraphs.map((text) => `<p>${renderInlineMarkdown(text)}</p>`).join("")}
+              ${section.items.length ? `<ul>${section.items.map((text) => `<li>${renderInlineMarkdown(text)}</li>`).join("")}</ul>` : ""}
+            </div>
+          </section>
+        `;
       }
 
       function renderAssetCards(assets) {
         if (!assets.length) return "";
+        const visibleAssets = assets.slice(0, 24);
         return `
-          <section>
+          <section class="asset-section" aria-label="素材引用">
+            <div class="asset-section-head">
+              <div>
+                <h3>素材引用</h3>
+                <p>优先展示带图片或视频线索的前 ${visibleAssets.length} 条素材。</p>
+              </div>
+              <span class="asset-count">${assets.length} 条结果</span>
+            </div>
             <div class="asset-grid">
-              ${assets.slice(0, 24).map(renderAssetCard).join("")}
+              ${visibleAssets.map(renderAssetCard).join("")}
             </div>
           </section>
         `;
@@ -1080,6 +1305,12 @@
           asset.kind === "video" ? "视频" : "图文",
           ...(Array.isArray(asset.visualTags) ? asset.visualTags.slice(0, 2) : [])
         ].filter(Boolean);
+        const meta = [
+          asset.sourceLabel || asset.source,
+          asset.author,
+          formatDate(asset.publishedAt),
+          heatLabel(asset.metrics)
+        ].filter(Boolean);
         const titleHtml = href
           ? `<a class="asset-title" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(title)}</a>`
           : `<span class="asset-title">${escapeHtml(title)}</span>`;
@@ -1088,6 +1319,7 @@
             <div class="asset-thumb">${thumb ? `<img src="${escapeHtml(thumb)}" alt="" loading="lazy" />` : `<span>${escapeHtml(asset.sourceLabel || asset.source || "素材")}</span>`}</div>
             <div class="asset-body">
               ${titleHtml}
+              ${meta.length ? `<div class="asset-meta-row">${meta.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>` : ""}
               <p class="asset-copy">${escapeHtml(asset.reason || asset.summary || "暂无摘要")}</p>
               <div class="asset-tags">${tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")}</div>
             </div>
@@ -1104,6 +1336,114 @@
 
       function cleanRuntime(markdown) {
         return String(markdown || "").replace(/^#\s*设计灵感素材报告\s*/i, "").replace(/\n## Runtime[\s\S]*$/i, "").trim();
+      }
+
+      function parseReport(markdown) {
+        const normalized = String(markdown || "").replace(/\r\n/g, "\n").trim();
+        const sections = [];
+        let lead = "";
+        let current = { title: "结论", items: [], paragraphs: [] };
+        const pushCurrent = () => {
+          if (current.items.length || current.paragraphs.length) sections.push(current);
+        };
+        normalized.split("\n").forEach((rawLine) => {
+          const line = rawLine.trim();
+          if (!line) return;
+          const heading = line.match(/^#{1,4}\s+(.+)$/);
+          const labelHeading = line.match(/^\*\*?([^：:]{2,12})[:：]\*\*?\s*(.*)$/);
+          const plainHeading = line.match(/^([^：:]{2,12})[:：]\s*(.*)$/);
+          const bullet = line.match(/^[-*]\s+(.+)$/) || line.match(/^\d+[.)、]\s+(.+)$/);
+          if (heading) {
+            pushCurrent();
+            current = { title: cleanupInline(heading[1]), items: [], paragraphs: [] };
+            return;
+          }
+          if (labelHeading && isReportSectionTitle(labelHeading[1])) {
+            pushCurrent();
+            current = { title: cleanupInline(labelHeading[1]), items: [], paragraphs: [] };
+            if (labelHeading[2]) current.paragraphs.push(cleanupInline(labelHeading[2]));
+            return;
+          }
+          if (plainHeading && isReportSectionTitle(plainHeading[1])) {
+            pushCurrent();
+            current = { title: cleanupInline(plainHeading[1]), items: [], paragraphs: [] };
+            if (plainHeading[2]) current.paragraphs.push(cleanupInline(plainHeading[2]));
+            return;
+          }
+          if (bullet) {
+            const bulletSection = bullet[1].match(/^\*\*?([^：:]{2,12})[:：]\*\*?\s*(.*)$/) || bullet[1].match(/^([^：:]{2,12})[:：]\s*(.*)$/);
+            if (bulletSection && isReportSectionTitle(bulletSection[1])) {
+              pushCurrent();
+              current = { title: cleanupInline(bulletSection[1]), items: [], paragraphs: [] };
+              if (bulletSection[2]) current.paragraphs.push(cleanupInline(bulletSection[2]));
+              return;
+            }
+            current.items.push(cleanupInline(bullet[1]));
+            return;
+          }
+          current.paragraphs.push(cleanupInline(line));
+        });
+        pushCurrent();
+        if (sections.length && sections[0].title === "结论") {
+          lead = sections[0].paragraphs[0] || sections[0].items[0] || "";
+        }
+        return { lead, sections };
+      }
+
+      function isReportSectionTitle(value) {
+        return ["结论", "热门方向", "武器皮肤", "角色皮肤", "综合参考", "缺口", "下一步", "参考素材", "素材引用"].includes(cleanupInline(value));
+      }
+
+      function cleanupInline(value) {
+        return String(value || "")
+          .replace(/^\*\*/, "")
+          .replace(/\*\*$/, "")
+          .replace(/^#+\s*/, "")
+          .trim();
+      }
+
+      function renderInlineMarkdown(value) {
+        let html = escapeHtml(cleanupInline(value));
+        const placeholders = [];
+        const hold = (markup) => {
+          const token = `__REPORT_TOKEN_${placeholders.length}__`;
+          placeholders.push(markup);
+          return token;
+        };
+        html = html.replace(/`([^`]+)`/g, (_, code) => hold(`<code>${code}</code>`));
+        html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (_, label, url) =>
+          hold(`<a href="${url}" target="_blank" rel="noopener noreferrer">${label}</a>`)
+        );
+        html = html
+          .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+          .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+        placeholders.forEach((markup, index) => {
+          html = html.replace(`__REPORT_TOKEN_${index}__`, markup);
+        });
+        return html;
+      }
+
+      function formatDate(value) {
+        if (!value) return "";
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return "";
+        return date.toISOString().slice(0, 10);
+      }
+
+      function heatLabel(metrics) {
+        if (!metrics || typeof metrics !== "object") return "";
+        const parts = [];
+        if (Number(metrics.views) > 0) parts.push(`${formatCompactNumber(metrics.views)} 播放`);
+        if (Number(metrics.likes) > 0) parts.push(`${formatCompactNumber(metrics.likes)} 赞`);
+        if (Number(metrics.comments) > 0) parts.push(`${formatCompactNumber(metrics.comments)} 评`);
+        return parts.slice(0, 2).join(" / ");
+      }
+
+      function formatCompactNumber(value) {
+        const number = Number(value);
+        if (!Number.isFinite(number) || number <= 0) return "";
+        if (number >= 10000) return `${(number / 10000).toFixed(number >= 100000 ? 0 : 1)}万`;
+        return String(Math.trunc(number));
       }
 
       function renderMeta(detail) {
