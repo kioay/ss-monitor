@@ -20,9 +20,14 @@ const requiredHtmlMarkers = [
   "asset-thumb-fallback",
   "renderAssetCards",
   "imageProxyUrl",
+  "imagePrimaryUrl",
+  "imageFallbackUrl",
+  "safeImageUrl",
+  "handleThumbError",
   "/api/image",
   "referrerpolicy=\"no-referrer\"",
-  "onerror=\"this.remove()\"",
+  "data-fallback-src",
+  "onerror=\"handleThumbError(this)\"",
   "report-overview",
   "report-section-list",
   "renderReportOverview",
@@ -89,4 +94,13 @@ if (html.includes("为避免空筛选，已恢复为全选")) {
 }
 if (!html.includes("ids.length ? ids.join(\",\") : noPackSelectionValue")) {
   throw new Error("dist/index.html does not persist empty pack selection");
+}
+if (!html.includes("const thumb = imagePrimaryUrl(asset.thumbnailUrl)")) {
+  throw new Error("dist/index.html does not prefer direct HTTPS thumbnails");
+}
+if (html.includes("const thumb = imageProxyUrl(asset.thumbnailUrl)")) {
+  throw new Error("dist/index.html still uses the HTTP image proxy as the primary thumbnail");
+}
+if (!html.includes("window.location.protocol === \"https:\" ? \"\" : href")) {
+  throw new Error("dist/index.html does not guard HTTP proxy thumbnails in HTTPS pages");
 }

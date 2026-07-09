@@ -1509,7 +1509,8 @@
       }
 
       function renderAssetThumb(asset, games) {
-        const thumb = imageProxyUrl(asset.thumbnailUrl);
+        const thumb = imagePrimaryUrl(asset.thumbnailUrl);
+        const fallbackThumb = imageFallbackUrl(asset.thumbnailUrl, thumb);
         const mediaLabel = asset.kind === "image" ? "图片素材" : "视频素材";
         const sourceLabel = asset.sourceLabel || asset.source || "素材来源";
         const gameLabel = games.find((game) => game !== "未标注竞品") || "竞品素材";
@@ -1523,7 +1524,7 @@
         return `
           <div class="asset-thumb">
             ${fallback}
-            ${thumb ? `<img src="${escapeHtml(thumb)}" alt="" width="320" height="180" loading="lazy" referrerpolicy="no-referrer" onload="this.classList.add('is-loaded')" onerror="this.remove()" />` : ""}
+            ${thumb ? `<img src="${escapeHtml(thumb)}" data-fallback-src="${escapeHtml(fallbackThumb)}" alt="" width="320" height="180" loading="lazy" referrerpolicy="no-referrer" onload="this.classList.add('is-loaded')" onerror="handleThumbError(this)" />` : ""}
           </div>
         `;
       }
@@ -1892,6 +1893,46 @@
         } catch {
           return raw;
         }
+      }
+
+      function imagePrimaryUrl(value) {
+        const raw = validUrl(value);
+        if (!raw) return "";
+        try {
+          const url = new URL(raw);
+          if (url.protocol === "https:") return raw;
+        } catch {
+          return "";
+        }
+        return safeImageUrl(imageProxyUrl(raw));
+      }
+
+      function imageFallbackUrl(value, primaryUrl) {
+        const proxy = safeImageUrl(imageProxyUrl(value));
+        if (!proxy || proxy === primaryUrl) return "";
+        return proxy;
+      }
+
+      function safeImageUrl(value) {
+        const href = validUrl(value);
+        if (!href) return "";
+        try {
+          const url = new URL(href);
+          if (url.protocol === "https:") return href;
+          return window.location.protocol === "https:" ? "" : href;
+        } catch {
+          return "";
+        }
+      }
+
+      function handleThumbError(img) {
+        const fallback = img?.dataset?.fallbackSrc || "";
+        if (fallback && img.src !== fallback) {
+          img.dataset.fallbackSrc = "";
+          img.src = fallback;
+          return;
+        }
+        img.remove();
       }
 
       function shortId(value) {
