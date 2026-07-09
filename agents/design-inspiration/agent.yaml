@@ -49,6 +49,7 @@ webView:
   transport: sdk
   apiScopes:
     - app.context.read
+    - task.artifacts.read
     - task.status.read
     - session.events.read
     - session.presence.read

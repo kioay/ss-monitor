@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 
 const html = readFileSync("dist/index.html", "utf8");
 const sdk = readFileSync("dist/agent-app-sdk.js", "utf8");
+const manifest = readFileSync("manifest.webview.json", "utf8");
+const agentYaml = readFileSync("../agent.yaml", "utf8");
 
 for (const match of html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)) {
   // Parse only. The script needs browser globals and must not execute in Node.
@@ -24,6 +26,13 @@ const requiredHtmlMarkers = [
   "imageFallbackUrl",
   "safeImageUrl",
   "handleThumbError",
+  "thumbnailArtifactId",
+  "resolveAssetThumbnails",
+  "releaseThumbnailObjectUrls",
+  "data-thumbnail-artifact-id",
+  "data-artifact-thumb",
+  "appState.sdk.artifacts.list",
+  "appState.sdk.artifacts.blobUrl",
   "/api/image",
   "referrerpolicy=\"no-referrer\"",
   "data-fallback-src",
@@ -95,8 +104,17 @@ if (html.includes("为避免空筛选，已恢复为全选")) {
 if (!html.includes("ids.length ? ids.join(\",\") : noPackSelectionValue")) {
   throw new Error("dist/index.html does not persist empty pack selection");
 }
-if (!html.includes("const thumb = imagePrimaryUrl(asset.thumbnailUrl)")) {
-  throw new Error("dist/index.html does not prefer direct HTTPS thumbnails");
+if (!html.includes("const thumb = artifactId ? \"\" : imagePrimaryUrl(asset.thumbnailUrl)")) {
+  throw new Error("dist/index.html does not prefer artifact-backed thumbnails");
+}
+if (!html.includes("thumbnailObjectUrls")) {
+  throw new Error("dist/index.html does not release artifact thumbnail object URLs");
+}
+if (!manifest.includes("task.artifacts.read")) {
+  throw new Error("manifest.webview.json does not declare task.artifacts.read");
+}
+if (!agentYaml.includes("- task.artifacts.read")) {
+  throw new Error("agent.yaml does not declare task.artifacts.read");
 }
 if (html.includes("const thumb = imageProxyUrl(asset.thumbnailUrl)")) {
   throw new Error("dist/index.html still uses the HTTP image proxy as the primary thumbnail");

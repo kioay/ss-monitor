@@ -28,6 +28,13 @@ DEFAULT_BASE_URL = "http://192.168.8.242:8788"
 BUSINESS_MODES = {"inspiration.collect", "inspiration.health"}
 CATEGORY_VALUES = {"all", "weapon_skin", "character_skin", "general_reference"}
 SORT_VALUES = {"relevance", "heat", "latest"}
+THUMBNAIL_ARTIFACT_LIMIT = 24
+THUMBNAIL_FETCH_TIMEOUT_SECONDS = 6
+THUMBNAIL_MAX_BYTES = 3 * 1024 * 1024
+THUMBNAIL_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+)
 CATEGORY_LABELS = {
     "weapon_skin": "武器皮肤",
     "character_skin": "角色皮肤",
@@ -184,6 +191,10 @@ def run_collect_turn(worker: WorkerClient, output_dir: Path, mode: str, turn_inp
         raise RuntimeError("Codex produced an empty final message")
     final_message = sanitize_report_markdown(final_message, inspiration_snapshot)
     final_message = append_source_index(final_message, inspiration_snapshot)
+    public_assets = public_assets_for_result(inspiration_snapshot.get("assets"), THUMBNAIL_ARTIFACT_LIMIT)
+
+    worker.status("running", phase_message="Staging asset thumbnails", progress=0.8, stage="staging_thumbnails")
+    thumbnail_artifacts = stage_thumbnail_artifacts(public_assets, turn_input, output_dir, log)
 
     result_markdown = "\n".join(
         [
@@ -229,6 +240,7 @@ def run_collect_turn(worker: WorkerClient, output_dir: Path, mode: str, turn_inp
             ("inspirationReport", report_path),
             ("manifest", manifest_path),
             ("logs", log_path),
+            *thumbnail_artifacts,
         ],
     )
     structured_result = {
@@ -236,7 +248,7 @@ def run_collect_turn(worker: WorkerClient, output_dir: Path, mode: str, turn_inp
         "inspirationStatus": inspiration_snapshot.get("status"),
         "stats": inspiration_snapshot.get("stats"),
         "totalMatched": inspiration_snapshot.get("totalMatched"),
-        "assets": public_assets_for_result(inspiration_snapshot.get("assets"), 24),
+        "assets": public_assets,
         "resultMarkdown": result_markdown,
         "finalMessage": final_message,
         "usage": codex_result.get("usage"),
@@ -433,6 +445,110 @@ def fetch_json(url: str, timeout_seconds: int) -> Any:
         body = error.read(512).decode("utf-8", errors="replace")
         raise RuntimeError(f"HTTP {error.code}: {body or error.reason}") from None
     return json.loads(raw.decode("utf-8"))
+
+
+def stage_thumbnail_artifacts(
+    assets: list[dict[str, Any]],
+    turn_input: dict[str, Any],
+    output_dir: Path,
+    log,
+) -> list[tuple[str, Path]]:
+    if not assets:
+        return []
+    base_url = normalize_base_url(str(turn_input.get("inspirationBaseUrl") or DEFAULT_BASE_URL).strip())
+    thumb_dir = output_dir / "asset-thumbnails"
+    thumb_dir.mkdir(parents=True, exist_ok=True)
+    artifacts: list[tuple[str, Path]] = []
+    for index, asset in enumerate(assets[:THUMBNAIL_ARTIFACT_LIMIT], start=1):
+        source_url = normalize_thumbnail_url(asset.get("thumbnailUrl"))
+        if not source_url:
+            continue
+        try:
+            image = fetch_thumbnail_via_proxy(base_url, source_url)
+        except Exception:
+            continue
+        if not image:
+            continue
+        raw, content_type, extension = image
+        artifact_id = f"assetThumb-{index:03d}"
+        thumb_path = thumb_dir / f"{artifact_id}{extension}"
+        thumb_path.write_bytes(raw)
+        asset["thumbnailArtifactId"] = artifact_id
+        asset["thumbnailArtifactName"] = thumb_path.name
+        asset["thumbnailContentType"] = content_type
+        artifacts.append((artifact_id, thumb_path))
+    log(f"Staged {len(artifacts)} thumbnail artifacts")
+    return artifacts
+
+
+def normalize_thumbnail_url(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    parsed = urllib.parse.urlparse(text)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return ""
+    if parsed.username or parsed.password:
+        return ""
+    return urllib.parse.urlunparse(parsed)
+
+
+def fetch_thumbnail_via_proxy(base_url: str, source_url: str) -> tuple[bytes, str, str] | None:
+    proxy_url = build_image_proxy_url(base_url, source_url)
+    request = urllib.request.Request(
+        proxy_url,
+        headers={
+            "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+            "User-Agent": THUMBNAIL_USER_AGENT,
+        },
+        method="GET",
+    )
+    with urllib.request.urlopen(request, timeout=THUMBNAIL_FETCH_TIMEOUT_SECONDS) as response:
+        raw = response.read(THUMBNAIL_MAX_BYTES + 1)
+        content_type = str(response.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
+    if len(raw) > THUMBNAIL_MAX_BYTES:
+        return None
+    classified = classify_image_bytes(raw, content_type)
+    if not classified:
+        return None
+    return raw, classified[0], classified[1]
+
+
+def build_image_proxy_url(base_url: str, source_url: str) -> str:
+    parsed = urllib.parse.urlparse(base_url)
+    return urllib.parse.urlunparse(
+        parsed._replace(
+            path="/api/image",
+            params="",
+            query=urllib.parse.urlencode({"url": source_url}),
+            fragment="",
+        )
+    )
+
+
+def classify_image_bytes(raw: bytes, content_type: str) -> tuple[str, str] | None:
+    if raw.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg", ".jpg"
+    if raw.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png", ".png"
+    if raw.startswith((b"GIF87a", b"GIF89a")):
+        return "image/gif", ".gif"
+    if raw.startswith(b"RIFF") and raw[8:12] == b"WEBP":
+        return "image/webp", ".webp"
+    if raw.startswith(b"\x00\x00\x00") and b"ftypavif" in raw[:32]:
+        return "image/avif", ".avif"
+    image_extensions = {
+        "image/jpeg": ".jpg",
+        "image/jpg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp",
+        "image/gif": ".gif",
+        "image/avif": ".avif",
+    }
+    extension = image_extensions.get(content_type)
+    if not extension:
+        return None
+    return ("image/jpeg" if content_type == "image/jpg" else content_type, extension)
 
 
 def compact_inspiration_payload(value: Any) -> dict[str, Any]:
@@ -897,6 +1013,16 @@ def content_type_for(path: Path) -> str:
         return "application/json"
     if path.suffix == ".md":
         return "text/markdown"
+    image_types = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".webp": "image/webp",
+        ".gif": "image/gif",
+        ".avif": "image/avif",
+    }
+    if path.suffix.lower() in image_types:
+        return image_types[path.suffix.lower()]
     return "text/plain"
 
 

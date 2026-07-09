@@ -955,6 +955,8 @@
         permissions: { readOnly: false, scopes: [] },
         progressTimers: [],
         sdk: null,
+        thumbnailObjectUrls: new Map(),
+        thumbnailRenderToken: 0,
         uiState: null
       };
 
@@ -1352,6 +1354,8 @@
 
       function renderResult(state = appState.uiState?.get() || {}) {
         renderMeta();
+        releaseThumbnailObjectUrls();
+        const thumbnailToken = ++appState.thumbnailRenderToken;
         if (!state.lastResult) {
           els.result.innerHTML = '<div class="empty">等待第一次素材采集</div>';
           return;
@@ -1372,6 +1376,7 @@
             </details>
           </article>
         `;
+        resolveAssetThumbnails(state.taskRunId || "", thumbnailToken);
       }
 
       function renderReportOverview(stats, report, citationMap) {
@@ -1509,8 +1514,10 @@
       }
 
       function renderAssetThumb(asset, games) {
-        const thumb = imagePrimaryUrl(asset.thumbnailUrl);
-        const fallbackThumb = imageFallbackUrl(asset.thumbnailUrl, thumb);
+        const artifactId = String(asset.thumbnailArtifactId || "").trim();
+        const artifactName = String(asset.thumbnailArtifactName || "").trim();
+        const thumb = artifactId ? "" : imagePrimaryUrl(asset.thumbnailUrl);
+        const fallbackThumb = artifactId ? "" : imageFallbackUrl(asset.thumbnailUrl, thumb);
         const mediaLabel = asset.kind === "image" ? "图片素材" : "视频素材";
         const sourceLabel = asset.sourceLabel || asset.source || "素材来源";
         const gameLabel = games.find((game) => game !== "未标注竞品") || "竞品素材";
@@ -1522,11 +1529,59 @@
           </div>
         `;
         return `
-          <div class="asset-thumb">
+          <div class="asset-thumb"${artifactId ? ` data-thumbnail-artifact-id="${escapeHtml(artifactId)}" data-thumbnail-artifact-name="${escapeHtml(artifactName)}"` : ""}>
             ${fallback}
+            ${artifactId ? `<img data-artifact-thumb alt="" width="320" height="180" loading="lazy" onload="this.classList.add('is-loaded')" onerror="handleThumbError(this)" />` : ""}
             ${thumb ? `<img src="${escapeHtml(thumb)}" data-fallback-src="${escapeHtml(fallbackThumb)}" alt="" width="320" height="180" loading="lazy" referrerpolicy="no-referrer" onload="this.classList.add('is-loaded')" onerror="handleThumbError(this)" />` : ""}
           </div>
         `;
+      }
+
+      async function resolveAssetThumbnails(taskRunId, renderToken) {
+        if (!taskRunId || !appState.sdk?.artifacts?.list || !appState.sdk?.artifacts?.blobUrl) return;
+        const nodes = Array.from(els.result.querySelectorAll("[data-thumbnail-artifact-id]"));
+        if (!nodes.length) return;
+        let artifacts = [];
+        try {
+          artifacts = await appState.sdk.artifacts.list(taskRunId);
+        } catch (error) {
+          console.warn("Unable to list thumbnail artifacts", error);
+          return;
+        }
+        const artifactMap = new Map();
+        artifacts.forEach((artifact) => {
+          [artifact.artifactId, artifact.id, artifact.name, artifact.filename]
+            .filter(Boolean)
+            .forEach((key) => artifactMap.set(String(key), artifact));
+        });
+        for (const node of nodes) {
+          if (renderToken !== appState.thumbnailRenderToken) return;
+          const artifactId = node.dataset.thumbnailArtifactId || "";
+          const artifactName = node.dataset.thumbnailArtifactName || "";
+          const artifact = artifactMap.get(artifactId) || artifactMap.get(artifactName);
+          const image = node.querySelector("[data-artifact-thumb]");
+          if (!artifact || !image) continue;
+          try {
+            const objectUrl = await appState.sdk.artifacts.blobUrl(taskRunId, artifact, { disposition: "inline" });
+            if (renderToken !== appState.thumbnailRenderToken) {
+              URL.revokeObjectURL(objectUrl);
+              return;
+            }
+            const previous = appState.thumbnailObjectUrls.get(artifactId);
+            if (previous) URL.revokeObjectURL(previous);
+            appState.thumbnailObjectUrls.set(artifactId, objectUrl);
+            image.src = objectUrl;
+          } catch (error) {
+            console.warn("Unable to load thumbnail artifact", error);
+          }
+        }
+      }
+
+      function releaseThumbnailObjectUrls() {
+        appState.thumbnailObjectUrls.forEach((objectUrl) => {
+          URL.revokeObjectURL(objectUrl);
+        });
+        appState.thumbnailObjectUrls.clear();
       }
 
       function assetGames(asset) {

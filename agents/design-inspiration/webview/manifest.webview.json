@@ -8,6 +8,7 @@
   "assets": ["index.html", "agent-app-sdk.js"],
   "capabilities": [
     "app.context.read",
+    "task.artifacts.read",
     "task.status.read",
     "session.events.read",
     "session.presence.read",
