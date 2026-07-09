@@ -503,6 +503,7 @@ def build_codex_prompt(
             "- Highlight popular designs when the sort is heat, using only available metrics.",
             "- Use platform-provided sourceTier, sourceReliability, commercialSignal, and detailTagBreakdown as evidence; do not invent missing commercial conclusions.",
             "- Treat platform gapInsights as internal diagnostics only. Do not output a 侦查缺口/缺口 section or bullets about platform/data coverage defects.",
+            "- Worker turns are stateless. Do not output 下一轮补采, 后续采集方向, 建议补充素材, or 下一步 sections because the user cannot apply report text as future collection constraints.",
             "- Keep weapon skins, character skins, and general references separated.",
             "- Do not output tokens, credentials, cookies, signed URLs, webhook URLs, or private environment values.",
             "- Public source URLs in the snapshot may be shown. Do not invent missing URLs.",

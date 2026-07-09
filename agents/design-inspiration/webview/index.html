@@ -1215,7 +1215,7 @@
         }
         const assets = Array.isArray(state.lastAssets) ? state.lastAssets : [];
         const stats = state.lastStats && typeof state.lastStats === "object" ? state.lastStats : null;
-        const visibleMarkdown = stripPlatformGapReportContent(cleanRuntime(state.lastResult));
+        const visibleMarkdown = stripSuppressedReportContent(cleanRuntime(state.lastResult));
         const report = parseReport(visibleMarkdown);
         els.result.innerHTML = `
           <article class="report">
@@ -1361,29 +1361,29 @@
         return String(markdown || "").replace(/^#\s*设计灵感素材报告\s*/i, "").replace(/\n## Runtime[\s\S]*$/i, "").trim();
       }
 
-      function stripPlatformGapReportContent(markdown) {
+      function stripSuppressedReportContent(markdown) {
         const lines = String(markdown || "").replace(/\r\n/g, "\n").split("\n");
         const kept = [];
-        let skippingGapSection = false;
+        let skippingSuppressedSection = false;
         lines.forEach((rawLine) => {
           const line = rawLine.trim();
           if (!line) {
-            if (!skippingGapSection) kept.push(rawLine);
+            if (!skippingSuppressedSection) kept.push(rawLine);
             return;
           }
           const label = reportLineLabel(line);
-          if (isPlatformGapTitle(label)) {
-            skippingGapSection = true;
+          if (isSuppressedReportTitle(label)) {
+            skippingSuppressedSection = true;
             return;
           }
-          if (skippingGapSection) {
-            if (label && isReportSectionTitle(label) && !isPlatformGapTitle(label)) {
-              skippingGapSection = false;
+          if (skippingSuppressedSection) {
+            if (label && isReportSectionTitle(label) && !isSuppressedReportTitle(label)) {
+              skippingSuppressedSection = false;
             } else {
               return;
             }
           }
-          if (isPlatformGapDiagnosticLine(line)) return;
+          if (isSuppressedReportLine(line)) return;
           kept.push(rawLine);
         });
         return kept.join("\n").replace(/\n{3,}/g, "\n\n").trim();
@@ -1400,21 +1400,33 @@
         const colonLabel = value.match(/^([^：:]{1,16})[:：]/);
         if (colonLabel) return cleanupInline(colonLabel[1]);
         value = cleanupInline(value);
-        if (isPlatformGapTitle(value) || isReportSectionTitle(value)) return value;
+        if (isSuppressedReportTitle(value) || isReportSectionTitle(value)) return value;
         return "";
       }
 
-      function isPlatformGapTitle(value) {
-        return ["侦查缺口", "缺口", "平台缺陷", "平台缺口", "采集缺口", "数据缺口"].includes(cleanupInline(value));
+      function isSuppressedReportTitle(value) {
+        return [
+          "侦查缺口",
+          "缺口",
+          "平台缺陷",
+          "平台缺口",
+          "采集缺口",
+          "数据缺口",
+          "下一轮补采",
+          "后续采集方向",
+          "建议补充素材",
+          "下一步补采",
+          "下一步"
+        ].includes(cleanupInline(value));
       }
 
-      function isPlatformGapDiagnosticLine(value) {
+      function isSuppressedReportLine(value) {
         const clean = cleanupInline(value)
           .replace(/^[-*]\s+/, "")
           .replace(/^\d+[.)、]\s+/, "")
           .trim();
         return /^(高优先级|中优先级|低优先级)[：:]/.test(clean)
-          || /侦查缺口|平台缺陷|平台缺口|采集缺口|数据缺口|分类覆盖不均|分类不均|无法稳定判断|官方\/海外来源不足|来源不足|商业表现信号偏弱|商业信号偏弱|不适合判断商业|动态检视和特效素材不足|动态素材不足|样本量不足/.test(clean);
+          || /侦查缺口|平台缺陷|平台缺口|采集缺口|数据缺口|分类覆盖不均|分类不均|无法稳定判断|官方\/海外来源不足|来源不足|商业表现信号偏弱|商业信号偏弱|不适合判断商业|动态检视和特效素材不足|动态素材不足|样本量不足|下一轮补采|后续采集方向|建议补充素材|下一步补采/.test(clean);
       }
 
       function parseReport(markdown) {
@@ -1470,7 +1482,7 @@
       }
 
       function isReportSectionTitle(value) {
-        return ["结论", "热门方向", "武器皮肤", "角色皮肤", "综合参考", "下一轮补采", "下一步", "参考素材", "素材引用"].includes(cleanupInline(value));
+        return ["结论", "热门方向", "武器皮肤", "角色皮肤", "综合参考", "参考素材", "素材引用"].includes(cleanupInline(value));
       }
 
       function cleanupInline(value) {
