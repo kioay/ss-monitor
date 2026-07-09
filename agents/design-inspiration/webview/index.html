@@ -501,6 +501,10 @@
       .asset-section {
         display: grid;
         gap: 12px;
+        border: 1px solid #cbdcd5;
+        border-radius: 8px;
+        padding: 14px;
+        background: #fbfdfb;
       }
       .asset-section-head {
         display: flex;
@@ -529,20 +533,23 @@
       }
       .asset-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-        gap: 12px;
+        grid-template-columns: 1fr;
+        gap: 10px;
       }
       .asset-card {
         min-width: 0;
+        display: grid;
+        grid-template-columns: 168px minmax(0, 1fr) auto;
+        align-items: stretch;
         border: 1px solid #d8e4df;
         border-radius: 8px;
-        background: #fbfdfb;
+        background: #ffffff;
         overflow: hidden;
       }
       .asset-thumb {
         display: grid;
         place-items: center;
-        aspect-ratio: 16 / 9;
+        min-height: 126px;
         background: linear-gradient(135deg, #deeeec, #f8fbf8);
         color: #35615e;
         font-size: 13px;
@@ -559,6 +566,30 @@
         gap: 8px;
         padding: 11px 12px 12px;
       }
+      .asset-game-row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .game-chip {
+        border: 1px solid rgba(18, 140, 150, 0.35);
+        border-radius: 999px;
+        padding: 3px 8px;
+        background: var(--signal-soft);
+        color: var(--signal-dark);
+        font-size: 11px;
+        font-weight: 950;
+      }
+      .asset-type-chip {
+        border: 1px solid #d9e5df;
+        border-radius: 999px;
+        padding: 3px 8px;
+        background: #f5faf8;
+        color: #526b66;
+        font-size: 11px;
+        font-weight: 900;
+      }
       .asset-title {
         color: var(--ink);
         font-size: 14px;
@@ -574,6 +605,10 @@
         color: #71817d;
         font-size: 11px;
         font-weight: 820;
+      }
+      .asset-meta-row span {
+        min-width: 0;
+        overflow-wrap: anywhere;
       }
       .asset-copy {
         margin: 0;
@@ -594,6 +629,68 @@
         color: #405651;
         font-size: 11px;
         font-weight: 900;
+      }
+      .asset-action {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-left: 1px solid #e0ebe5;
+        padding: 12px;
+        background: #f7fbf9;
+      }
+      .asset-open {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 82px;
+        min-height: 36px;
+        border: 1px solid rgba(18, 140, 150, 0.44);
+        border-radius: 8px;
+        padding: 0 11px;
+        background: #ffffff;
+        color: var(--signal-dark);
+        font-size: 12px;
+        font-weight: 950;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      .asset-open:hover {
+        border-color: var(--signal);
+        background: var(--signal-soft);
+      }
+      .asset-open[aria-disabled="true"] {
+        opacity: 0.55;
+        background: #f3f7f5;
+        color: #71817d;
+      }
+      .analysis-details {
+        border: 1px solid #dce7e1;
+        border-radius: 8px;
+        background: #ffffff;
+        overflow: hidden;
+      }
+      .analysis-details summary {
+        cursor: pointer;
+        padding: 12px 14px;
+        color: #314b47;
+        font-size: 13px;
+        font-weight: 950;
+        list-style: none;
+      }
+      .analysis-details summary::-webkit-details-marker { display: none; }
+      .analysis-details summary::after {
+        content: "展开";
+        float: right;
+        color: #667b75;
+        font-size: 12px;
+      }
+      .analysis-details[open] summary {
+        border-bottom: 1px solid #e2ebe6;
+      }
+      .analysis-details[open] summary::after { content: "收起"; }
+      .analysis-details .report-section-list {
+        padding: 0 14px;
+        border-top: 0;
       }
       .raw-result {
         border-top: 1px solid #e3ebe6;
@@ -632,6 +729,13 @@
         .report-overview { grid-template-columns: 1fr; }
         .report-section { grid-template-columns: 1fr; gap: 8px; }
         .asset-section-head { align-items: flex-start; flex-direction: column; }
+        .asset-card { grid-template-columns: 1fr; }
+        .asset-thumb { min-height: 160px; }
+        .asset-action {
+          justify-content: flex-start;
+          border-left: 0;
+          border-top: 1px solid #e0ebe5;
+        }
       }
     </style>
   </head>
@@ -1221,8 +1325,8 @@
         els.result.innerHTML = `
           <article class="report">
             ${renderReportOverview(stats, report, citationMap)}
-            ${renderReportSections(report, citationMap)}
             ${renderAssetCards(assets)}
+            ${renderReportSections(report, citationMap)}
             <details class="raw-result">
               <summary>报告原文</summary>
               <pre>${escapeHtml(visibleMarkdown)}</pre>
@@ -1283,9 +1387,12 @@
         const sections = report.sections.filter((section) => section.items.length || section.paragraphs.length);
         if (!sections.length) return "";
         return `
-          <section class="report-section-list" aria-label="报告正文">
-            ${sections.map((section) => renderReportSection(section, citationMap)).join("")}
-          </section>
+          <details class="analysis-details">
+            <summary>文字分析</summary>
+            <section class="report-section-list" aria-label="报告正文">
+              ${sections.map((section) => renderReportSection(section, citationMap)).join("")}
+            </section>
+          </details>
         `;
       }
 
@@ -1303,13 +1410,16 @@
 
       function renderAssetCards(assets) {
         if (!assets.length) return "";
-        const visibleAssets = assets.slice(0, 24);
+        const visibleAssets = assets
+          .filter((asset) => asset && typeof asset === "object" && (asset.sourceUrl || asset.title))
+          .slice(0, 16);
+        if (!visibleAssets.length) return "";
         return `
           <section class="asset-section" aria-label="素材引用">
             <div class="asset-section-head">
               <div>
-                <h3>素材引用</h3>
-                <p>优先展示带图片或视频线索的前 ${visibleAssets.length} 条素材。</p>
+                <h3>可点击素材</h3>
+                <p>每条素材都标出竞品、来源、热度和跳转入口。</p>
               </div>
               <span class="asset-count">${assets.length} 条结果</span>
             </div>
@@ -1324,12 +1434,13 @@
         const title = asset.title || "未命名素材";
         const href = validUrl(asset.sourceUrl) ? asset.sourceUrl : "";
         const thumb = validUrl(asset.thumbnailUrl) ? asset.thumbnailUrl : "";
+        const games = assetGames(asset);
+        const category = asset.categoryLabel || categoryLabel(asset.category) || "综合参考";
         const tags = [
-          categoryLabel(asset.category),
           asset.kind === "video" ? "视频" : "图文",
           ...(Array.isArray(asset.designTags) ? asset.designTags.slice(0, 2) : []),
           ...(Array.isArray(asset.visualTags) ? asset.visualTags.slice(0, 2) : [])
-        ].filter(Boolean);
+        ].filter(Boolean).slice(0, 4);
         const meta = [
           asset.sourceLabel || asset.source,
           asset.author,
@@ -1343,13 +1454,65 @@
           <article class="asset-card">
             <div class="asset-thumb">${thumb ? `<img src="${escapeHtml(thumb)}" alt="" loading="lazy" />` : `<span>${escapeHtml(asset.sourceLabel || asset.source || "素材")}</span>`}</div>
             <div class="asset-body">
+              <div class="asset-game-row">
+                ${games.map((game) => `<span class="game-chip">${escapeHtml(game)}</span>`).join("")}
+                <span class="asset-type-chip">${escapeHtml(category)}</span>
+              </div>
               ${titleHtml}
               ${meta.length ? `<div class="asset-meta-row">${meta.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>` : ""}
               <p class="asset-copy">${escapeHtml(asset.reason || asset.summary || "暂无摘要")}</p>
               <div class="asset-tags">${tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")}</div>
             </div>
+            <div class="asset-action">
+              ${href ? `<a class="asset-open" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">打开来源</a>` : `<span class="asset-open" aria-disabled="true">无链接</span>`}
+            </div>
           </article>
         `;
+      }
+
+      function assetGames(asset) {
+        const explicit = Array.isArray(asset.competitorGames)
+          ? asset.competitorGames.map((game) => String(game || "").trim()).filter(Boolean)
+          : [];
+        const usable = explicit.filter((game) => game !== "未标注竞品");
+        if (usable.length) return uniqueText(usable).slice(0, 3);
+        const text = [asset.title, asset.summary, asset.reason, asset.sourceCitation].filter(Boolean).join(" ");
+        const rules = [
+          ["CF手游", /CF手游|CFM|穿越火线手游|枪战王者/i],
+          ["CFHD", /CFHD|穿越火线HD/i],
+          ["CF", /(^|[^A-Za-z])CF([^A-Za-z]|$)|穿越火线/i],
+          ["CS2", /CS2|反恐精英2|CSGO/i],
+          ["三角洲行动", /三角洲行动|Delta Force/i],
+          ["暗区突围", /暗区突围|Arena Breakout/i],
+          ["萤火突击", /萤火突击|Lost Light/i],
+          ["漫威争锋", /漫威争锋|Marvel Rivals/i],
+          ["和平精英", /和平精英|Peace Elite/i],
+          ["荒野行动", /荒野行动|Knives Out/i],
+          ["Warframe", /Warframe/i],
+          ["Halo", /Halo/i],
+          ["DOOM", /DOOM/i],
+          ["COD", /使命召唤|Call of Duty|Warzone|COD/i],
+          ["Apex", /Apex/i],
+          ["VALORANT", /VALORANT|无畏契约/i]
+        ];
+        let inferred = rules.filter(([, pattern]) => pattern.test(text)).map(([label]) => label);
+        if (inferred.includes("CF手游") || inferred.includes("CFHD")) {
+          inferred = inferred.filter((label) => label !== "CF");
+        }
+        return uniqueText(inferred).slice(0, 3).concat(inferred.length ? [] : ["未标注竞品"]);
+      }
+
+      function uniqueText(values) {
+        const seen = new Set();
+        const result = [];
+        values.forEach((value) => {
+          const text = String(value || "").trim();
+          const key = text.toLowerCase();
+          if (!text || seen.has(key)) return;
+          seen.add(key);
+          result.push(text);
+        });
+        return result;
       }
 
       function categoryLabel(value) {
@@ -1517,7 +1680,7 @@
       }
 
       function isReportSectionTitle(value) {
-        return ["结论", "热门方向", "武器皮肤", "角色皮肤", "综合参考", "参考素材", "素材引用"].includes(cleanupInline(value));
+        return ["结论", "热门方向", "武器皮肤", "角色皮肤", "综合参考", "参考素材", "素材引用", "素材索引", "关键素材"].includes(cleanupInline(value));
       }
 
       function cleanupInline(value) {

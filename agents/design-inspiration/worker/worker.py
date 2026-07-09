@@ -183,6 +183,7 @@ def run_collect_turn(worker: WorkerClient, output_dir: Path, mode: str, turn_inp
     if not final_message:
         raise RuntimeError("Codex produced an empty final message")
     final_message = sanitize_report_markdown(final_message, inspiration_snapshot)
+    final_message = append_source_index(final_message, inspiration_snapshot)
 
     result_markdown = "\n".join(
         [
@@ -646,6 +647,50 @@ def replace_bare_source_urls(text: str, citations: dict[str, str]) -> str:
     return re.sub(r"https?://[^\s<>)，,。；;]+", replace, text)
 
 
+def append_source_index(markdown: str, inspiration_snapshot: dict[str, Any]) -> str:
+    index = build_source_index_markdown(inspiration_snapshot)
+    if not index:
+        return markdown
+    if "素材索引" in markdown or "素材引用" in markdown:
+        return markdown
+    return f"{markdown.rstrip()}\n\n{index}"
+
+
+def build_source_index_markdown(inspiration_snapshot: dict[str, Any], limit: int = 12) -> str:
+    lines: list[str] = []
+    for asset in public_assets_for_result(inspiration_snapshot.get("assets"), limit):
+        source_url = str(asset.get("sourceUrl") or "").strip()
+        if not source_url:
+            continue
+        games = "、".join(
+            [
+                str(game).strip()
+                for game in list_or_empty(asset.get("competitorGames"))
+                if str(game or "").strip()
+            ]
+        ) or "未标注竞品"
+        category = asset.get("categoryLabel") or CATEGORY_LABELS.get(str(asset.get("category") or ""), "综合参考")
+        source = asset.get("sourceLabel") or asset.get("source") or "来源"
+        title = sanitize_text(str(asset.get("title") or "未命名素材")).strip()
+        heat = heat_text(asset.get("metrics"))
+        meta = "｜".join([part for part in [games, category, source, heat] if part])
+        lines.append(f"- **{meta}**｜[{title}]({source_url})")
+    if not lines:
+        return ""
+    return "## 素材索引\n" + "\n".join(lines)
+
+
+def heat_text(metrics: Any) -> str:
+    if not isinstance(metrics, dict):
+        return ""
+    parts: list[str] = []
+    for key, label in (("views", "播放"), ("likes", "赞"), ("comments", "评"), ("favorites", "收藏")):
+        value = metrics.get(key)
+        if isinstance(value, (int, float)) and value > 0:
+            parts.append(f"{int(value)} {label}")
+    return " / ".join(parts[:2])
+
+
 def build_codex_prompt(
     *,
     skill_text: str,
@@ -686,6 +731,7 @@ def build_codex_prompt(
             "- Use only the Chinese label values already present in each asset for 来源可信度、商业信号、分类、竞品游戏 and 来源引用; do not invent missing commercial conclusions.",
             "- Never output internal field names or enum ids such as sourceReliability, sourceTier, commercialSignal, detailTagBreakdown, matchedSeeds, visualTags, weapon_skin, character_skin, general_reference, sourceTrustLabel, commercialSignalLabel, categoryLabel, competitorGames, or sourceCitation.",
             "- Every cited source URL must name the competitor game first, formatted as 竞品游戏｜来源｜素材标题｜URL. Do not output bare URLs.",
+            "- For each notable asset, include the competitor game name and a Markdown source link. Do not describe an asset without naming its competitor.",
             "- Treat platform gapInsights as internal diagnostics only. Do not output a 侦查缺口/缺口 section or bullets about platform/data coverage defects.",
             "- Worker turns are stateless. Do not output 下一轮补采, 后续采集方向, 建议补充素材, or 下一步 sections because the user cannot apply report text as future collection constraints.",
             "- Keep weapon skins, character skins, and general references separated.",
