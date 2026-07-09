@@ -1652,6 +1652,14 @@ function InspirationPage() {
     setSelectedPackIds(inspirationSeedPresets.map((seed) => seed.id));
   }, []);
 
+  const invertPackSelection = React.useCallback(() => {
+    setSelectedPackIds((current) => {
+      const selected = new Set(current);
+      const inverted = inspirationSeedPresets.map((seed) => seed.id).filter((id) => !selected.has(id));
+      return inverted.length ? inverted : inspirationSeedPresets.map((seed) => seed.id);
+    });
+  }, []);
+
   const collectInspiration = React.useCallback(() => {
     void loadInspiration(true);
   }, [loadInspiration]);
@@ -1687,6 +1695,7 @@ function InspirationPage() {
           onQueryChange={setQuery}
           onTogglePack={togglePack}
           onSelectAllPacks={selectAllPacks}
+          onInvertPackSelection={invertPackSelection}
           onCollect={collectInspiration}
         />
       </main>
@@ -1709,6 +1718,7 @@ function InspirationStudio({
   onQueryChange,
   onTogglePack,
   onSelectAllPacks,
+  onInvertPackSelection,
   onCollect
 }: {
   data?: InspirationResponse;
@@ -1725,6 +1735,7 @@ function InspirationStudio({
   onQueryChange: (value: string) => void;
   onTogglePack: (packId: string) => void;
   onSelectAllPacks: () => void;
+  onInvertPackSelection: () => void;
   onCollect: () => void;
 }) {
   const assets = data?.assets || [];
@@ -1771,9 +1782,14 @@ function InspirationStudio({
           <section className="inspiration-rail-block">
             <div className="inspiration-rail-title">
               <span>竞品包</span>
-              <button type="button" className={allPacksSelected ? "active" : ""} onClick={onSelectAllPacks}>
-                全部
-              </button>
+              <div className="inspiration-pack-tools" aria-label="竞品包快捷选择">
+                <button type="button" className={allPacksSelected ? "active" : ""} onClick={onSelectAllPacks}>
+                  全部
+                </button>
+                <button type="button" onClick={onInvertPackSelection}>
+                  反选
+                </button>
+              </div>
             </div>
             <div className="inspiration-pack-grid">
               {seeds.map((seed) => {

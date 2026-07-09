@@ -704,6 +704,7 @@
                 <div class="pack-tools">
                   <span class="pack-count" id="packCount">0/0 已选</span>
                   <button class="pack-tool" id="selectAllPacks" type="button">全选</button>
+                  <button class="pack-tool" id="invertPacks" type="button">反选</button>
                   <button class="pack-tool" id="clearPacks" type="button">清空</button>
                 </div>
               </div>
@@ -822,6 +823,7 @@
         force: document.getElementById("force"),
         health: document.getElementById("health"),
         inspirationBaseUrl: document.getElementById("inspirationBaseUrl"),
+        invertPacks: document.getElementById("invertPacks"),
         limit: document.getElementById("limit"),
         meta: document.getElementById("meta"),
         notice: document.getElementById("notice"),
@@ -898,6 +900,10 @@
         els.inspirationBaseUrl.addEventListener("input", updateLibraryLink);
         els.selectAllPacks.addEventListener("click", () => {
           setAllPacks(true);
+          persistPackSelection();
+        });
+        els.invertPacks.addEventListener("click", () => {
+          invertPackSelection();
           persistPackSelection();
         });
         els.clearPacks.addEventListener("click", () => {
@@ -1056,6 +1062,18 @@
         els.packOptions.forEach((item) => {
           item.checked = checked;
         });
+        updatePackCount();
+      }
+
+      function invertPackSelection() {
+        els.packOptions.forEach((item) => {
+          item.checked = !item.checked;
+        });
+        if (selectedPackIds().length === 0) {
+          setAllPacks(true);
+          showNotice("已反选。为避免空筛选，已恢复为全选。");
+          return;
+        }
         updatePackCount();
       }
 

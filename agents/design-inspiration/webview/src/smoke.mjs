@@ -33,6 +33,7 @@ const requiredHtmlMarkers = [
   "nz",
   "nz-future",
   "全选",
+  "反选",
   "清空",
   "竞品素材侦查",
   "采集素材",

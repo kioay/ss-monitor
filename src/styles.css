@@ -3301,6 +3301,13 @@ button.metric:focus-visible {
   font-weight: 860;
 }
 
+.inspiration-pack-tools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
 .inspiration-rail-title button {
   border: 1px solid rgba(18, 29, 27, 0.15);
   border-radius: 7px;
