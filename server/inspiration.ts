@@ -98,6 +98,9 @@ const visualTagLexicon: Array<{ tag: string; terms: string[] }> = [
 const specificDesignMaterialTerms = [
   "武器皮肤",
   "枪械皮肤",
+  "枪械涂装",
+  "武器涂装",
+  "装备涂装",
   "武器外观",
   "枪械外观",
   "近战皮肤",
@@ -109,6 +112,10 @@ const specificDesignMaterialTerms = [
   "套装外观",
   "皮肤展示",
   "外观展示",
+  "外观图集",
+  "检视动画",
+  "检视动作",
+  "填弹动作",
   "赛季皮肤",
   "通行证皮肤",
   "商城皮肤",
@@ -238,9 +245,24 @@ const hardNonDesignTerms = [
   "限时g币",
   "买什么",
   "用来买什么",
+  "怎么用",
+  "到底怎么用",
   "请问",
   "问一下",
-  "回归玩家"
+  "回归玩家",
+  "退坑",
+  "退坑整理",
+  "代价私",
+  "记者勿扰",
+  "卖号",
+  "出号",
+  "纯无敌洞",
+  "想花不敢花",
+  "不敢放开",
+  "谁会买",
+  "屌样",
+  "白皮战术",
+  "防止小孩"
 ];
 
 const softNonDesignTerms = [
@@ -675,7 +697,7 @@ function isDesignInspirationCandidate(
 
   const hasDesignSignal =
     specificDesignHits > 0
-    || (presentationHits > 0 && (weakDesignHits > 0 || categoryHits > 0 || hasMatchedSeed));
+    || (presentationHits > 1 && (weakDesignHits > 0 || categoryHits > 0 || hasMatchedSeed));
   if (!hasDesignSignal) return false;
 
   const hasSoftNoise = countTermHits(primaryNormalized, primaryCompact, softNonDesignTerms) > 0;

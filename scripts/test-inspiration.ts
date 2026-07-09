@@ -93,6 +93,18 @@ const nonDesignNoise = [
     keywords: ["三角洲行动", "武器皮肤", "近战武器"],
     thumbnail: "https://i0.hdslb.com/bfs/archive/reward-guide.jpg",
     contentParts: [{ type: "description", text: "限时三角券领取、兑换新刀皮攻略。", count: 1 }]
+  }),
+  makeItem("tieba-weak-skin-complaint", {
+    source: "tieba",
+    title: "那又如何？",
+    summary: "bo7皮肤到现在仍旧这般屌样，想花不敢花，特殊检视不敢放开就是因为白皮战术氛围骂的",
+    keywords: ["皮肤", "bo7"],
+    thumbnail: "https://imgsa.baidu.com/forum/pic/item/weak-skin-complaint.jpg",
+    contentParts: [
+      { type: "title", text: "那又如何？", count: 1 },
+      { type: "description", text: "bo7皮肤到现在仍旧这般屌样，想花不敢花，特殊检视不敢放开就是因为白皮战术氛围骂的", count: 1 },
+      { type: "post", text: "说到底白皮根本是为了维护那可笑的氛围感，没几个人买。", count: 1 }
+    ]
   })
 ];
 
