@@ -547,6 +547,7 @@
         overflow: hidden;
       }
       .asset-thumb {
+        position: relative;
         display: grid;
         place-items: center;
         min-height: 126px;
@@ -554,12 +555,50 @@
         color: #35615e;
         font-size: 13px;
         font-weight: 900;
+        overflow: hidden;
+      }
+      .asset-thumb-fallback {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        align-content: center;
+        justify-items: start;
+        gap: 5px;
+        padding: 14px;
+        background:
+          linear-gradient(135deg, rgba(29, 154, 166, 0.13), rgba(246, 250, 246, 0.94)),
+          repeating-linear-gradient(135deg, rgba(35, 80, 74, 0.06) 0 1px, transparent 1px 11px);
+      }
+      .asset-thumb-fallback span,
+      .asset-thumb-fallback em {
+        max-width: 100%;
+        color: #55706c;
+        font-size: 11px;
+        font-style: normal;
+        font-weight: 800;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .asset-thumb-fallback strong {
+        max-width: 100%;
+        color: #123532;
+        font-size: 18px;
+        line-height: 1.15;
+        overflow-wrap: anywhere;
       }
       .asset-thumb img {
+        position: absolute;
+        inset: 0;
         width: 100%;
         height: 100%;
         object-fit: cover;
         display: block;
+        opacity: 0;
+        transition: opacity 0.18s ease;
+      }
+      .asset-thumb img.is-loaded {
+        opacity: 1;
       }
       .asset-body {
         display: grid;
@@ -1433,7 +1472,6 @@
       function renderAssetCard(asset) {
         const title = asset.title || "未命名素材";
         const href = validUrl(asset.sourceUrl) ? asset.sourceUrl : "";
-        const thumb = validUrl(asset.thumbnailUrl) ? asset.thumbnailUrl : "";
         const games = assetGames(asset);
         const category = asset.categoryLabel || categoryLabel(asset.category) || "综合参考";
         const tags = [
@@ -1452,7 +1490,7 @@
           : `<span class="asset-title">${escapeHtml(title)}</span>`;
         return `
           <article class="asset-card">
-            <div class="asset-thumb">${thumb ? `<img src="${escapeHtml(thumb)}" alt="" loading="lazy" />` : `<span>${escapeHtml(asset.sourceLabel || asset.source || "素材")}</span>`}</div>
+            ${renderAssetThumb(asset, games)}
             <div class="asset-body">
               <div class="asset-game-row">
                 ${games.map((game) => `<span class="game-chip">${escapeHtml(game)}</span>`).join("")}
@@ -1467,6 +1505,26 @@
               ${href ? `<a class="asset-open" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">打开来源</a>` : `<span class="asset-open" aria-disabled="true">无链接</span>`}
             </div>
           </article>
+        `;
+      }
+
+      function renderAssetThumb(asset, games) {
+        const thumb = imageProxyUrl(asset.thumbnailUrl);
+        const mediaLabel = asset.kind === "image" ? "图片素材" : "视频素材";
+        const sourceLabel = asset.sourceLabel || asset.source || "素材来源";
+        const gameLabel = games.find((game) => game !== "未标注竞品") || "竞品素材";
+        const fallback = `
+          <div class="asset-thumb-fallback" aria-hidden="true">
+            <span>${escapeHtml(sourceLabel)}</span>
+            <strong>${escapeHtml(mediaLabel)}</strong>
+            <em>${escapeHtml(gameLabel)}</em>
+          </div>
+        `;
+        return `
+          <div class="asset-thumb">
+            ${fallback}
+            ${thumb ? `<img src="${escapeHtml(thumb)}" alt="" width="320" height="180" loading="lazy" referrerpolicy="no-referrer" onload="this.classList.add('is-loaded')" onerror="this.remove()" />` : ""}
+          </div>
         `;
       }
 
@@ -1816,6 +1874,23 @@
           return ["http:", "https:"].includes(url.protocol) ? url.href : "";
         } catch {
           return "";
+        }
+      }
+
+      function imageProxyUrl(value) {
+        const raw = validUrl(value);
+        if (!raw) return "";
+        const base = validUrl(els.inspirationBaseUrl?.value || defaults.inspirationBaseUrl);
+        if (!base) return raw;
+        try {
+          const url = new URL(base);
+          url.pathname = "/api/image";
+          url.search = "";
+          url.hash = "";
+          url.searchParams.set("url", raw);
+          return url.href;
+        } catch {
+          return raw;
         }
       }
 
