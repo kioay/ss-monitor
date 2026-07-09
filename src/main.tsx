@@ -3585,18 +3585,36 @@ function alertDetailId(id: string) {
 }
 
 function Thumbnail({ item }: { item: MonitorItem }) {
-  const [failed, setFailed] = React.useState(false);
   const imageUrl = item.thumbnail ? `/api/image?url=${encodeURIComponent(item.thumbnail)}` : "";
+  const [status, setStatus] = React.useState<"loading" | "loaded" | "failed">(imageUrl ? "loading" : "failed");
 
-  if (!imageUrl || failed) {
-    return (
-      <div className="fallback-thumb">
-        {item.source === "tieba" || item.source === "forum4399" ? <Waves aria-hidden="true" /> : <Video aria-hidden="true" />}
-      </div>
-    );
-  }
+  React.useEffect(() => {
+    setStatus(imageUrl ? "loading" : "failed");
+  }, [imageUrl]);
 
-  return <img src={imageUrl} alt="" width={320} height={180} loading="lazy" onError={() => setFailed(true)} />;
+  const fallback = (
+    <div className="fallback-thumb" aria-hidden="true">
+      {item.source === "tieba" || item.source === "forum4399" ? <Waves /> : <Video />}
+    </div>
+  );
+
+  if (!imageUrl || status === "failed") return fallback;
+
+  return (
+    <>
+      {fallback}
+      <img
+        className={status === "loaded" ? "is-loaded" : ""}
+        src={imageUrl}
+        alt=""
+        width={320}
+        height={180}
+        loading="lazy"
+        onLoad={(event) => setStatus(event.currentTarget.naturalWidth > 0 ? "loaded" : "failed")}
+        onError={() => setStatus("failed")}
+      />
+    </>
+  );
 }
 
 function ScopeRail({

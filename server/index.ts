@@ -85,7 +85,9 @@ app.get("/api/image", async (request, response) => {
 
     const upstream = await fetch(imageUrl.toString(), {
       headers: {
-        "User-Agent": "Mozilla/5.0",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
+        Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
         Referer: imageReferer(imageUrl.hostname)
       }
     });
@@ -96,6 +98,10 @@ app.get("/api/image", async (request, response) => {
     }
 
     const contentType = upstream.headers.get("content-type") || "image/jpeg";
+    if (!contentType.toLowerCase().startsWith("image/")) {
+      response.status(502).send("Upstream did not return an image");
+      return;
+    }
     const contentLength = upstream.headers.get("content-length");
     response.setHeader("Content-Type", contentType);
     if (contentLength) response.setHeader("Content-Length", contentLength);
