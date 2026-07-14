@@ -1,7 +1,7 @@
 {
   "agentId": "design-inspiration",
   "operation": "update",
-  "previousVersion": "0.1.21",
-  "nextVersion": "0.1.22",
-  "changeSummary": "修复钉钉回复中的素材封面灰图，转存封面到共享资源并兼容新版 SDK 的预览地址。"
+  "previousVersion": "0.1.22",
+  "nextVersion": "0.1.23",
+  "changeSummary": "移除钉钉委托回复中无法渲染的封面语法，避免图片链接以异常文本形式显示。"
 }
