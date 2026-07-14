@@ -1,7 +1,7 @@
 {
   "agentId": "design-inspiration",
   "operation": "update",
-  "previousVersion": "0.1.3",
-  "nextVersion": "0.1.4",
-  "changeSummary": "优化素材报告排版，将报告正文按概览、章节和素材引用结构化展示，并将 Agent 标题更新为“竞品素材侦查”。"
+  "previousVersion": "0.1.17",
+  "nextVersion": "0.1.18",
+  "changeSummary": "修复聊天报告链接点击无效，并让网页素材卡使用任务封面产物显示真实图片。"
 }

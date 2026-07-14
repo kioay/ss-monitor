@@ -195,6 +195,7 @@ def run_collect_turn(worker: WorkerClient, output_dir: Path, mode: str, turn_inp
 
     worker.status("running", phase_message="Staging asset thumbnails", progress=0.8, stage="staging_thumbnails")
     thumbnail_artifacts = stage_thumbnail_artifacts(public_assets, turn_input, output_dir, log)
+    chat_message = append_chat_thumbnail_preview(final_message, public_assets, turn_input)
 
     result_markdown = "\n".join(
         [
@@ -250,7 +251,7 @@ def run_collect_turn(worker: WorkerClient, output_dir: Path, mode: str, turn_inp
         "totalMatched": inspiration_snapshot.get("totalMatched"),
         "assets": public_assets,
         "resultMarkdown": result_markdown,
-        "finalMessage": final_message,
+        "finalMessage": chat_message,
         "usage": codex_result.get("usage"),
         "artifactCount": len(uploaded),
     }
@@ -788,6 +789,50 @@ def source_markdown_link(source_url: Any) -> str:
     if not url:
         return ""
     return f"[打开来源]({url})"
+
+
+def append_chat_thumbnail_preview(markdown: str, assets: list[dict[str, Any]], turn_input: dict[str, Any]) -> str:
+    text = markdown_links_to_visible_urls(sanitize_text(str(markdown or ""))).strip()
+    text = strip_private_file_links(text).strip()
+    thumbnail_count = sum(1 for asset in assets if isinstance(asset, dict) and asset.get("thumbnailArtifactId"))
+    if thumbnail_count:
+        base_url = normalize_base_url(str(turn_input.get("inspirationBaseUrl") or DEFAULT_BASE_URL).strip())
+        text = "\n\n".join(
+            [
+                text,
+                f"封面预览：已生成 {thumbnail_count} 张素材封面，请在竞品素材侦查网页的素材卡中查看。",
+                f"素材库：{base_url}",
+            ]
+        )
+    return text
+
+
+def markdown_links_to_visible_urls(markdown: str) -> str:
+    def replace_image(match: re.Match[str]) -> str:
+        label = sanitize_text(match.group(1)).strip() or "图片"
+        url = match.group(2).strip()
+        return f"{label}： {url}"
+
+    def replace_link(match: re.Match[str]) -> str:
+        label = sanitize_text(match.group(1)).strip() or "打开来源"
+        url = match.group(2).strip()
+        clean_label = re.sub(r"[*_`]+", "", label).strip() or "打开来源"
+        if clean_label in {"打开来源", "来源", "链接"}:
+            return f"{clean_label}： {url}"
+        return f"{clean_label}： {url}"
+
+    text = re.sub(r"!\[([^\]]*)\]\((https?://[^)\s]+)\)", replace_image, markdown)
+    text = re.sub(r"\[([^\]]+)\]\((https?://[^)\s]+)\)", replace_link, text)
+    return text
+
+
+def strip_private_file_links(text: str) -> str:
+    return re.sub(
+        r"https?://[^\s<>)，,。；;]*(?:/portal/api/my-tasks/|/files/content\?)[^\s<>)，,。；;]*",
+        "[临时文件链接已隐藏]",
+        text,
+        flags=re.IGNORECASE,
+    )
 
 
 def append_source_index(markdown: str, inspiration_snapshot: dict[str, Any]) -> str:

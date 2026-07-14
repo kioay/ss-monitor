@@ -990,6 +990,7 @@
       };
 
       syncPacks(defaults.packs);
+      document.addEventListener("click", handleExternalLinkClick);
       init();
 
       async function init() {
@@ -1131,7 +1132,7 @@
           const lastResult = structured.resultMarkdown || structured.finalMessage || "worker 已完成，但没有返回可显示文本。";
           const lastAssets = Array.isArray(structured.assets) ? structured.assets : [];
           const lastStats = structured.stats || null;
-          const taskRunId = extractTaskRunId(waited.submitResponse) || appState.uiState?.get("taskRunId") || "";
+          const taskRunId = extractTaskRunId(waited) || extractTaskRunId(waited.submitResponse) || appState.uiState?.get("taskRunId") || "";
           appState.uiState?.patch({ lastResult, lastAssets, lastStats, taskRunId, lastMode: mode });
           await appState.uiState?.flush();
           setRunProgress("publish", "结果已整理完成", "done");
@@ -1173,6 +1174,22 @@
         if (els.force.checked !== Boolean(state.force)) els.force.checked = Boolean(state.force);
         updateLibraryLink();
         renderResult(state);
+      }
+
+      function handleExternalLinkClick(event) {
+        const target = event.target instanceof Element ? event.target : null;
+        const link = target?.closest("a[href]");
+        if (!link) return;
+        const href = validUrl(link.getAttribute("href"));
+        if (!href || href === "#") return;
+        if (link.target !== "_blank" && !link.classList.contains("asset-open") && !link.classList.contains("asset-title") && !link.classList.contains("open-link")) return;
+        event.preventDefault();
+        openExternalLink(href);
+      }
+
+      function openExternalLink(href) {
+        const opened = window.open(href, "_blank", "noopener,noreferrer");
+        if (!opened) window.location.assign(href);
       }
 
       function syncValue(key, value) {
