@@ -1,7 +1,7 @@
 {
   "agentId": "design-inspiration",
   "operation": "update",
-  "previousVersion": "0.1.20",
-  "nextVersion": "0.1.21",
-  "changeSummary": "改用素材库图片代理生成封面预览，避免钉钉加载外部图床失败。"
+  "previousVersion": "0.1.21",
+  "nextVersion": "0.1.22",
+  "changeSummary": "修复钉钉回复中的素材封面灰图，转存封面到共享资源并兼容新版 SDK 的预览地址。"
 }

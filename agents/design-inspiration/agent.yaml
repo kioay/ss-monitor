@@ -1,6 +1,6 @@
 id: design-inspiration
 name: 竞品素材侦查
-version: 0.1.21
+version: 0.1.22
 summary: 收集并整理 FPS/TPS 竞品武器、角色皮肤设计灵感素材。
 owner: yq@wooduan.com
 codexModel: gpt-5.5
@@ -34,6 +34,12 @@ jobPolicy:
 networkRequests:
   - https://wdclaw-artifacts-dev.oss-cn-hangzhou.aliyuncs.com
   - http://192.168.8.242:8788
+storage:
+  agentOssDrive:
+    open:
+      - chat_thumbnails
+    writeOpen:
+      - chat_thumbnails
 ui:
   mode: web-view-app
   entryArtifactId: webviewBundle

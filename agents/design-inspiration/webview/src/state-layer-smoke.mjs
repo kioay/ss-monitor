@@ -1,3 +1,8 @@
+// 正典 state-layer smoke —— 与 shared/agent-app-sdk/browser.js 成对维护。
+// agent 本地副本(webview/src/state-layer-smoke.mjs)应从这里刷新, 不要各自漂移:
+// SDK 升级若引入新的全局依赖(如 Headers), 必须同步更新下方 vm 沙箱清单,
+// 否则沙箱内所有请求静默失败, 会误报 "remote persistent state should win over defaults on init"
+// (2026-07-06 实踩: 30+ agent 的老副本缺 Headers, 装新 SDK 后 smoke 假阳性)。
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 
@@ -30,6 +35,7 @@ function loadSdk(localStorage = createLocalStorage()) {
   const sandbox = {
     BroadcastChannel: undefined,
     DOMException,
+    Headers,
     Response,
     URL,
     URLSearchParams,

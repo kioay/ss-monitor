@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -13,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from wdcloud_worker_sdk import (
+    AgentInvocationClient,
     WorkerClient,
     prepare_codex_home,
     redact_secrets,
@@ -31,6 +33,8 @@ SORT_VALUES = {"relevance", "heat", "latest"}
 THUMBNAIL_ARTIFACT_LIMIT = 24
 THUMBNAIL_FETCH_TIMEOUT_SECONDS = 6
 THUMBNAIL_MAX_BYTES = 3 * 1024 * 1024
+CHAT_THUMBNAIL_DRIVE_PREFIX = "chat_thumbnails"
+CHAT_THUMBNAIL_PREVIEW_LIMIT = 4
 THUMBNAIL_USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
@@ -197,10 +201,12 @@ def run_collect_turn(worker: WorkerClient, output_dir: Path, mode: str, turn_inp
     worker.status("running", phase_message="Staging asset thumbnails", progress=0.8, stage="staging_thumbnails")
     if delegated_channel:
         thumbnail_artifacts = []
+        chat_preview_assets = stage_chat_thumbnail_drive_assets(worker, public_assets, turn_input, log)
         log("Skipped thumbnail artifacts for delegated channel reply")
     else:
         thumbnail_artifacts = stage_thumbnail_artifacts(public_assets, turn_input, output_dir, log)
-    chat_message = append_chat_thumbnail_preview(final_message, public_assets, turn_input)
+        chat_preview_assets = public_assets
+    chat_message = append_chat_thumbnail_preview(final_message, chat_preview_assets, turn_input)
     display_message = chat_message if delegated_channel else final_message
 
     result_markdown = "\n".join(
@@ -488,6 +494,128 @@ def stage_thumbnail_artifacts(
     return artifacts
 
 
+def stage_chat_thumbnail_drive_assets(
+    worker: WorkerClient,
+    assets: list[dict[str, Any]],
+    turn_input: dict[str, Any],
+    log,
+) -> list[dict[str, Any]]:
+    if not assets:
+        return []
+    base_url = normalize_base_url(str(turn_input.get("inspirationBaseUrl") or DEFAULT_BASE_URL).strip())
+    tools = AgentInvocationClient(worker)
+    staged: list[dict[str, Any]] = []
+    for index, asset in enumerate(assets[:CHAT_THUMBNAIL_PREVIEW_LIMIT], start=1):
+        if not isinstance(asset, dict):
+            continue
+        source_url = normalize_thumbnail_url(asset.get("thumbnailUrl"))
+        if not source_url:
+            continue
+        try:
+            image = fetch_thumbnail_via_proxy(base_url, source_url)
+            if not image:
+                continue
+            raw, content_type, extension = image
+            row = agent_drive_put_thumbnail(
+                tools,
+                raw=raw,
+                content_type=content_type,
+                extension=extension,
+                index=index,
+                log=log,
+            )
+            file_id = str(row.get("fileId") or "").strip()
+            preview_url = agent_drive_content_url(tools, file_id, thumb="320")
+            if not is_public_https_url(preview_url):
+                log(f"Skipped non-HTTPS chat thumbnail preview for item {index}")
+                continue
+            enriched = dict(asset)
+            enriched["chatPreviewUrl"] = preview_url
+            staged.append(enriched)
+        except Exception as error:  # noqa: BLE001 - advisory preview only
+            log(f"Skipped chat thumbnail preview {index}: {redact_secrets(str(error))[:160]}")
+    log(f"Staged {len(staged)} chat thumbnail preview(s) in Agent Drive")
+    return staged
+
+
+def agent_drive_put_thumbnail(
+    tools: AgentInvocationClient,
+    *,
+    raw: bytes,
+    content_type: str,
+    extension: str,
+    index: int,
+    log,
+) -> dict[str, Any]:
+    sha256 = hashlib.sha256(raw).hexdigest()
+    name = f"asset-{index:03d}-{sha256[:12]}{extension}"
+    intent = tools.call(
+        "agent_drive_upload_intent",
+        {
+            "input": {
+                "contentType": content_type,
+                "name": name,
+                "parentPath": CHAT_THUMBNAIL_DRIVE_PREFIX,
+                "sha256": sha256,
+            }
+        },
+    )
+    if intent.get("instant"):
+        file_row = intent.get("file") if isinstance(intent.get("file"), dict) else {}
+        log(f"Agent Drive thumbnail dedup hit for {name}")
+        return {**file_row, "instant": True}
+    upload_url = str(intent.get("uploadUrl") or "")
+    if not upload_url:
+        raise RuntimeError("agent_drive_upload_intent missing uploadUrl")
+    request = urllib.request.Request(
+        upload_url,
+        data=raw,
+        headers={"Content-Type": content_type},
+        method="PUT",
+    )
+    with urllib.request.urlopen(request, timeout=120) as response:
+        if response.status >= 300:
+            raise RuntimeError(f"Agent Drive thumbnail PUT failed with status {response.status}")
+    committed = tools.call(
+        "agent_drive_commit",
+        {
+            "input": {
+                "contentType": content_type,
+                "fileId": intent.get("fileId"),
+                "name": name,
+                "parentPath": CHAT_THUMBNAIL_DRIVE_PREFIX,
+                "sha256": sha256,
+                "sizeBytes": len(raw),
+                "storageKey": intent.get("storageKey"),
+            }
+        },
+    )
+    file_row = committed.get("file") if isinstance(committed.get("file"), dict) else {}
+    return {**file_row, "instant": False}
+
+
+def agent_drive_content_url(tools: AgentInvocationClient, file_id: str, *, thumb: str | None = None) -> str:
+    if not file_id:
+        return ""
+    input_payload: dict[str, Any] = {"fileId": file_id}
+    if thumb:
+        input_payload["thumb"] = thumb
+    response = tools.call("agent_drive_content_url", {"input": input_payload})
+    candidates = [response]
+    if isinstance(response.get("data"), dict):
+        candidates.append(response["data"])
+    if isinstance(response.get("result"), dict):
+        candidates.append(response["result"])
+    if isinstance(response.get("file"), dict):
+        candidates.append(response["file"])
+    for candidate in candidates:
+        for key in ("url", "contentUrl", "downloadUrl"):
+            url = str(candidate.get(key) or "").strip()
+            if url:
+                return url
+    return ""
+
+
 def normalize_thumbnail_url(value: Any) -> str:
     text = str(value or "").strip()
     if not text:
@@ -498,6 +626,11 @@ def normalize_thumbnail_url(value: Any) -> str:
     if parsed.username or parsed.password:
         return ""
     return urllib.parse.urlunparse(parsed)
+
+
+def is_public_https_url(value: Any) -> bool:
+    parsed = urllib.parse.urlparse(str(value or "").strip())
+    return parsed.scheme == "https" and bool(parsed.netloc) and parsed.hostname not in {"localhost", "127.0.0.1"}
 
 
 def fetch_thumbnail_via_proxy(base_url: str, source_url: str) -> tuple[bytes, str, str] | None:
@@ -836,10 +969,9 @@ def build_public_thumbnail_markdown(assets: list[dict[str, Any]], *, base_url: s
     for asset in assets:
         if not isinstance(asset, dict):
             continue
-        thumbnail_url = normalize_thumbnail_url(asset.get("thumbnailUrl"))
-        if not thumbnail_url or is_private_file_url(thumbnail_url):
+        preview_url = normalize_thumbnail_url(asset.get("chatPreviewUrl"))
+        if not preview_url or is_private_file_url(preview_url):
             continue
-        preview_url = build_image_proxy_url(base_url, thumbnail_url)
         title = sanitize_text(str(asset.get("title") or "素材封面")).strip()
         alt = re.sub(r"[\[\]\n\r]", "", title)[:80] or "素材封面"
         count += 1
