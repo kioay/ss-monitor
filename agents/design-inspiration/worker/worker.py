@@ -193,15 +193,21 @@ def run_collect_turn(worker: WorkerClient, output_dir: Path, mode: str, turn_inp
     final_message = append_source_index(final_message, inspiration_snapshot)
     public_assets = public_assets_for_result(inspiration_snapshot.get("assets"), THUMBNAIL_ARTIFACT_LIMIT)
 
+    delegated_channel = is_delegated_channel_turn(turn_input)
     worker.status("running", phase_message="Staging asset thumbnails", progress=0.8, stage="staging_thumbnails")
-    thumbnail_artifacts = stage_thumbnail_artifacts(public_assets, turn_input, output_dir, log)
+    if delegated_channel:
+        thumbnail_artifacts = []
+        log("Skipped thumbnail artifacts for delegated channel reply")
+    else:
+        thumbnail_artifacts = stage_thumbnail_artifacts(public_assets, turn_input, output_dir, log)
     chat_message = append_chat_thumbnail_preview(final_message, public_assets, turn_input)
+    display_message = chat_message if delegated_channel else final_message
 
     result_markdown = "\n".join(
         [
             "# 设计灵感素材报告",
             "",
-            final_message,
+            display_message,
             "",
             "## Runtime",
             "",
@@ -794,6 +800,12 @@ def source_markdown_link(source_url: Any) -> str:
 def append_chat_thumbnail_preview(markdown: str, assets: list[dict[str, Any]], turn_input: dict[str, Any]) -> str:
     text = markdown_links_to_visible_urls(sanitize_text(str(markdown or ""))).strip()
     text = strip_private_file_links(text).strip()
+    if is_delegated_channel_turn(turn_input):
+        base_url = normalize_base_url(str(turn_input.get("inspirationBaseUrl") or DEFAULT_BASE_URL).strip())
+        preview = build_public_thumbnail_markdown(assets, base_url=base_url)
+        if preview:
+            text = "\n\n".join([text, preview, f"完整素材库：{base_url}"])
+        return text
     thumbnail_count = sum(1 for asset in assets if isinstance(asset, dict) and asset.get("thumbnailArtifactId"))
     if thumbnail_count:
         base_url = normalize_base_url(str(turn_input.get("inspirationBaseUrl") or DEFAULT_BASE_URL).strip())
@@ -805,6 +817,36 @@ def append_chat_thumbnail_preview(markdown: str, assets: list[dict[str, Any]], t
             ]
         )
     return text
+
+
+def is_delegated_channel_turn(turn_input: dict[str, Any]) -> bool:
+    invocation = turn_input.get("channelInvocation")
+    if isinstance(invocation, dict) and invocation.get("channelReplyAuthority") is False:
+        return True
+    if turn_input.get("channelReplyAuthority") is False:
+        return True
+    context = turn_input.get("channelContext")
+    source = str(turn_input.get("source") or "").strip()
+    return isinstance(context, dict) and context.get("type") == "dingtalk" and source == "dingtalk-assistant-agent"
+
+
+def build_public_thumbnail_markdown(assets: list[dict[str, Any]], *, base_url: str, limit: int = 4) -> str:
+    lines = ["封面预览（前 4 张）："]
+    count = 0
+    for asset in assets:
+        if not isinstance(asset, dict):
+            continue
+        thumbnail_url = normalize_thumbnail_url(asset.get("thumbnailUrl"))
+        if not thumbnail_url or is_private_file_url(thumbnail_url):
+            continue
+        preview_url = build_image_proxy_url(base_url, thumbnail_url)
+        title = sanitize_text(str(asset.get("title") or "素材封面")).strip()
+        alt = re.sub(r"[\[\]\n\r]", "", title)[:80] or "素材封面"
+        count += 1
+        lines.extend([f"{count}. {alt}", f"![{alt}]({preview_url})"])
+        if count >= limit:
+            break
+    return "\n".join(lines) if count else ""
 
 
 def markdown_links_to_visible_urls(markdown: str) -> str:
@@ -833,6 +875,10 @@ def strip_private_file_links(text: str) -> str:
         text,
         flags=re.IGNORECASE,
     )
+
+
+def is_private_file_url(url: str) -> bool:
+    return bool(re.search(r"(?:/portal/api/my-tasks/|/files/content\?)", str(url or ""), flags=re.IGNORECASE))
 
 
 def append_source_index(markdown: str, inspiration_snapshot: dict[str, Any]) -> str:

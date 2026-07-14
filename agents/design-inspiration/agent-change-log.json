@@ -1,7 +1,7 @@
 {
   "agentId": "design-inspiration",
   "operation": "update",
-  "previousVersion": "0.1.17",
-  "nextVersion": "0.1.18",
-  "changeSummary": "修复聊天报告链接点击无效，并让网页素材卡使用任务封面产物显示真实图片。"
+  "previousVersion": "0.1.20",
+  "nextVersion": "0.1.21",
+  "changeSummary": "改用素材库图片代理生成封面预览，避免钉钉加载外部图床失败。"
 }
