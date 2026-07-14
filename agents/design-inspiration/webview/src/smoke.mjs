@@ -41,6 +41,8 @@ const requiredHtmlMarkers = [
   "report-section-list",
   "renderReportOverview",
   "parseReport",
+  "normalizeCitationLink",
+  "sourceMarkdownLink",
   "pack-grid",
   "data-pack-option",
   "selectedPackIds",

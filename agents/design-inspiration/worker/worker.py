@@ -722,7 +722,7 @@ def source_citation(competitor_games: list[str], source_label: str, title: str, 
     source_text = source_label or "来源"
     title_text = title or "未命名素材"
     if source_url:
-        return f"{game_text}｜{source_text}｜{title_text}｜{source_url}"
+        return f"{game_text}｜{source_text}｜{title_text}｜{source_markdown_link(source_url)}"
     return f"{game_text}｜{source_text}｜{title_text}"
 
 
@@ -744,7 +744,7 @@ def source_citations_by_url(inspiration_snapshot: dict[str, Any]) -> dict[str, s
         if not isinstance(asset, dict):
             continue
         source_url = str(asset.get("sourceUrl") or "").strip()
-        citation = sanitize_text(str(asset.get("sourceCitation") or "")).strip()
+        citation = normalize_source_citation_link(sanitize_text(str(asset.get("sourceCitation") or "")).strip(), source_url)
         if source_url and citation:
             citations[source_url] = citation
             citations[source_url.rstrip("/")] = citation
@@ -755,12 +755,39 @@ def replace_bare_source_urls(text: str, citations: dict[str, str]) -> str:
     def replace(match: re.Match[str]) -> str:
         url = match.group(0)
         prefix = text[max(0, match.start() - 96) : match.start()]
-        if "｜" in prefix and not prefix.rstrip().endswith(("参考", "链接", "来源", "：", ":")):
+        line_prefix = text[text.rfind("\n", 0, match.start()) + 1 : match.start()]
+        if prefix.rstrip().endswith("]("):
             return url
         citation = citations.get(url) or citations.get(url.rstrip("/"))
-        return citation or url
+        if not citation:
+            return source_markdown_link(url)
+        if "｜" in line_prefix or "|" in line_prefix:
+            return source_markdown_link(url)
+        return citation
 
     return re.sub(r"https?://[^\s<>)，,。；;]+", replace, text)
+
+
+def normalize_source_citation_link(citation: str, source_url: str) -> str:
+    if not source_url:
+        return citation
+    link = source_markdown_link(source_url)
+    if f"]({source_url})" in citation:
+        return citation
+    if source_url in citation:
+        return citation.replace(source_url, link)
+    if source_url.rstrip("/") and source_url.rstrip("/") in citation:
+        return citation.replace(source_url.rstrip("/"), link)
+    if citation:
+        return f"{citation}｜{link}"
+    return link
+
+
+def source_markdown_link(source_url: Any) -> str:
+    url = str(source_url or "").strip()
+    if not url:
+        return ""
+    return f"[打开来源]({url})"
 
 
 def append_source_index(markdown: str, inspiration_snapshot: dict[str, Any]) -> str:
@@ -846,7 +873,7 @@ def build_codex_prompt(
             "- Highlight popular designs when the sort is heat, using only available metrics.",
             "- Use only the Chinese label values already present in each asset for 来源可信度、商业信号、分类、竞品游戏 and 来源引用; do not invent missing commercial conclusions.",
             "- Never output internal field names or enum ids such as sourceReliability, sourceTier, commercialSignal, detailTagBreakdown, matchedSeeds, visualTags, weapon_skin, character_skin, general_reference, sourceTrustLabel, commercialSignalLabel, categoryLabel, competitorGames, or sourceCitation.",
-            "- Every cited source URL must name the competitor game first, formatted as 竞品游戏｜来源｜素材标题｜URL. Do not output bare URLs.",
+            "- Every cited source must name the competitor game first, formatted as 竞品游戏｜来源｜素材标题｜[打开来源](URL). Do not output bare URLs.",
             "- For each notable asset, include the competitor game name and a Markdown source link. Do not describe an asset without naming its competitor.",
             "- Treat platform gapInsights as internal diagnostics only. Do not output a 侦查缺口/缺口 section or bullets about platform/data coverage defects.",
             "- Worker turns are stateless. Do not output 下一轮补采, 后续采集方向, 建议补充素材, or 下一步 sections because the user cannot apply report text as future collection constraints.",

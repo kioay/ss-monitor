@@ -45,8 +45,8 @@ Return a concise final answer suitable for WebView display. Prefer this shape wh
 
 - `结论`: one or two sentences about whether the current snapshot is useful.
 - `热门方向`: three to six observed visual directions, grounded in the returned assets.
-- `武器皮肤`: up to five notable weapon references with source title and source URL when available.
-- `角色皮肤`: up to five notable character references with source title and source URL when available.
+- `武器皮肤`: up to five notable weapon references with competitor, source title, and a Markdown source link when available.
+- `角色皮肤`: up to five notable character references with competitor, source title, and a Markdown source link when available.
 - `综合参考`: useful non-primary references, if any.
 
 Do not output a `侦查缺口`, `缺口`, `平台缺陷`, `下一轮补采`, `后续采集方向`, `建议补充素材`, or `下一步` section in the report.

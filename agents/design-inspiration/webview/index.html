@@ -1666,8 +1666,10 @@
         if (citationMap.size) {
           value = value.replace(/https?:\/\/[^\s<>)，,。；;]+/g, (url, offset, fullText) => {
             const prefix = fullText.slice(Math.max(0, offset - 96), offset);
-            if (prefix.includes("｜") && !/[：:链接来源参考]\s*$/.test(prefix)) return url;
-            return citationLabelForUrl(url, citationMap, true) || url;
+            const linePrefix = fullText.slice(fullText.lastIndexOf("\n", offset) + 1, offset);
+            if (prefix.trimEnd().endsWith("](")) return url;
+            if (linePrefix.includes("｜") || linePrefix.includes("|")) return sourceMarkdownLink(url);
+            return citationLabelForUrl(url, citationMap, true) || sourceMarkdownLink(url);
           });
         }
         return value.replace(/[ \t]{2,}/g, " ").trim();
@@ -1811,7 +1813,7 @@
           if (!asset || typeof asset !== "object") return;
           const href = validUrl(asset.sourceUrl);
           if (!href) return;
-          const citation = asset.sourceCitation || assetCitation(asset);
+          const citation = normalizeCitationLink(asset.sourceCitation || assetCitation(asset), href);
           if (!citation) return;
           map.set(normalizeCitationUrl(href), citation);
           map.set(normalizeCitationUrl(href).replace(/\/+$/, ""), citation);
@@ -1825,7 +1827,8 @@
           : "未标注竞品";
         const source = asset.sourceLabel || asset.source || "来源";
         const title = asset.title || "未命名素材";
-        return `${games}｜${source}｜${title}`;
+        const href = validUrl(asset.sourceUrl);
+        return `${games}｜${source}｜${title}${href ? `｜${sourceMarkdownLink(href)}` : ""}`;
       }
 
       function citationLabelForUrl(url, citationMap, includeUrl = false) {
@@ -1833,7 +1836,25 @@
         const citation = citationMap.get(normalized) || citationMap.get(normalized.replace(/\/+$/, "")) || "";
         if (!citation) return "";
         if (includeUrl) return citation;
-        return citation.replace(/｜https?:\/\/.+$/i, "");
+        return citation
+          .replace(/｜\[打开来源\]\(https?:\/\/[^)]+\)$/i, "")
+          .replace(/｜https?:\/\/.+$/i, "");
+      }
+
+      function normalizeCitationLink(citation, url) {
+        const text = String(citation || "").trim();
+        const link = sourceMarkdownLink(url);
+        if (!url) return text;
+        if (text.includes(`](${url})`)) return text;
+        if (text.includes(url)) return text.split(url).join(link);
+        const trimmedUrl = String(url).replace(/\/+$/, "");
+        if (trimmedUrl && text.includes(trimmedUrl)) return text.split(trimmedUrl).join(link);
+        return text ? `${text}｜${link}` : link;
+      }
+
+      function sourceMarkdownLink(url) {
+        const href = validUrl(url);
+        return href ? `[打开来源](${href})` : "";
       }
 
       function normalizeCitationUrl(value) {
