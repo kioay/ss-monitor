@@ -195,12 +195,11 @@ def run_collect_turn(worker: WorkerClient, output_dir: Path, mode: str, turn_inp
 
     delegated_channel = is_delegated_channel_turn(turn_input)
     worker.status("running", phase_message="Staging asset thumbnails", progress=0.8, stage="staging_thumbnails")
+    thumbnail_artifacts = stage_thumbnail_artifacts(public_assets, turn_input, output_dir, log)
     if delegated_channel:
-        thumbnail_artifacts = []
         chat_preview_assets = []
-        log("Skipped inline thumbnails for delegated channel reply")
+        log("Attached thumbnail artifacts for delegated channel reply")
     else:
-        thumbnail_artifacts = stage_thumbnail_artifacts(public_assets, turn_input, output_dir, log)
         chat_preview_assets = public_assets
     chat_message = append_chat_thumbnail_preview(final_message, chat_preview_assets, turn_input)
     display_message = chat_message if delegated_channel else final_message

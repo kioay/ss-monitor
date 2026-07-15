@@ -1,7 +1,7 @@
 {
   "agentId": "design-inspiration",
   "operation": "update",
-  "previousVersion": "0.1.22",
-  "nextVersion": "0.1.23",
-  "changeSummary": "移除钉钉委托回复中无法渲染的封面语法，避免图片链接以异常文本形式显示。"
+  "previousVersion": "0.1.23",
+  "nextVersion": "0.1.24",
+  "changeSummary": "恢复钉钉调用中的真实封面图片产物，让钉钉助手重新将素材封面作为独立图片消息推送。"
 }
