@@ -1,7 +1,7 @@
 {
   "agentId": "design-inspiration",
   "operation": "update",
-  "previousVersion": "0.1.23",
-  "nextVersion": "0.1.24",
-  "changeSummary": "恢复钉钉调用中的真实封面图片产物，让钉钉助手重新将素材封面作为独立图片消息推送。"
+  "previousVersion": "0.1.26",
+  "nextVersion": "0.1.27",
+  "changeSummary": "竞品包移除塔科夫并新增全境封锁，同步筛选项与报告竞品识别"
 }
