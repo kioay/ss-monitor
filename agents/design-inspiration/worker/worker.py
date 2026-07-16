@@ -48,7 +48,7 @@ COMPETITOR_ALIASES = {
     "CSonline": ["CSOL", "反恐精英Online"],
     "命运2": ["Destiny 2"],
     "彩虹六号": ["Rainbow Six"],
-    "塔科夫": ["Escape from Tarkov", "Tarkov"],
+    "全境封锁": ["全境封锁2", "The Division", "The Division 2"],
     "和平精英": ["PUBG Mobile"],
 }
 REPORT_TERM_REPLACEMENTS = {

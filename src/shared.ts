@@ -519,19 +519,20 @@ export const inspirationSeedPresets: InspirationSeedPreset[] = [
     ]
   },
   {
-    id: "escape-from-tarkov",
-    label: "塔科夫",
-    category: "weapon_skin",
-    description: "逃离塔科夫枪械改装、配件组合、战术装备和拟真材质参考",
+    id: "the-division",
+    label: "全境封锁",
+    category: "general_reference",
+    description: "全境封锁系列武器皮肤、特工服装、装备外观和赛季主题套装",
     keywords: [
-      "逃离塔科夫 武器外观",
-      "逃离塔科夫 枪械改装",
-      "逃离塔科夫 枪械皮肤",
-      "逃离塔科夫 装备外观",
-      "塔科夫 武器外观",
-      "Escape from Tarkov weapon customization",
-      "Escape from Tarkov weapon skin",
-      "Tarkov weapon build"
+      "全境封锁 武器皮肤",
+      "全境封锁2 武器皮肤",
+      "全境封锁 角色时装",
+      "全境封锁2 服装",
+      "全境封锁 外观展示",
+      "The Division weapon skin",
+      "The Division 2 weapon skin",
+      "The Division 2 apparel",
+      "The Division cosmetics"
     ]
   },
   {

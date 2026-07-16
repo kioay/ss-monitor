@@ -410,7 +410,7 @@ const tiebaBarsBySeedId: Record<string, string[]> = {
   "marvel-rivals": ["漫威争锋"],
   fragpunk: ["FragPunk", "界外狂潮"],
   strinova: ["卡拉彼丘"],
-  "escape-from-tarkov": ["逃离塔科夫"],
+  "the-division": ["全境封锁", "全境封锁2"],
   "helldivers-2": ["绝地潜兵"]
 };
 

@@ -179,6 +179,8 @@ assert.equal(referenceGame.name, "FPS/TPS 竞品素材");
 assert.ok(referenceGame.bilibiliKeywords.some((keyword) => keyword.includes("VALORANT")));
 assert.ok(referenceGame.bilibiliKeywords.some((keyword) => keyword.includes("暗区突围")));
 assert.ok(referenceGame.bilibiliKeywords.some((keyword) => keyword.includes("Helldivers 2")));
+assert.ok(referenceGame.bilibiliKeywords.some((keyword) => keyword.includes("全境封锁")));
+assert.ok(!referenceGame.bilibiliKeywords.some((keyword) => /塔科夫|Tarkov/i.test(keyword)));
 assert.ok(referenceGame.bilibiliKeywords.some((keyword) => keyword.includes("CF")));
 assert.ok(referenceGame.bilibiliKeywords.some((keyword) => keyword.includes("CF手游")));
 assert.ok(referenceGame.bilibiliKeywords.some((keyword) => keyword.includes("CFHD")));
@@ -219,20 +221,23 @@ const expectedSeedIds = [
   "marvel-rivals",
   "fragpunk",
   "strinova",
-  "escape-from-tarkov",
+  "the-division",
   "helldivers-2"
 ];
 const seedIds = new Set(inspirationSeedPresets.map((seed) => seed.id));
 for (const id of expectedSeedIds) assert.ok(seedIds.has(id), id);
+assert.ok(!seedIds.has("escape-from-tarkov"));
 assert.deepEqual(allInspirationPackIds(), inspirationSeedPresets.map((seed) => seed.id));
 assert.deepEqual(invertInspirationPackSelection(allInspirationPackIds()), []);
 assert.deepEqual(toggleInspirationPackSelection(["halo"], "halo"), []);
 assert.deepEqual(toggleInspirationPackSelection([], "halo"), ["halo"]);
 
-const selectedReferenceGame = makeInspirationReferenceGame(["destiny-2", "rainbow-six-siege", "the-finals"], "all");
+const selectedReferenceGame = makeInspirationReferenceGame(["destiny-2", "rainbow-six-siege", "the-finals", "the-division"], "all");
 assert.ok(selectedReferenceGame.tiebaBars.includes("命运2"));
 assert.ok(selectedReferenceGame.tiebaBars.includes("彩虹六号"));
 assert.ok(selectedReferenceGame.tiebaBars.includes("THE FINALS"));
+assert.ok(selectedReferenceGame.tiebaBars.includes("全境封锁"));
+assert.ok(selectedReferenceGame.tiebaBars.includes("全境封锁2"));
 
 const selectedChineseShooterGame = makeInspirationReferenceGame(["crossfire", "crossfire-mobile", "crossfire-hd", "counter-strike-online", "nz", "nz-future"], "all");
 assert.ok(selectedChineseShooterGame.bilibiliKeywords.some((keyword) => keyword.includes("CF手游")));
