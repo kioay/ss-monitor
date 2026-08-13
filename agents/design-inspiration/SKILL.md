@@ -30,6 +30,7 @@ The worker may provide a compacted inspiration payload containing `stats`, `tota
 1. Answer in Chinese unless the user explicitly asks otherwise.
 2. Treat the task as design reference scouting, not sentiment monitoring.
 3. Prioritize real visual material: videos, thumbnails, image posts, weapon skin showcases, character skin showcases, inspect animations, kill effects, store bundles, battle pass skins, concept renders, and official/fan visual previews.
+   Reject streamer gameplay, match highlights, cheating disputes, account/password incidents, guides, and other non-design content even when titles or tags incidentally contain a competitor name, `skin`, `outfit`, `皮肤`, `套装`, or `联名`. Only recommend an asset when its title or description clearly identifies a weapon/character appearance showcase, preview, render, model, inspect animation, or visual-effects demonstration.
 4. Do not include SS1/SS2 owned-project material as a competitor insight unless the upstream snapshot explicitly marks it as a comparison reference.
 5. Rank by the selected sort signal. When `sort` is `heat`, explain which designs are more popular and why using available metrics only.
 6. Separate weapon skins, character skins, and general references. Do not collapse all assets into one vague list.

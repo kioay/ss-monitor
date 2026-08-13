@@ -95,6 +95,17 @@ const nonDesignNoise = [
     thumbnail: "https://i0.hdslb.com/bfs/archive/reward-guide.jpg",
     contentParts: [{ type: "description", text: "限时三角券领取、兑换新刀皮攻略。", count: 1 }]
   }),
+  makeItem("pubg-streamer-gameplay", {
+    source: "bilibili",
+    title: "PeRo套装发售XDD上号玩两把 密码忘了你问弹幕？落地九杀被喷外挂 左神还会玩吃鸡？",
+    summary: "PUBG主播实况，标签包含联名、套装和皮肤，但视频主题是上号游玩与外挂争议。",
+    keywords: ["PUBG", "联名", "套装", "皮肤", "外挂"],
+    thumbnail: "https://i0.hdslb.com/bfs/archive/pubg-streamer-gameplay.jpg",
+    contentParts: [
+      { type: "title", text: "PeRo套装发售XDD上号玩两把 密码忘了你问弹幕？落地九杀被喷外挂 左神还会玩吃鸡？", count: 1 },
+      { type: "tag", text: "PUBG、联名、吃鸡、XDD、套装、皮肤", count: 1 }
+    ]
+  }),
   makeItem("tieba-weak-skin-complaint", {
     source: "tieba",
     title: "那又如何？",

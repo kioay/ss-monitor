@@ -270,6 +270,12 @@ const designSearchKeywordTerms = [
 
 const hardNonDesignTerms = [
   "加速器",
+  "外挂",
+  "开挂",
+  "作弊",
+  "密码忘了",
+  "忘记密码",
+  "问弹幕",
   "口令",
   "兑换码",
   "cdk",
@@ -337,7 +343,12 @@ const softNonDesignTerms = [
   "抽象",
   "小视频",
   "精彩集锦",
+  "击杀集锦",
   "高光",
+  "游戏实况",
+  "主播实况",
+  "上号玩",
+  "玩两把",
   "攻略",
   "教学",
   "教程",
@@ -769,7 +780,7 @@ function isDesignInspirationCandidate(
   if (!hasDesignSignal) return false;
 
   const hasSoftNoise = countTermHits(primaryNormalized, primaryCompact, softNonDesignTerms) > 0;
-  return !hasSoftNoise || specificDesignHits > 0 || presentationHits > 1;
+  return !hasSoftNoise || specificDesignHits > 0;
 }
 
 function pickCategory(scores: Record<InspirationCategory, number>): InspirationCategory {
