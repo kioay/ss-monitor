@@ -1,7 +1,7 @@
 {
   "agentId": "design-inspiration",
   "operation": "update",
-  "previousVersion": "0.1.26",
-  "nextVersion": "0.1.27",
-  "changeSummary": "竞品包移除塔科夫并新增全境封锁，同步筛选项与报告竞品识别"
+  "previousVersion": "0.1.27",
+  "nextVersion": "0.1.28",
+  "changeSummary": "排除主播实况、比赛集锦、外挂争议和账号事件等非设计内容，避免皮肤标签造成误推送"
 }
