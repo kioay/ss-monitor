@@ -1,7 +1,7 @@
 {
   "agentId": "design-inspiration",
   "operation": "update",
-  "previousVersion": "0.1.27",
-  "nextVersion": "0.1.28",
-  "changeSummary": "排除主播实况、比赛集锦、外挂争议和账号事件等非设计内容，避免皮肤标签造成误推送"
+  "previousVersion": "0.1.28",
+  "nextVersion": "0.1.29",
+  "changeSummary": "排除键盘、鼠标、鼠标垫、耳机等外设联名商品，避免游戏IP和套装标签造成图片误推送"
 }
