@@ -262,6 +262,66 @@ const designPresentationTerms = [
   "tracer pack"
 ];
 
+const explicitVisualEvidenceTerms = [
+  "皮肤",
+  "枪皮",
+  "刀皮",
+  "手套",
+  "外观",
+  "展示",
+  "图集",
+  "预览",
+  "卡面",
+  "鉴赏",
+  "爆料",
+  "检视",
+  "特效",
+  "蓝图",
+  "传家宝",
+  "原画",
+  "概念",
+  "设计",
+  "建模",
+  "渲染",
+  "立绘",
+  "skin",
+  "outfit",
+  "cosmetic",
+  "showcase",
+  "preview",
+  "inspect",
+  "kill effect",
+  "finisher",
+  "heirloom",
+  "blueprint",
+  "concept",
+  "fan art",
+  "render",
+  "model",
+  "tracer pack"
+];
+
+const peripheralProductTerms = [
+  "键盘",
+  "机械键盘",
+  "鼠标",
+  "鼠标垫",
+  "键帽",
+  "耳机",
+  "耳麦",
+  "显示器",
+  "手柄",
+  "电竞椅",
+  "桌垫",
+  "外设",
+  "keyboard",
+  "keycap",
+  "mousepad",
+  "gaming mouse",
+  "headset",
+  "controller"
+];
+
 const designSearchKeywordTerms = [
   ...specificDesignMaterialTerms,
   ...weakDesignMaterialTerms,
@@ -714,13 +774,24 @@ function classifyInspirationItem(item: MonitorItem, queryTerms: string[], now: D
   const primaryText = inspirationPrimaryText(item);
   const primaryNormalized = normalizeText(primaryText);
   const primaryCompact = primaryNormalized.replace(/\s+/g, "");
+  const titleNormalized = normalizeText(item.title);
+  const titleCompact = titleNormalized.replace(/\s+/g, "");
   if (queryTerms.length && !queryTerms.every((term) => containsTerm(normalized, compact, term))) return undefined;
 
   const categoryScores = categoryScoreMap(normalized, compact);
   const category = pickCategory(categoryScores);
   const matchedSeeds = matchedSeedLabels(normalized, compact);
   const visualTags = matchedVisualTags(normalized, compact);
-  if (!isDesignInspirationCandidate(normalized, compact, primaryNormalized, primaryCompact, categoryScores, matchedSeeds.length > 0)) return undefined;
+  if (!isDesignInspirationCandidate(
+    normalized,
+    compact,
+    primaryNormalized,
+    primaryCompact,
+    titleNormalized,
+    titleCompact,
+    categoryScores,
+    matchedSeeds.length > 0
+  )) return undefined;
   const sourceTier = inspirationSourceTier(item, normalized, compact);
   const commercialSignal = inspirationCommercialSignal(item, normalized, compact, sourceTier);
 
@@ -764,19 +835,22 @@ function isDesignInspirationCandidate(
   compact: string,
   primaryNormalized: string,
   primaryCompact: string,
+  titleNormalized: string,
+  titleCompact: string,
   categoryScores: Record<InspirationCategory, number>,
   hasMatchedSeed: boolean
 ) {
   const specificDesignHits = countTermHits(normalized, compact, specificDesignMaterialTerms);
   const weakDesignHits = countTermHits(normalized, compact, weakDesignMaterialTerms);
-  const presentationHits = countTermHits(normalized, compact, designPresentationTerms);
+  const visualEvidenceHits = countTermHits(normalized, compact, explicitVisualEvidenceTerms);
   const categoryHits = Math.max(...Object.values(categoryScores));
 
   if (countTermHits(primaryNormalized, primaryCompact, hardNonDesignTerms) > 0) return false;
+  if (countTermHits(titleNormalized, titleCompact, peripheralProductTerms) > 0) return false;
 
   const hasDesignSignal =
     specificDesignHits > 0
-    || (presentationHits > 1 && (weakDesignHits > 0 || categoryHits > 0 || hasMatchedSeed));
+    || (visualEvidenceHits > 0 && (weakDesignHits > 0 || categoryHits > 0 || hasMatchedSeed));
   if (!hasDesignSignal) return false;
 
   const hasSoftNoise = countTermHits(primaryNormalized, primaryCompact, softNonDesignTerms) > 0;

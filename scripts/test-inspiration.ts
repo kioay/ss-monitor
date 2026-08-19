@@ -106,6 +106,17 @@ const nonDesignNoise = [
       { type: "tag", text: "PUBG、联名、吃鸡、XDD、套装、皮肤", count: 1 }
     ]
   }),
+  makeItem("valorant-peripheral-collab", {
+    source: "bilibili",
+    title: "利维坦新联名！什么联名让职业如此倾心？//利维坦联名套装新体验",
+    summary: "利维坦套装、ATK、A9、Air、RS6、LEVIATAN、无畏契约、利维坦",
+    keywords: ["ATK", "A9", "Air", "RS6", "LEVIATAN"],
+    thumbnail: "https://i2.hdslb.com/bfs/archive/a9819b73d4bf27017a3d767fb1915d4e7cce7156.jpg",
+    contentParts: [
+      { type: "title", text: "利维坦新联名！什么联名让职业如此倾心？//利维坦联名套装新体验", count: 1 },
+      { type: "tag", text: "利维坦套装、ATK、A9、Air、RS6、LEVIATAN、无畏契约、利维坦", count: 1 }
+    ]
+  }),
   makeItem("tieba-weak-skin-complaint", {
     source: "tieba",
     title: "那又如何？",
