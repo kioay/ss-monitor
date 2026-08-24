@@ -117,6 +117,27 @@ const nonDesignNoise = [
       { type: "tag", text: "利维坦套装、ATK、A9、Air、RS6、LEVIATAN、无畏契约、利维坦", count: 1 }
     ]
   }),
+  makeItem("cs2-market-analysis", {
+    source: "bilibili",
+    title: "CS2市场行情：手套价格极限涨幅",
+    summary: "CS2手套饰品价格分析，观察市场价格和涨跌趋势。",
+    keywords: ["CS2", "手套", "皮肤", "市场"],
+    thumbnail: "https://i0.hdslb.com/bfs/archive/cs2-market-analysis.jpg"
+  }),
+  makeItem("streamer-weapon-commentary", {
+    source: "bilibili",
+    title: "幻神步枪 USP小刀",
+    summary: "CF游戏解说，主播聊天讨论幻神和USP小刀。",
+    keywords: ["CF", "皮肤", "步枪", "小刀"],
+    thumbnail: "https://i0.hdslb.com/bfs/archive/streamer-weapon-commentary.jpg"
+  }),
+  makeItem("bilibili:BV17S846UEDV", {
+    source: "bilibili",
+    title: "白鲨说EWC皮肤想选幻神，不知道领导是否同意，领导在直播间直接回应",
+    summary: "职业选手直播间回应，主播聊天讨论幻神和USP小刀。",
+    keywords: ["CF", "皮肤", "幻神", "USP小刀"],
+    thumbnail: "https://i0.hdslb.com/bfs/archive/bv17s846uedv.jpg"
+  }),
   makeItem("tieba-weak-skin-complaint", {
     source: "tieba",
     title: "那又如何？",
@@ -168,6 +189,13 @@ const nicheDesign = makeItem("niche-design", {
   metrics: { views: 800, likes: 30, comments: 4 },
   publishedAt: "2026-07-08T05:30:00.000Z"
 });
+const gloveShowcase = makeItem("glove-showcase", {
+  source: "bilibili",
+  title: "CS2手套外观展示",
+  summary: "手套材质、配色和第一人称视觉效果预览。",
+  keywords: ["CS2", "手套"],
+  thumbnail: "https://i0.hdslb.com/bfs/archive/glove-showcase.jpg"
+});
 const popularDesign = makeItem("popular-design", {
   source: "bilibili",
   title: "Apex 武器皮肤展示",
@@ -177,6 +205,7 @@ const popularDesign = makeItem("popular-design", {
 });
 const relevanceSortedAssets = buildInspirationAssets([popularDesign, nicheDesign], { now });
 assert.deepEqual(relevanceSortedAssets.map((asset) => asset.id), ["niche-design", "popular-design"]);
+assert.deepEqual(buildInspirationAssets([gloveShowcase], { now }).map((asset) => asset.id), ["glove-showcase"]);
 const heatSortedAssets = buildInspirationAssets([popularDesign, nicheDesign], { now, sort: "heat" });
 assert.deepEqual(heatSortedAssets.map((asset) => asset.id), ["popular-design", "niche-design"]);
 assert.deepEqual(

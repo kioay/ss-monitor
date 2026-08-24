@@ -155,6 +155,119 @@ const commercialMarketTerms = [
   "limited"
 ];
 
+const marketAnalysisTerms = [
+  "市场",
+  "市场分析",
+  "市场行情",
+  "市场趋势",
+  "市场走势",
+  "行情分析",
+  "饰品行情",
+  "饰品市场",
+  "价格分析",
+  "箱子价格",
+  "价格走势",
+  "价格趋势",
+  "价格",
+  "涨幅",
+  "跌幅",
+  "涨跌",
+  "大盘指数",
+  "大盘",
+  "成交量",
+  "成交额",
+  "成交",
+  "在售数量",
+  "在售",
+  "价格波动",
+  "市场价",
+  "市场价格",
+  "交易价格",
+  "饰品交易",
+  "交易行",
+  "社区市场",
+  "交易平台",
+  "饰品价格",
+  "价格排行",
+  "价格预测",
+  "估价",
+  "报价",
+  "买入",
+  "卖出",
+  "出售",
+  "收购",
+  "出货",
+  "回本",
+  "存世量",
+  "开箱回本",
+  "炼金号",
+  "汰换号",
+  "亏还是赚",
+  "值得购入",
+  "值得购买",
+  "抄底",
+  "追涨",
+  "止盈",
+  "止损",
+  "market analysis",
+  "market price",
+  "price analysis",
+  "price trend",
+  "price movement",
+  "steam market",
+  "steam community market",
+  "buy or sell",
+  "investment"
+];
+
+const commentaryNoiseTerms = [
+  "主播",
+  "游戏解说",
+  "解说",
+  "直播",
+  "直播间",
+  "访谈",
+  "采访",
+  "专访",
+  "聊天",
+  "闲聊",
+  "点评",
+  "评测",
+  "测评",
+  "评价一下",
+  "职业选手",
+  "选手回应",
+  "直接回应",
+  "观点讨论"
+];
+
+const strongDesignPresentationTerms = [
+  "展示",
+  "图集",
+  "预览",
+  "一览",
+  "鉴赏",
+  "检视",
+  "击杀特效",
+  "淘汰特效",
+  "终结特效",
+  "原画",
+  "概念",
+  "设计",
+  "建模",
+  "渲染",
+  "立绘",
+  "showcase",
+  "preview",
+  "inspect",
+  "kill effect",
+  "finisher",
+  "concept",
+  "fan art",
+  "render",
+  "model"
+];
+
 const specificDesignMaterialTerms = [
   "武器皮肤",
   "枪械皮肤",
@@ -844,14 +957,19 @@ function isDesignInspirationCandidate(
   const weakDesignHits = countTermHits(normalized, compact, weakDesignMaterialTerms);
   const visualEvidenceHits = countTermHits(normalized, compact, explicitVisualEvidenceTerms);
   const categoryHits = Math.max(...Object.values(categoryScores));
+  const marketAnalysisHits = countTermHits(primaryNormalized, primaryCompact, marketAnalysisTerms);
+  const commentaryNoiseHits = countTermHits(primaryNormalized, primaryCompact, commentaryNoiseTerms);
+  const presentationHits = countTermHits(primaryNormalized, primaryCompact, strongDesignPresentationTerms);
 
   if (countTermHits(primaryNormalized, primaryCompact, hardNonDesignTerms) > 0) return false;
   if (countTermHits(titleNormalized, titleCompact, peripheralProductTerms) > 0) return false;
+  if (marketAnalysisHits > 0) return false;
 
   const hasDesignSignal =
     specificDesignHits > 0
-    || (visualEvidenceHits > 0 && (weakDesignHits > 0 || categoryHits > 0 || hasMatchedSeed));
+    || (visualEvidenceHits > 0 && presentationHits > 0 && (weakDesignHits > 0 || categoryHits > 0 || hasMatchedSeed));
   if (!hasDesignSignal) return false;
+  if (commentaryNoiseHits > 0 && presentationHits <= 0) return false;
 
   const hasSoftNoise = countTermHits(primaryNormalized, primaryCompact, softNonDesignTerms) > 0;
   return !hasSoftNoise || specificDesignHits > 0;

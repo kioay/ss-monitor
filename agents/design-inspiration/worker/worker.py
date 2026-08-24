@@ -40,6 +40,42 @@ CATEGORY_LABELS = {
     "character_skin": "角色皮肤",
     "general_reference": "综合参考",
 }
+MARKET_ANALYSIS_TERMS = (
+    "市场", "市场分析", "市场行情", "市场趋势", "市场走势", "行情分析",
+    "饰品行情", "饰品市场", "价格分析", "箱子价格", "价格走势", "价格趋势",
+    "价格", "涨幅", "跌幅", "涨跌", "大盘指数", "大盘", "成交量", "成交额",
+    "成交", "在售数量", "在售", "价格波动", "市场价", "市场价格", "交易价格",
+    "饰品交易", "交易行", "社区市场", "交易平台", "饰品价格", "价格排行",
+    "价格预测", "估价", "报价", "买入", "卖出", "出售", "收购", "出货",
+    "回本", "存世量", "开箱回本", "炼金号", "汰换号", "亏还是赚", "值得购入",
+    "值得购买", "抄底", "追涨", "止盈", "止损", "market analysis", "market price",
+    "price analysis", "price trend", "price movement", "steam market",
+    "steam community market", "buy or sell", "investment",
+)
+COMMENTARY_NOISE_TERMS = (
+    "主播", "游戏解说", "解说", "直播", "直播间", "访谈", "采访", "专访",
+    "聊天", "闲聊", "点评", "评测", "测评", "评价一下", "职业选手",
+    "选手回应", "直接回应", "观点讨论",
+)
+SPECIFIC_DESIGN_TERMS = (
+    "武器皮肤", "枪械皮肤", "枪械涂装", "武器涂装", "装备涂装", "武器外观",
+    "枪械外观", "近战皮肤", "角色皮肤", "人物皮肤", "干员皮肤", "英雄皮肤",
+    "角色时装", "套装外观", "皮肤展示", "外观展示", "外观图集", "检视动画",
+    "检视动作", "填弹动作", "赛季皮肤", "通行证皮肤", "商城皮肤", "蓝图枪",
+    "枪械蓝图", "传家宝", "weapon skin", "gun skin", "melee skin", "operator skin",
+    "character skin", "hero skin", "skin bundle", "cosmetic bundle", "weapon blueprint",
+    "tracer pack",
+)
+PERIPHERAL_PRODUCT_TERMS = (
+    "键盘", "机械键盘", "鼠标", "鼠标垫", "键帽", "耳机", "耳麦", "显示器",
+    "手柄", "电竞椅", "桌垫", "外设", "keyboard", "keycap", "mousepad",
+    "gaming mouse", "headset", "controller",
+)
+DESIGN_PRESENTATION_TERMS = (
+    "展示", "图集", "预览", "一览", "鉴赏", "检视", "击杀特效", "淘汰特效",
+    "终结特效", "原画", "概念", "设计", "建模", "渲染", "立绘", "showcase",
+    "preview", "inspect", "kill effect", "finisher", "concept", "fan art", "render", "model",
+)
 COMPETITOR_ALIASES = {
     "CF手游": ["CFM", "穿越火线手游", "穿越火线：枪战王者"],
     "CF": ["穿越火线"],
@@ -624,13 +660,15 @@ def safe_general_reference_count(total: Any, weapon_skins: Any, character_skins:
 
 def compact_assets_for_result(value: Any, limit: int, seed_labels: list[str] | None = None) -> list[dict[str, Any]]:
     assets: list[dict[str, Any]] = []
-    for asset in list_or_empty(value)[:limit]:
+    for asset in list_or_empty(value):
         if not isinstance(asset, dict):
             continue
         item = asset.get("item") if isinstance(asset.get("item"), dict) else asset
         metrics = item.get("metrics") if isinstance(item.get("metrics"), dict) else {}
         title = sanitize_text(str(item.get("title") or asset.get("title") or ""))[:240]
         summary = sanitize_text(str(item.get("summary") or asset.get("summary") or ""))[:600]
+        if not is_reportable_inspiration_asset(asset, item, title, summary):
+            continue
         source_url = item.get("url") or asset.get("sourceUrl")
         competitor_games = competitor_game_labels(asset, item, seed_labels or [])
         commercial_signal = asset.get("commercialSignal") if isinstance(asset.get("commercialSignal"), dict) else {}
@@ -670,7 +708,29 @@ def compact_assets_for_result(value: Any, limit: int, seed_labels: list[str] | N
                 },
             }
         )
+        if len(assets) >= limit:
+            break
     return assets
+
+
+def is_reportable_inspiration_asset(asset: dict[str, Any], item: dict[str, Any], title: str, summary: str) -> bool:
+    keywords = " ".join(str(value) for value in list_or_empty(item.get("keywords")))
+    topics = " ".join(str(value) for value in list_or_empty(item.get("topics")))
+    design_tags = " ".join(str(value) for value in list_or_empty(asset.get("designTags") or asset.get("visualTags")))
+    author = str(item.get("author") or asset.get("author") or "")
+    text = normalize_match_text(" ".join([title, summary, author, keywords, topics, design_tags]))
+    if any(normalize_match_text(term) in text for term in MARKET_ANALYSIS_TERMS):
+        return False
+    if any(normalize_match_text(term) in normalize_match_text(title) for term in PERIPHERAL_PRODUCT_TERMS):
+        return False
+
+    has_specific_design = any(normalize_match_text(term) in text for term in SPECIFIC_DESIGN_TERMS)
+    has_presentation = any(normalize_match_text(term) in text for term in DESIGN_PRESENTATION_TERMS)
+    if not has_specific_design and not has_presentation:
+        return False
+
+    has_commentary_noise = any(normalize_match_text(term) in text for term in COMMENTARY_NOISE_TERMS)
+    return not has_commentary_noise or has_presentation
 
 
 def public_assets_for_result(value: Any, limit: int) -> list[dict[str, Any]]:

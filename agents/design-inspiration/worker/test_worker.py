@@ -55,8 +55,8 @@ class DelegatedThumbnailArtifactTest(unittest.TestCase):
             captured_result.update(structured_result)
             captured_result["artifactFiles"] = artifact_files
 
-        snapshot = {"status": "ok", "assets": [{"title": "封面素材"}], "totalMatched": 1, "stats": {}}
-        public_assets = [{"title": "封面素材", "thumbnailUrl": "https://example.com/cover.jpg"}]
+        snapshot = {"status": "ok", "assets": [{"title": "无畏契约武器皮肤展示"}], "totalMatched": 1, "stats": {}}
+        public_assets = [{"title": "无畏契约武器皮肤展示", "thumbnailUrl": "https://example.com/cover.jpg"}]
         delegated_input = {
             "mode": "inspiration.collect",
             "channelReplyAuthority": False,
@@ -84,6 +84,68 @@ class DelegatedThumbnailArtifactTest(unittest.TestCase):
         self.assertEqual(captured_result["assets"][0]["thumbnailArtifactId"], "assetThumb-001")
         self.assertIn("assetThumb-001", [item["artifactId"] for item in captured_result["artifactFiles"]])
         self.assertNotIn("![", captured_result["finalMessage"])
+
+    def test_compact_assets_rejects_market_and_commentary_thumbnails(self):
+        module = load_worker_module()
+
+        def raw_asset(asset_id, title, summary, keywords, author=""):
+            return {
+                "id": asset_id,
+                "kind": "video",
+                "category": "general_reference",
+                "item": {
+                    "id": asset_id,
+                    "source": "bilibili",
+                    "title": title,
+                    "summary": summary,
+                    "author": author,
+                    "keywords": keywords,
+                    "thumbnail": f"https://example.com/{asset_id}.jpg",
+                    "url": f"https://example.com/{asset_id}",
+                },
+            }
+
+        assets = module.compact_assets_for_result(
+            [
+                raw_asset("market", "CS2市场行情：手套价格极限涨幅", "价格走势和饰品交易分析", ["CS2", "手套", "皮肤"]),
+                raw_asset(
+                    "commentary",
+                    "白鲨说EWC皮肤想选幻神，不知道领导是否同意，领导在直播间直接回应",
+                    "职业选手直播间回应，主播聊天讨论幻神和USP小刀。",
+                    ["CF", "皮肤", "幻神", "USP小刀"],
+                ),
+                raw_asset("peripheral", "利维坦新联名键盘", "游戏联名套装体验", ["VALORANT", "联名"]),
+                raw_asset("showcase", "CS2手套外观展示", "手套材质和配色预览", ["CS2", "手套"]),
+            ],
+            60,
+            ["CS2", "CF"],
+        )
+        self.assertEqual([asset["id"] for asset in assets], ["showcase"])
+
+    def test_filtering_happens_before_limit(self):
+        module = load_worker_module()
+        valid_asset = {
+            "id": "valid",
+            "kind": "video",
+            "item": {
+                "title": "CS2手套外观展示",
+                "summary": "手套材质预览",
+                "thumbnail": "https://example.com/valid.jpg",
+                "url": "https://example.com/valid",
+            },
+        }
+        invalid_asset = {
+            "id": "invalid",
+            "kind": "video",
+            "item": {
+                "title": "CS2市场行情",
+                "summary": "手套价格走势",
+                "thumbnail": "https://example.com/invalid.jpg",
+                "url": "https://example.com/invalid",
+            },
+        }
+        assets = module.compact_assets_for_result([invalid_asset, valid_asset], 1, ["CS2"])
+        self.assertEqual([asset["id"] for asset in assets], ["valid"])
 
 
 if __name__ == "__main__":
