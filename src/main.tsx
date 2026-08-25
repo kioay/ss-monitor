@@ -3499,7 +3499,9 @@ function MonitorCard({
 }) {
   return (
     <article className={`monitor-card ${item.riskLevel}`}>
-      <Thumbnail item={item} />
+      <div className="monitor-thumb">
+        <Thumbnail item={item} />
+      </div>
       <div className="item-body">
         <div className="item-meta">
           <span>{item.gameName}</span>

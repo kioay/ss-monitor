@@ -4905,6 +4905,23 @@ button.metric:focus-visible {
   box-shadow: inset 0 0 0 1px rgba(45, 58, 52, 0.08);
 }
 
+.monitor-thumb {
+  position: relative;
+  min-width: 0;
+}
+
+.monitor-thumb img {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+}
+
+.monitor-thumb img.is-loaded {
+  opacity: 1;
+}
+
 .fallback-thumb {
   display: grid;
   place-items: center;
