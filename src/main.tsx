@@ -710,7 +710,8 @@ function App() {
           profileDir: "",
           exists: false,
           cookieDbCount: 0,
-          hasSessionCookie: false
+          hasSessionCookie: false,
+          hasValidSessionCookie: false
         }
       });
     }

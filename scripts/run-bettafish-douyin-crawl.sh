@@ -94,6 +94,7 @@ MEDIA_CRAWLER_DIR="${BETTAFISH_DOUYIN_MEDIA_CRAWLER_DIR:-$BETTAFISH_CURRENT/Mind
 PYTHON="${BETTAFISH_PYTHON:-$BETTAFISH_ROOT/.venv/bin/python}"
 STATE_DIR="${BETTAFISH_DOUYIN_STATE_DIR:-$BETTAFISH_ROOT/runtime/douyin-crawl-scheduler}"
 STATE_FILE="$STATE_DIR/state.env"
+RUN_LOG="$STATE_DIR/last-run.log"
 LOCK_DIR="$STATE_DIR/run.lock"
 FORCE_RUN="$(bool_or_default "${BETTAFISH_DOUYIN_FORCE:-false}" "false")"
 
@@ -267,6 +268,7 @@ PY
 
 log "Starting BettaFish Douyin crawl: mode=$mode interval=${interval_minutes}m save=$save_data_option headless=$headless maxNotes=$MAX_NOTES_COUNT commentsPerItem=$MAX_COMMENTS_PER_ITEM sleepSeconds=$SLEEP_SECONDS preflight=$preflight_json"
 
+set +e
 "$PYTHON" main.py \
   --platform dy \
   --lt "$login_type" \
@@ -275,13 +277,32 @@ log "Starting BettaFish Douyin crawl: mode=$mode interval=${interval_minutes}m s
   --save_data_option "$save_data_option" \
   --headless "$headless" \
   --get_comment "$get_comment" \
-  --get_sub_comment "$get_sub_comment"
+  --get_sub_comment "$get_sub_comment" 2>&1 | tee "$RUN_LOG"
+crawl_status="${PIPESTATUS[0]}"
+set -e
+if [ "$crawl_status" -ne 0 ]; then
+  exit "$crawl_status"
+fi
+
+read -r aweme_log_lines aweme_nonempty_lines < <(
+  awk '/aweme_list[[:space:]]*:/{ total += 1; if ($0 !~ /aweme_list[[:space:]]*:[[:space:]]*\[[[:space:]]*\]/) nonempty += 1 } END { print total + 0, nonempty + 0 }' "$RUN_LOG"
+)
+last_result="unknown"
+if [ "$aweme_log_lines" -gt 0 ]; then
+  if [ "$aweme_nonempty_lines" -gt 0 ]; then
+    last_result="nonempty"
+  else
+    last_result="empty"
+  fi
+fi
 
 completed_epoch="$(date +%s)"
 completed_at="$(date -Iseconds)"
 cat > "$STATE_FILE" <<STATE
 last_completed_epoch=$completed_epoch
 last_completed_at=$completed_at
+last_result=$last_result
+last_result_at=$completed_at
 mode=$mode
 interval_minutes=$interval_minutes
 login_type=$login_type

@@ -985,6 +985,7 @@ export interface DouyinCrawlServiceStatus {
 export interface DouyinCrawlSchedulerState {
   exists: boolean;
   lastCompletedAt?: string;
+  lastResult?: "empty" | "nonempty" | "unknown";
   mode?: "day" | "night";
   intervalMinutes?: number;
   loginType?: string;
@@ -1000,8 +1001,10 @@ export interface DouyinLoginProfileStatus {
   exists: boolean;
   cookieDbCount: number;
   hasSessionCookie: boolean;
+  hasValidSessionCookie: boolean;
   cookieConfigured?: boolean;
   configReadable?: boolean;
+  sessionCookieExpiresAt?: string;
   latestCookieModifiedAt?: string;
   error?: string;
 }

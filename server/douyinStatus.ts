@@ -184,6 +184,9 @@ async function readSchedulerState(): Promise<DouyinCrawlSchedulerState> {
     const state: DouyinCrawlSchedulerState = {
       exists: true,
       ...(lastCompletedAt ? { lastCompletedAt } : {}),
+      ...(values.last_result === "empty" || values.last_result === "nonempty" || values.last_result === "unknown"
+        ? { lastResult: values.last_result }
+        : {}),
       ...(values.mode === "day" || values.mode === "night" ? { mode: values.mode } : {}),
       ...(intervalMinutes ? { intervalMinutes } : {}),
       ...(values.login_type ? { loginType: values.login_type } : {}),
@@ -217,6 +220,7 @@ async function inspectLoginProfile(): Promise<DouyinLoginProfileStatus> {
       exists,
       cookieDbCount: 0,
       hasSessionCookie: false,
+      hasValidSessionCookie: false,
       error: compactCommandMessage(python)
     };
   }
@@ -229,8 +233,10 @@ async function inspectLoginProfile(): Promise<DouyinLoginProfileStatus> {
       exists: Boolean(parsed.exists),
       cookieDbCount: Number(parsed.cookieDbCount || 0),
       hasSessionCookie: Boolean(parsed.hasSessionCookie),
+      hasValidSessionCookie: Boolean(parsed.hasValidSessionCookie),
       cookieConfigured: Boolean(parsed.cookieConfigured),
       configReadable: Boolean(parsed.configReadable),
+      ...(parsed.sessionCookieExpiresAt ? { sessionCookieExpiresAt: parsed.sessionCookieExpiresAt } : {}),
       ...(parsed.latestCookieModifiedAt ? { latestCookieModifiedAt: parsed.latestCookieModifiedAt } : {})
     };
   } catch (error) {
@@ -241,6 +247,7 @@ async function inspectLoginProfile(): Promise<DouyinLoginProfileStatus> {
       exists,
       cookieDbCount: 0,
       hasSessionCookie: false,
+      hasValidSessionCookie: false,
       error: error instanceof Error ? error.message : String(error)
     };
   }
@@ -254,6 +261,7 @@ import json
 import os
 import sqlite3
 import sys
+import time
 from pathlib import Path
 
 media_crawler_dir = Path(sys.argv[1])
@@ -262,7 +270,10 @@ app_root = Path(sys.argv[3]) if sys.argv[3] else None
 bettafish_root = Path(sys.argv[4]) if sys.argv[4] else None
 cookie_paths = list(profile.glob("**/Network/Cookies")) + list(profile.glob("**/Cookies")) if profile.exists() else []
 session_names = {"sessionid", "sessionid_ss", "sid_guard", "sid_tt", "uid_tt", "uid_tt_ss"}
+primary_session_names = {"sessionid", "sessionid_ss", "sid_tt"}
 has_session_cookie = False
+has_valid_session_cookie = False
+session_cookie_expires = []
 latest_modified = 0.0
 cookie_db_count = 0
 cookie_configured = False
@@ -304,15 +315,24 @@ for cookie_path in cookie_paths:
         latest_modified = max(latest_modified, cookie_path.stat().st_mtime)
         con = sqlite3.connect(f"file:{cookie_path}?mode=ro", uri=True)
         rows = con.execute(
-            "select name, length(value), length(encrypted_value) from cookies "
+            "select name, expires_utc, length(value), length(encrypted_value) from cookies "
             "where host_key like '%douyin.com' or host_key like '%amemv.com' or host_key like '%bytedance.com'"
         ).fetchall()
         con.close()
         if rows:
             cookie_db_count += 1
-        for name, value_len, encrypted_len in rows:
+        now_chrome_us = int((time.time() + 11644473600) * 1000000)
+        for name, expires_utc, value_len, encrypted_len in rows:
             if name in session_names and ((value_len or 0) + (encrypted_len or 0) > 0):
                 has_session_cookie = True
+            if (
+                name in primary_session_names
+                and ((value_len or 0) + (encrypted_len or 0) > 0)
+                and (not expires_utc or expires_utc > now_chrome_us)
+            ):
+                has_valid_session_cookie = True
+                if expires_utc:
+                    session_cookie_expires.append(expires_utc)
     except Exception:
         continue
 
@@ -322,12 +342,18 @@ payload = {
     "exists": profile.exists(),
     "cookieDbCount": cookie_db_count,
     "hasSessionCookie": has_session_cookie,
+    "hasValidSessionCookie": has_valid_session_cookie,
     "cookieConfigured": cookie_configured,
     "configReadable": config_readable,
 }
 if latest_modified:
     from datetime import datetime, timezone
     payload["latestCookieModifiedAt"] = datetime.fromtimestamp(latest_modified, timezone.utc).isoformat()
+if session_cookie_expires:
+    payload["sessionCookieExpiresAt"] = datetime.fromtimestamp(
+        max(session_cookie_expires) / 1000000 - 11644473600,
+        timezone.utc,
+    ).isoformat()
 print(json.dumps(payload, ensure_ascii=False))
 `;
 
@@ -345,7 +371,7 @@ async function readRecentJournal() {
   return result.ok ? result.stdout : `${result.stdout}\n${result.stderr}`;
 }
 
-function makeIssues(
+export function makeIssues(
   service: DouyinCrawlServiceStatus,
   scheduler: DouyinCrawlSchedulerState,
   loginProfile: DouyinLoginProfileStatus,
@@ -358,6 +384,7 @@ function makeIssues(
   const loginFailure = latestFailed && looksLikeLoginFailure(journal);
   const loginType = (scheduler.loginType || runtimeConfig.douyinCrawlLoginType || "").toLowerCase();
   const usesCookieLogin = loginType === "cookie" || (!loginType && Boolean(loginProfile.cookieConfigured));
+  const hasValidSessionCookie = loginProfile.hasValidSessionCookie ?? loginProfile.hasSessionCookie;
 
   if (!service.available && process.platform !== "win32") {
     issues.push({
@@ -423,17 +450,37 @@ function makeIssues(
     });
   }
 
+  if (service.available && loginProfile.checked && usesCookieLogin && loginProfile.configReadable !== false && !hasValidSessionCookie) {
+    issues.push({
+      type: "login",
+      severity: "error",
+      message: "抖音登录态已失效或 cookie 已过期",
+      detail: loginProfile.sessionCookieExpiresAt
+        ? `最近的抖音 session cookie 已于 ${loginProfile.sessionCookieExpiresAt} 过期。`
+        : "profile 中没有有效的抖音 session cookie。"
+    });
+  }
+
   if (
     service.available
     && loginProfile.checked
     && !usesCookieLogin
-    && (!loginProfile.exists || !loginProfile.hasSessionCookie)
+    && (!loginProfile.exists || !hasValidSessionCookie)
   ) {
     issues.push({
       type: "login",
       severity: "error",
       message: "抖音登录态需要重新确认",
       detail: loginProfile.exists ? "MediaCrawler profile 中没有有效登录 cookie。" : "MediaCrawler profile 不存在。"
+    });
+  }
+
+  if (service.available && !latestFailed && scheduler.lastResult === "empty" && !issues.some((issue) => issue.type === "login")) {
+    issues.push({
+      type: "crawl",
+      severity: "warning",
+      message: "抖音采集本轮返回空结果",
+      detail: "任务退出成功，但本轮关键词没有返回任何视频；请检查登录态或抖音风控。"
     });
   }
 
@@ -450,7 +497,7 @@ function makeIssues(
 }
 
 function looksLikeLoginFailure(text: string) {
-  return /(login failed|check_login_state|LOGIN_STATUS|Cookie login requested|no Douyin cookie|验证码|身份验证|安全验证|登录态|cookie)/i.test(text);
+  return /(login failed|check_login_state|LOGIN_STATUS|Cookie login requested|no Douyin cookie|login dialog|login button|popup_login_dialog|验证码|身份验证|安全验证|登录态|cookie)/i.test(text);
 }
 
 function statusFromIssues(issues: DouyinCrawlStatusIssue[], service: DouyinCrawlServiceStatus): BettaFishProbeStatus {
