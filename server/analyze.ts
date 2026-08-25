@@ -623,7 +623,7 @@ function countPositiveSignalOccurrences(content: string, word: string) {
   while (cursor < content.length) {
     const index = content.indexOf(word, cursor);
     if (index < 0) break;
-    const prefix = content.slice(Math.max(0, index - 4), index);
+    const prefix = content.slice(Math.max(0, index - 8), index);
     const suffix = content.slice(index + word.length, index + word.length + 4);
     if (isFalsePositivePraiseContext(prefix, suffix, word)) {
       cursor = index + word.length;
@@ -633,11 +633,17 @@ function countPositiveSignalOccurrences(content: string, word: string) {
       cursor = index + word.length;
       continue;
     }
-    if (!word.startsWith("不") && /不|没|無|无|难/.test(prefix)) negated += 1;
+    // Limit negation to the current clause so "没洗过，可以" does not negate "可以".
+    if (!word.startsWith("不") && isNegatedPositivePrefix(prefix)) negated += 1;
     else positive += 1;
     cursor = index + word.length;
   }
   return { positive, negated };
+}
+
+function isNegatedPositivePrefix(prefix: string) {
+  const clausePrefix = prefix.split(/[，,。！？!?；;、：:\n]/).pop() || "";
+  return /(?:不|没|無|无|难)(?:太|那么|怎么|会|能|可|有|够|再)?$/.test(clausePrefix);
 }
 
 function isNeutralPositiveQuestion(prefix: string, word: string) {

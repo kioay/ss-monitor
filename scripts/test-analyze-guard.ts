@@ -119,6 +119,32 @@ const accountRentalLead = analyze({
 assert.equal(accountRentalLead.riskLevel, "medium");
 assert.equal(accountRentalLead.riskReasons[0], "账号租赁/交易导流");
 
+const saleListingAfterUnwashedItem = analyze({
+  title: "卖甲卖甲，一个双t1顶级词条，一个双t2顶级词条",
+  gameId: "ss1",
+  contentParts: [
+    { type: "title", text: "卖甲卖甲，一个双t1顶级词条，一个双t2顶级词条", count: 1 },
+    {
+      type: "description",
+      text: "双t1只洗练过一次，双t2没洗过，可以拿回去继承，有老板看得上吗",
+      count: 1
+    }
+  ]
+});
+
+assert.equal(saleListingAfterUnwashedItem.sentiment, "positive");
+assert.equal(saleListingAfterUnwashedItem.sentimentScore, 0.425);
+assert.equal(saleListingAfterUnwashedItem.riskLevel, "low");
+assert.deepEqual(saleListingAfterUnwashedItem.riskReasons, []);
+
+const directNegativePhrase = analyze({
+  title: "这个模式不好玩",
+  contentParts: [{ type: "title", text: "这个模式不好玩", count: 1 }]
+});
+
+assert.equal(directNegativePhrase.sentiment, "negative");
+assert.ok(directNegativePhrase.sentimentScore < 0);
+
 function analyze(input: { title: string; contentParts: ContentPart[]; gameId?: GameId; metrics?: Parameters<typeof analyzeItem>[0]["metrics"] }) {
   return analyzeItem({
     title: input.title,
