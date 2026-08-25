@@ -3026,6 +3026,11 @@ function RuntimeStatusTray({
   bettafishCapabilities: BettaFishPanelCapability[];
 }) {
   const douyinIssue = douyinStatus && !douyinStatus.ok ? douyinStatus.issues.find((issue) => issue.type === "login") || douyinStatus.issues[0] : undefined;
+  const hasDouyinIssue = Boolean(douyinIssue);
+  const [statusOpen, setStatusOpen] = React.useState(hasDouyinIssue);
+  React.useEffect(() => {
+    if (hasDouyinIssue) setStatusOpen(true);
+  }, [hasDouyinIssue]);
   const summaryParts = [
     timestampText,
     riskBacktestSummary(riskBacktest),
@@ -3036,7 +3041,11 @@ function RuntimeStatusTray({
   const summaryText = summaryParts.join(" · ");
 
   return (
-    <details className={`runtime-status-tray ${douyinIssue ? "has-warning" : ""}`}>
+    <details
+      className={`runtime-status-tray ${douyinIssue ? "has-warning" : ""} ${douyinIssue?.type === "login" ? "has-login-error" : ""}`}
+      open={statusOpen}
+      onToggle={(event) => setStatusOpen(event.currentTarget.open)}
+    >
       <summary className="runtime-status-trigger" title={summaryText}>
         <Clock3 size={14} aria-hidden="true" />
         <span>{summaryText || "运行状态"}</span>
@@ -3203,6 +3212,7 @@ function DouyinStatusNotice({ status }: { status?: DouyinCrawlStatus }) {
       <div>
         <strong>{loginIssue ? "抖音登录需处理" : "抖音采集异常"}</strong>
         <small>{noticeMessage}</small>
+        {primaryIssue.detail ? <em className="douyin-status-detail">{primaryIssue.detail}</em> : null}
       </div>
       {remoteLoginReady ? (
         <a href={api.douyinRemoteLogin} target="_blank" rel="noreferrer" className="douyin-remote-login">
