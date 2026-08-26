@@ -18,6 +18,7 @@ import {
   Palette,
   Plug,
   Plus,
+  Square,
   RefreshCw,
   Search,
   ShieldAlert,
@@ -69,6 +70,7 @@ const api = {
   inspiration: "/api/inspiration",
   douyinStatus: "/api/douyin/status",
   douyinRemoteLogin: "/api/douyin/remote-login",
+  douyinRemoteLoginStop: "/api/douyin/remote-login/stop",
   bettafishLab: "/api/bettafish/lab",
   bettafishLabAction: "/api/bettafish/lab/action"
 };
@@ -1199,6 +1201,7 @@ function App() {
             riskBacktest={visibleRiskBacktest}
             updatePolicy={visiblePolicy}
             douyinStatus={douyinStatus}
+            onRefreshDouyinStatus={() => loadDouyinStatus(true)}
             bettafishCapabilities={data?.bettafishCapabilities || []}
           />
           <a className="topbar-link-button" href="/inspiration" title="打开 FPS/TPS 灵感素材库">
@@ -3018,12 +3021,14 @@ function RuntimeStatusTray({
   riskBacktest,
   updatePolicy,
   douyinStatus,
+  onRefreshDouyinStatus,
   bettafishCapabilities
 }: {
   timestampText: string;
   riskBacktest?: MonitorResponse["riskBacktest"];
   updatePolicy?: MonitorResponse["updatePolicy"];
   douyinStatus?: DouyinCrawlStatus;
+  onRefreshDouyinStatus: () => Promise<void>;
   bettafishCapabilities: BettaFishPanelCapability[];
 }) {
   const douyinIssue = douyinStatus && !douyinStatus.ok ? douyinStatus.issues.find((issue) => issue.type === "login") || douyinStatus.issues[0] : undefined;
@@ -3091,7 +3096,7 @@ function RuntimeStatusTray({
               <AlertTriangle size={14} aria-hidden="true" />
               抖音状态
             </span>
-            <DouyinStatusNotice status={douyinStatus} />
+            <DouyinStatusNotice status={douyinStatus} onRefresh={onRefreshDouyinStatus} />
           </div>
         ) : null}
       </div>
@@ -3181,8 +3186,10 @@ function UpdatePolicyBadge({ policy }: { policy: MonitorResponse["updatePolicy"]
   );
 }
 
-function DouyinStatusNotice({ status }: { status?: DouyinCrawlStatus }) {
+function DouyinStatusNotice({ status, onRefresh }: { status?: DouyinCrawlStatus; onRefresh?: () => Promise<void> }) {
   const [copyState, setCopyState] = React.useState<"idle" | "copied" | "failed">("idle");
+  const [stopState, setStopState] = React.useState<"idle" | "stopping">("idle");
+  const [stopError, setStopError] = React.useState("");
   if (!status || status.ok) return null;
   const loginIssue = status.issues.find((issue) => issue.type === "login");
   const primaryIssue = loginIssue || status.issues[0];
@@ -3208,6 +3215,21 @@ function DouyinStatusNotice({ status }: { status?: DouyinCrawlStatus }) {
     window.setTimeout(() => setCopyState("idle"), 1600);
   };
   const copyLabel = copyState === "copied" ? "已复制" : copyState === "failed" ? "复制失败" : "复制命令";
+  const stopNoVnc = async () => {
+    if (stopState === "stopping") return;
+    setStopState("stopping");
+    setStopError("");
+    try {
+      const response = await fetch(api.douyinRemoteLoginStop, { method: "POST" });
+      const payload = (await response.json().catch(() => ({}))) as { message?: string };
+      if (!response.ok) throw new Error(payload.message || `API ${response.status}`);
+      await onRefresh?.();
+    } catch (reason) {
+      setStopError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setStopState("idle");
+    }
+  };
 
   return (
     <div className={`douyin-status-notice ${primaryIssue.severity}`} role="status" title={noticeTitle}>
@@ -3217,17 +3239,32 @@ function DouyinStatusNotice({ status }: { status?: DouyinCrawlStatus }) {
         <small>{noticeMessage}</small>
         {primaryIssue.detail ? <em className="douyin-status-detail">{primaryIssue.detail}</em> : null}
       </div>
-      {remoteLoginReady ? (
-        <a href={api.douyinRemoteLogin} target="_blank" rel="noreferrer" className="douyin-remote-login">
-          <ExternalLink size={14} aria-hidden="true" />
-          远程登录
-        </a>
-      ) : setupCommand ? (
-        <button type="button" className="douyin-remote-login" onClick={copySetupCommand}>
-          <Copy size={14} aria-hidden="true" />
-          {copyLabel}
-        </button>
-      ) : null}
+      <div className="douyin-status-actions">
+        {browserBusy && remoteLogin?.active ? (
+          <button
+            type="button"
+            className="douyin-remote-login stop"
+            onClick={stopNoVnc}
+            disabled={stopState === "stopping"}
+            title={stopError || "停止 noVNC 会关闭当前远程抖音浏览器"}
+          >
+            <Square size={13} aria-hidden="true" />
+            {stopState === "stopping" ? "停止中" : "停止 noVNC"}
+          </button>
+        ) : null}
+        {remoteLoginReady ? (
+          <a href={api.douyinRemoteLogin} target="_blank" rel="noreferrer" className="douyin-remote-login">
+            <ExternalLink size={14} aria-hidden="true" />
+            远程登录
+          </a>
+        ) : setupCommand ? (
+          <button type="button" className="douyin-remote-login" onClick={copySetupCommand}>
+            <Copy size={14} aria-hidden="true" />
+            {copyLabel}
+          </button>
+        ) : null}
+      </div>
+      {stopError ? <em className="douyin-status-action-error">{stopError}</em> : null}
     </div>
   );
 }

@@ -540,6 +540,22 @@ h2 {
   -webkit-line-clamp: 2;
 }
 
+.douyin-status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.douyin-status-action-error {
+  grid-column: 2 / -1;
+  color: #842d28;
+  font-size: 11px;
+  font-style: normal;
+  line-height: 1.3;
+  text-align: right;
+}
+
 .douyin-remote-login {
   min-height: 28px;
   display: inline-flex;
@@ -562,6 +578,21 @@ h2 {
 .douyin-remote-login:focus-visible {
   background: white;
   box-shadow: 0 0 0 3px rgba(181, 75, 68, 0.12);
+}
+
+.douyin-remote-login.stop {
+  border-color: rgba(181, 75, 68, 0.48);
+  background: rgba(181, 75, 68, 0.1);
+}
+
+.douyin-remote-login.stop:hover,
+.douyin-remote-login.stop:focus-visible {
+  background: #fff1ee;
+}
+
+.douyin-remote-login:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 
 .icon-button {
@@ -5563,6 +5594,16 @@ button.metric:focus-visible {
   .douyin-status-notice {
     width: 100%;
     max-width: none;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .douyin-status-actions {
+    grid-column: 2;
+    justify-content: flex-start;
+  }
+
+  .douyin-status-action-error {
+    text-align: left;
   }
 
   .feed-toolbar {

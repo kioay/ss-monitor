@@ -80,3 +80,23 @@ test("an active remote browser is reported as a crawl lock, not a login failure"
   assert.equal(issues.some((issue) => issue.type === "login"), false);
   assert.ok(issues.some((issue) => issue.message.includes("远程登录浏览器释放")));
 });
+
+test("a stopped remote browser keeps the crawl in retry state instead of showing a hard failure", () => {
+  const failedService: DouyinCrawlServiceStatus = {
+    ...service,
+    activeState: "failed",
+    subState: "failed",
+    result: "exit-code",
+    execMainStatus: 1
+  };
+  const validProfile = { ...profile, hasValidSessionCookie: true };
+  const issues = makeIssues(
+    failedService,
+    { ...scheduler, lastResult: "unknown" },
+    validProfile,
+    "Browser failed to be ready within 60 seconds\nCDP browser launch failed",
+    { ...activeRemoteLogin, active: false }
+  );
+  assert.equal(issues.some((issue) => issue.severity === "error"), false);
+  assert.ok(issues.some((issue) => issue.message.includes("下一轮重试")));
+});

@@ -73,7 +73,26 @@ export async function startDouyinRemoteLogin(hostHeader = "") {
       message: compactCommandMessage(result)
     };
   }
+  cachedStatus = undefined;
   return { ok: true, url };
+}
+
+export async function stopDouyinRemoteLogin() {
+  if (process.platform === "win32") {
+    return { ok: false, message: "远程登录服务仅能在生产 Linux 服务上停止" };
+  }
+
+  const serviceName = runtimeConfig.douyinRemoteLoginServiceName;
+  const useSudo = typeof process.getuid === "function" && process.getuid() !== 0;
+  const result = useSudo
+    ? await runCommand("sudo", ["-n", "systemctl", "stop", serviceName], 15_000)
+    : await runCommand("systemctl", ["stop", serviceName], 15_000);
+  if (!result.ok) {
+    return { ok: false, message: compactCommandMessage(result) };
+  }
+
+  cachedStatus = undefined;
+  return { ok: true, message: "远程登录服务已停止" };
 }
 
 function douyinRemoteLoginUrl(hostHeader: string) {
@@ -413,12 +432,14 @@ export function makeIssues(
       message: "抖音登录态可能已失效",
       detail: "最近一次采集失败日志指向登录、cookie 或验证码流程。"
     });
-  } else if (browserLaunchFailure && remoteLogin?.active && hasValidSessionCookie) {
+  } else if (browserLaunchFailure && hasValidSessionCookie) {
     issues.push({
       type: "crawl",
       severity: "warning",
-      message: "抖音采集等待远程登录浏览器释放",
-      detail: "登录态有效，但 noVNC 浏览器正在占用采集 profile；关闭远程登录中的抖音页面后，下一轮采集会自动重试。"
+      message: remoteLogin?.active ? "抖音采集等待远程登录浏览器释放" : "抖音采集等待下一轮重试",
+      detail: remoteLogin?.active
+        ? "登录态有效，但 noVNC 浏览器正在占用采集 profile；关闭远程登录中的抖音页面后，下一轮采集会自动重试。"
+        : "登录态有效，noVNC 已停止；下一轮采集会自动重试。"
     });
   } else if (latestFailed) {
     issues.push({

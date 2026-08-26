@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { games, getUpdatePolicy, runtimeConfig } from "./config";
 import { sendDingTalkDailyReport, sendDingTalkTest } from "./dingtalk";
 import { getBettaFishLabResponse, runBettaFishLabAction } from "./bettafishLab";
-import { getDouyinCrawlStatus, startDouyinRemoteLogin } from "./douyinStatus";
+import { getDouyinCrawlStatus, startDouyinRemoteLogin, stopDouyinRemoteLogin } from "./douyinStatus";
 import { getInspirationResponse } from "./inspiration";
 import { getMonitorResponse } from "./monitor";
 import { getRiskBacktestStatus, warmRiskBacktest } from "./riskBacktest";
@@ -67,6 +67,21 @@ app.get("/api/douyin/remote-login", async (request, response) => {
       return;
     }
     response.redirect(result.url);
+  } catch (error) {
+    response.status(500).json({
+      message: error instanceof Error ? error.message : "未知错误"
+    });
+  }
+});
+
+app.post("/api/douyin/remote-login/stop", async (_request, response) => {
+  try {
+    const result = await stopDouyinRemoteLogin();
+    if (!result.ok) {
+      response.status(503).json({ message: result.message });
+      return;
+    }
+    response.json(result);
   } catch (error) {
     response.status(500).json({
       message: error instanceof Error ? error.message : "未知错误"
