@@ -371,8 +371,13 @@ print(json.dumps(payload, ensure_ascii=False))
 }
 
 async function readRecentJournal() {
-  const result = await runCommand("journalctl", ["-u", runtimeConfig.douyinCrawlServiceName, "--no-pager", "-n", "120"], 8_000);
-  return result.ok ? result.stdout : `${result.stdout}\n${result.stderr}`;
+  const runLogPath = path.join(path.dirname(runtimeConfig.douyinCrawlStatePath), "last-run.log");
+  const [runLog, journal] = await Promise.all([
+    fs.readFile(runLogPath, "utf8").catch(() => ""),
+    runCommand("journalctl", ["-u", runtimeConfig.douyinCrawlServiceName, "--no-pager", "-n", "120"], 8_000)
+  ]);
+  const journalText = journal.ok ? journal.stdout : `${journal.stdout}\n${journal.stderr}`;
+  return [runLog, journalText].filter(Boolean).join("\n");
 }
 
 export function makeIssues(
