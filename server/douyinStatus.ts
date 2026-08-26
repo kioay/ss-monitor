@@ -32,7 +32,7 @@ export async function getDouyinCrawlStatus(force = false, hostHeader = ""): Prom
   const loginProfile = await inspectLoginProfile();
   const remoteLogin = await inspectRemoteLogin(hostHeader);
   const journal = service.available ? await readRecentJournal() : "";
-  const issues = makeIssues(service, scheduler, loginProfile, journal);
+  const issues = makeIssues(service, scheduler, loginProfile, journal, remoteLogin);
   const status = statusFromIssues(issues, service);
   const loginOk = !issues.some((issue) => issue.type === "login");
   const crawlOk = !issues.some((issue) => issue.type === "crawl" || issue.type === "config");
@@ -89,6 +89,7 @@ async function inspectRemoteLogin(hostHeader: string): Promise<DouyinRemoteLogin
   if (process.platform === "win32") {
     return {
       ready: false,
+      active: false,
       url,
       setupCommand,
       message: "远程登录入口仅在生产 Linux 服务上生成",
@@ -98,6 +99,8 @@ async function inspectRemoteLogin(hostHeader: string): Promise<DouyinRemoteLogin
 
   const missing: string[] = [];
   const serviceName = runtimeConfig.douyinRemoteLoginServiceName;
+  const activeResult = await runCommand("systemctl", ["is-active", serviceName], 5_000);
+  const active = activeResult.ok && activeResult.stdout.trim() === "active";
   const unitName = path.basename(serviceName);
   if (!await pathExists(`/etc/systemd/system/${unitName}`)) missing.push("远程登录 systemd unit");
 
@@ -124,6 +127,7 @@ async function inspectRemoteLogin(hostHeader: string): Promise<DouyinRemoteLogin
   const ready = missing.length === 0;
   return {
     ready,
+    active,
     url,
     setupCommand,
     message: ready ? "远程登录入口已就绪" : "运行 release 自带脚本生成可用 noVNC 入口",
@@ -375,13 +379,15 @@ export function makeIssues(
   service: DouyinCrawlServiceStatus,
   scheduler: DouyinCrawlSchedulerState,
   loginProfile: DouyinLoginProfileStatus,
-  journal: string
+  journal: string,
+  remoteLogin?: DouyinRemoteLoginStatus
 ) {
   const issues: DouyinCrawlStatusIssue[] = [];
   const serviceFailed = service.activeState === "failed" || Boolean(service.result && !["success", "exit-code"].includes(service.result) && service.result !== "");
   const execFailed = service.result === "exit-code" && service.execMainStatus !== undefined && service.execMainStatus !== 0;
   const latestFailed = serviceFailed || execFailed;
-  const loginFailure = latestFailed && looksLikeLoginFailure(journal);
+  const browserLaunchFailure = latestFailed && looksLikeBrowserLaunchFailure(journal);
+  const loginFailure = latestFailed && !browserLaunchFailure && looksLikeLoginFailure(journal);
   const loginType = (scheduler.loginType || runtimeConfig.douyinCrawlLoginType || "").toLowerCase();
   const usesCookieLogin = loginType === "cookie" || (!loginType && Boolean(loginProfile.cookieConfigured));
   const hasValidSessionCookie = loginProfile.hasValidSessionCookie ?? loginProfile.hasSessionCookie;
@@ -401,6 +407,13 @@ export function makeIssues(
       severity: "error",
       message: "抖音登录态可能已失效",
       detail: "最近一次采集失败日志指向登录、cookie 或验证码流程。"
+    });
+  } else if (browserLaunchFailure && remoteLogin?.active && hasValidSessionCookie) {
+    issues.push({
+      type: "crawl",
+      severity: "warning",
+      message: "抖音采集等待远程登录浏览器释放",
+      detail: "登录态有效，但 noVNC 浏览器正在占用采集 profile；关闭远程登录中的抖音页面后，下一轮采集会自动重试。"
     });
   } else if (latestFailed) {
     issues.push({
@@ -500,6 +513,10 @@ function looksLikeLoginFailure(text: string) {
   return /(login failed|check_login_state|LOGIN_STATUS|Cookie login requested|no Douyin cookie|login dialog|login button|popup_login_dialog|验证码|身份验证|安全验证|登录态|cookie)/i.test(text);
 }
 
+function looksLikeBrowserLaunchFailure(text: string) {
+  return /(Browser failed to be ready|CDP browser launch failed|Browser process already exited|SingletonLock|TargetClosed)/i.test(text);
+}
+
 function statusFromIssues(issues: DouyinCrawlStatusIssue[], service: DouyinCrawlServiceStatus): BettaFishProbeStatus {
   if (!service.available && process.platform === "win32") return "skipped";
   if (issues.some((issue) => issue.severity === "error")) return "error";
@@ -521,7 +538,8 @@ function parseKeyValueText(text: string) {
 function normalizeSystemdTimestamp(value: string) {
   const trimmed = value.trim();
   if (!trimmed || trimmed === "n/a") return undefined;
-  const parsed = new Date(trimmed);
+  const normalized = trimmed.replace(/\s+CST$/, " +0800");
+  const parsed = new Date(normalized);
   return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : trimmed;
 }
 

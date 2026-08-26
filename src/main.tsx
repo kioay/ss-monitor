@@ -698,6 +698,7 @@ function App() {
         }],
         remoteLogin: {
           ready: false,
+          active: false,
           url: api.douyinRemoteLogin,
           setupCommand: "sudo bash /opt/ss-monitor/current/scripts/setup-douyin-remote-login.sh",
           message: "运行 release 自带脚本生成可用 noVNC 入口",
@@ -3026,6 +3027,7 @@ function RuntimeStatusTray({
   bettafishCapabilities: BettaFishPanelCapability[];
 }) {
   const douyinIssue = douyinStatus && !douyinStatus.ok ? douyinStatus.issues.find((issue) => issue.type === "login") || douyinStatus.issues[0] : undefined;
+  const douyinBrowserBusy = douyinIssue?.message.includes("远程登录浏览器释放") ?? false;
   const hasDouyinIssue = Boolean(douyinIssue);
   const [statusOpen, setStatusOpen] = React.useState(hasDouyinIssue);
   React.useEffect(() => {
@@ -3036,7 +3038,7 @@ function RuntimeStatusTray({
     riskBacktestSummary(riskBacktest),
     updatePolicy?.label || "",
     bettafishCapabilities.length ? `BettaFish ${bettafishCapabilities.length}项` : "",
-    douyinIssue ? (douyinIssue.type === "login" ? "抖音需登录" : "抖音需检查") : ""
+    douyinIssue ? (douyinIssue.type === "login" ? "抖音需登录" : douyinBrowserBusy ? "抖音采集暂缓" : "抖音需检查") : ""
   ].filter(Boolean);
   const summaryText = summaryParts.join(" · ");
 
@@ -3186,9 +3188,10 @@ function DouyinStatusNotice({ status }: { status?: DouyinCrawlStatus }) {
   const primaryIssue = loginIssue || status.issues[0];
   if (!primaryIssue) return null;
   const remoteLogin = status.remoteLogin;
-  const remoteLoginReady = remoteLogin?.ready ?? Boolean(loginIssue);
-  const setupCommand = remoteLogin && !remoteLogin.ready ? remoteLogin.setupCommand : "";
-  const noticeMessage = remoteLogin && !remoteLogin.ready ? remoteLogin.message : primaryIssue.message;
+  const remoteLoginReady = Boolean(loginIssue) && (remoteLogin?.ready ?? true);
+  const browserBusy = primaryIssue.message.includes("远程登录浏览器释放");
+  const setupCommand = loginIssue && remoteLogin && !remoteLogin.ready ? remoteLogin.setupCommand : "";
+  const noticeMessage = loginIssue && remoteLogin && !remoteLogin.ready ? remoteLogin.message : primaryIssue.message;
   const noticeTitle = [
     primaryIssue.detail || primaryIssue.message,
     remoteLogin && !remoteLogin.ready && remoteLogin.missing.length ? `缺少：${remoteLogin.missing.join("、")}` : "",
@@ -3210,7 +3213,7 @@ function DouyinStatusNotice({ status }: { status?: DouyinCrawlStatus }) {
     <div className={`douyin-status-notice ${primaryIssue.severity}`} role="status" title={noticeTitle}>
       <AlertTriangle size={16} aria-hidden="true" />
       <div>
-        <strong>{loginIssue ? "抖音登录需处理" : "抖音采集异常"}</strong>
+        <strong>{loginIssue ? "抖音登录需处理" : browserBusy ? "抖音采集暂缓" : "抖音采集异常"}</strong>
         <small>{noticeMessage}</small>
         {primaryIssue.detail ? <em className="douyin-status-detail">{primaryIssue.detail}</em> : null}
       </div>

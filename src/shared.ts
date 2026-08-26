@@ -1011,6 +1011,7 @@ export interface DouyinLoginProfileStatus {
 
 export interface DouyinRemoteLoginStatus {
   ready: boolean;
+  active?: boolean;
   url: string;
   setupCommand: string;
   message: string;
