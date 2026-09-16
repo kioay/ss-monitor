@@ -40,6 +40,9 @@ const highHeatScoreThreshold = 800;
 const highNegativeScoreThreshold = -0.45;
 const discussionContextReasons = new Set(["回游/环境询问语境"]);
 const routinePlayerTopics = new Set(["个人技术分享", "玩家求助咨询", "玩家行为争议", "玩家日常分享"]);
+const generalDiscussionTopic = "综合讨论";
+const genericRiskReasons = new Set(["负面表达集中", "评论区负反馈集中", "命中敏感风险词"]);
+const waterPostMaxTextLength = 40;
 
 export function queueDingTalkNotification(_response: MonitorResponse, _gameIds: GameId[]) {
   return;
@@ -252,7 +255,7 @@ function gameItemsForTimeRange(response: MonitorResponse, gameId: GameId, start:
 }
 
 function isDingTalkRelevantItem(item: MonitorItem) {
-  if (isRoutinePlayerContent(item)) return false;
+  if (isRoutinePlayerContent(item) || isWaterPost(item)) return false;
   return Boolean(dingTalkPushReason(item));
 }
 
@@ -285,6 +288,18 @@ function engagementScore(item: MonitorItem) {
 
 function isRoutinePlayerContent(item: MonitorItem) {
   return item.riskLevel === "low" && !item.riskReasons.length && item.topics.some((topic) => routinePlayerTopics.has(topic));
+}
+
+// 论坛水贴：只有"综合讨论"话题、没有实质风险理由、正文极短（口号/活跃度闲聊），不进入钉钉推送。
+function isWaterPost(item: MonitorItem) {
+  if (item.riskLevel === "high") return false;
+  if (item.riskReasons.some((reason) => !genericRiskReasons.has(reason))) return false;
+  if (item.topics.some((topic) => topic !== generalDiscussionTopic)) return false;
+  return analyzableTextLength(item) < waterPostMaxTextLength;
+}
+
+function analyzableTextLength(item: MonitorItem) {
+  return item.contentParts.map((part) => part.text).join(" ").replace(/\s+/g, " ").trim().length;
 }
 
 function isContextualDiscussion(item: MonitorItem) {
@@ -524,7 +539,7 @@ function weekendFloorForMondayReport(start: Date, reportEnd: Date) {
 }
 
 function isDailyFocusItem(item: MonitorItem) {
-  if (isRoutinePlayerContent(item)) return false;
+  if (isRoutinePlayerContent(item) || isWaterPost(item)) return false;
   return item.riskLevel !== "low" || Boolean(dingTalkPushReason(item));
 }
 

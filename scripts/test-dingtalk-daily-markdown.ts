@@ -47,13 +47,33 @@ try {
     makeItem("tieba:risk", "high", "2026-06-10T02:30:00.000Z"),
     makeItem("tieba:medium", "medium", "2026-06-11T01:59:00.000Z"),
     makeItem("tieba:at-send-time", "high", "2026-06-11T02:00:00.000Z"),
-    makeItem("tieba:ss2-risk", "high", "2026-06-10T02:30:00.000Z", "ss2")
+    makeItem("tieba:ss2-risk", "high", "2026-06-10T02:30:00.000Z", "ss2"),
+    makeWaterItem("forum4399:water-slogan", "2026-06-10T04:00:00.000Z", {
+      title: "重振生坛荣光",
+      replies: 315
+    }),
+    makeWaterItem("forum4399:water-activity", "2026-06-10T04:10:00.000Z", {
+      riskLevel: "medium",
+      sentiment: "negative",
+      sentimentScore: -0.42,
+      riskReasons: ["负面表达集中", "命中敏感风险词"],
+      title: "活跃：2",
+      description: "没救了"
+    }),
+    makeWaterItem("forum4399:real-complaint", "2026-06-10T04:20:00.000Z", {
+      riskLevel: "medium",
+      sentiment: "negative",
+      sentimentScore: -0.5,
+      riskReasons: ["负面表达集中"],
+      title: "副本好几万的币都没用",
+      description: "副本好几万的币都没用，换了装备也打不动，希望官方看看这个掉落设计"
+    })
   ]);
   const result = await sendDingTalkDailyReport(response, "ss1", new Date("2026-06-11T10:00:00+08:00"));
 
   assert.equal(result.ok, true);
   assert.equal(result.mode, "daily");
-  assert.equal(result.sent, 4);
+  assert.equal(result.sent, 7);
   assert.equal(result.existing, 2);
   assert.equal(payloads.length, 3);
 
@@ -65,6 +85,9 @@ try {
     assert.equal(text.includes("tieba:risk"), true);
     assert.equal(text.includes("tieba:medium"), true);
     assert.equal(text.includes("tieba:previously-pushed"), false);
+    assert.equal(text.includes("重振生坛荣光"), false);
+    assert.equal(text.includes("活跃：2"), false);
+    assert.equal(text.includes("副本好几万的币都没用"), true);
     assert.equal(text.includes("已剔除近 72 小时内推送过的 2 条重点舆情"), true);
     assert.equal(text.includes("tieba:before-window"), false);
     assert.equal(text.includes("tieba:at-send-time"), false);
@@ -85,6 +108,9 @@ try {
   assert.equal(state.seen?.["ss1:tieba:risk"]?.startsWith("2026-06-11T02:00:00.000Z|"), true);
   assert.equal(state.seen?.["ss1:tieba:url:https://tieba.baidu.com/p/risk"]?.startsWith("2026-06-11T02:00:00.000Z|"), true);
   assert.equal(state.seen?.["ss1:tieba:medium"]?.startsWith("2026-06-11T02:00:00.000Z|"), true);
+  assert.equal(state.seen?.["ss1:forum4399:water-slogan"], undefined);
+  assert.equal(state.seen?.["ss1:forum4399:water-activity"], undefined);
+  assert.equal(state.seen?.["ss1:forum4399:real-complaint"]?.startsWith("2026-06-11T02:00:00.000Z|"), true);
 
   payloads.length = 0;
   await fs.writeFile(process.env.DINGTALK_STATE_PATH, JSON.stringify({
@@ -194,5 +220,52 @@ function makeItem(
     sentimentScore: -0.8,
     riskLevel,
     riskReasons: riskLevel === "high" ? ["疑似外挂演示内容"] : ["命中外挂治理线索"]
+  };
+}
+
+function makeWaterItem(
+  id: string,
+  publishedAt: string,
+  overrides: Partial<{
+    riskLevel: MonitorItem["riskLevel"];
+    sentiment: MonitorItem["sentiment"];
+    sentimentScore: number;
+    riskReasons: string[];
+    title: string;
+    description: string;
+    replies: number;
+  }> = {}
+): MonitorItem {
+  const sourceItemId = id.split(":")[1];
+  const title = overrides.title || id;
+  const description = overrides.description || title;
+  const replies = overrides.replies ?? 1;
+  return {
+    id,
+    gameId: "ss1",
+    gameName: "生死狙击1",
+    source: "forum4399",
+    sourceLabel: "4399论坛",
+    sourceItemId,
+    title,
+    author: "tester",
+    url: `https://my.4399.com/forums/thread-${sourceItemId}`,
+    publishedAt,
+    collectedAt: "2026-06-11T01:00:00.000Z",
+    freshnessHours: 3,
+    metrics: { views: 120, replies, comments: replies },
+    contentParts: [
+      { type: "title", text: title, count: 1 },
+      { type: "tag", text: "[玩家交流]", count: 1 },
+      { type: "description", text: description, count: 1 }
+    ],
+    parsedContentCount: 3,
+    summary: `主题暂不集中，情绪相对中性。${title}`,
+    keywords: [],
+    topics: ["综合讨论"],
+    sentiment: overrides.sentiment || "neutral",
+    sentimentScore: overrides.sentimentScore ?? 0,
+    riskLevel: overrides.riskLevel || "low",
+    riskReasons: overrides.riskReasons || []
   };
 }
