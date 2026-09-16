@@ -41,7 +41,7 @@ const highNegativeScoreThreshold = -0.45;
 const discussionContextReasons = new Set(["回游/环境询问语境"]);
 const routinePlayerTopics = new Set(["个人技术分享", "玩家求助咨询", "玩家行为争议", "玩家日常分享"]);
 const generalDiscussionTopic = "综合讨论";
-const genericRiskReasons = new Set(["负面表达集中", "评论区负反馈集中", "命中敏感风险词"]);
+const genericRiskReasons = new Set(["负面表达集中", "评论区负反馈集中", "命中敏感风险词", "命中治理类风险词"]);
 const waterPostMaxTextLength = 40;
 
 export function queueDingTalkNotification(_response: MonitorResponse, _gameIds: GameId[]) {
@@ -290,7 +290,7 @@ function isRoutinePlayerContent(item: MonitorItem) {
   return item.riskLevel === "low" && !item.riskReasons.length && item.topics.some((topic) => routinePlayerTopics.has(topic));
 }
 
-// 论坛水贴：只有"综合讨论"话题、没有实质风险理由、正文极短（口号/活跃度闲聊），不进入钉钉推送。
+// 论坛水贴：只有"综合讨论"话题、仅命中泛化情绪/敏感词/治理词理由、正文极短（口号/活跃度闲聊），不进入钉钉推送。
 function isWaterPost(item: MonitorItem) {
   if (item.riskLevel === "high") return false;
   if (item.riskReasons.some((reason) => !genericRiskReasons.has(reason))) return false;

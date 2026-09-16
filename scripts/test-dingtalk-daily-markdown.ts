@@ -60,6 +60,12 @@ try {
       title: "活跃：2",
       description: "没救了"
     }),
+    makeWaterItem("forum4399:water-recruit", "2026-06-10T04:15:00.000Z", {
+      riskLevel: "medium",
+      riskReasons: ["命中治理类风险词"],
+      title: "水军势力招人",
+      description: "水军势力招人111"
+    }),
     makeWaterItem("forum4399:real-complaint", "2026-06-10T04:20:00.000Z", {
       riskLevel: "medium",
       sentiment: "negative",
@@ -73,7 +79,7 @@ try {
 
   assert.equal(result.ok, true);
   assert.equal(result.mode, "daily");
-  assert.equal(result.sent, 7);
+  assert.equal(result.sent, 8);
   assert.equal(result.existing, 2);
   assert.equal(payloads.length, 3);
 
@@ -87,6 +93,7 @@ try {
     assert.equal(text.includes("tieba:previously-pushed"), false);
     assert.equal(text.includes("重振生坛荣光"), false);
     assert.equal(text.includes("活跃：2"), false);
+    assert.equal(text.includes("水军势力招人"), false);
     assert.equal(text.includes("副本好几万的币都没用"), true);
     assert.equal(text.includes("已剔除近 72 小时内推送过的 2 条重点舆情"), true);
     assert.equal(text.includes("tieba:before-window"), false);
@@ -110,6 +117,7 @@ try {
   assert.equal(state.seen?.["ss1:tieba:medium"]?.startsWith("2026-06-11T02:00:00.000Z|"), true);
   assert.equal(state.seen?.["ss1:forum4399:water-slogan"], undefined);
   assert.equal(state.seen?.["ss1:forum4399:water-activity"], undefined);
+  assert.equal(state.seen?.["ss1:forum4399:water-recruit"], undefined);
   assert.equal(state.seen?.["ss1:forum4399:real-complaint"]?.startsWith("2026-06-11T02:00:00.000Z|"), true);
 
   payloads.length = 0;
