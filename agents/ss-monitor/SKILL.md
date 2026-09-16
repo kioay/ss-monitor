@@ -34,7 +34,13 @@ The worker may provide a compacted monitor payload containing `stats`, `health`,
 
 ## Output Contract
 
-Return a concise final answer suitable for WebView display. Prefer this shape when data is available:
+Return only the final user-facing answer. Do not include hidden reasoning,
+progress narration, commands, environment inspection, local file paths, internal
+service URLs, or Agent App/detail links. WDCloud Center is responsible for
+appending the openable Agent App link when the result is sent back to DingTalk.
+
+Keep the answer concise enough for DingTalk. Prefer this shape when data is
+available:
 
 - `结论`: one or two sentences.
 - `风险`: high/medium/low with evidence.

@@ -10,3 +10,4 @@ coverage/
 tsconfig.tsbuildinfo
 data/
 out/
+__pycache__/

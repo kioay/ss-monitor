@@ -1,0 +1,7 @@
+{
+  "agentId": "ss-monitor",
+  "operation": "update",
+  "previousVersion": "0.1.4",
+  "nextVersion": "0.1.5",
+  "changeSummary": "修复摘要任务因旧模型通道不可用而失败，切换至可用模型并补充明确的上游错误提示。"
+}

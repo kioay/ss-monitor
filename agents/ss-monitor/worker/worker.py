@@ -23,7 +23,7 @@ from wdcloud_worker_sdk import (
 
 AGENT_ID = "ss-monitor"
 AGENT_NAME = "SS Monitor"
-DEFAULT_CODEX_MODEL = "gpt-5.4-mini"
+DEFAULT_CODEX_MODEL = "gpt-5.6-sol"
 BUSINESS_MODES = {"monitor.summary", "monitor.health"}
 SOURCE_ID_RE = re.compile(r"\b(?:tieba|forum4399|bilibili|douyin):[A-Za-z0-9_-]+\b", re.IGNORECASE)
 SUPPORTED_SOURCE_IDS = {"tieba", "forum4399", "bilibili", "douyin"}
@@ -143,7 +143,8 @@ def run_business_turn(worker: WorkerClient, output_dir: Path, mode: str, turn_in
     )
     final_message = sanitize_text(str(codex_result.get("finalMessage") or "")).strip()
     if not final_message:
-        raise RuntimeError("Codex produced an empty final message")
+        model = os.environ.get("WDCLAW_CODEX_MODEL") or DEFAULT_CODEX_MODEL
+        raise RuntimeError(f"Codex model {model} returned no final message; inspect the task logs for the upstream error")
     annotated_final_message = annotate_summary_source_ids(final_message, monitor_snapshot)
     if annotated_final_message != final_message:
         log("Annotated source ids in summary output")
@@ -207,7 +208,7 @@ def run_business_turn(worker: WorkerClient, output_dir: Path, mode: str, turn_in
         worker,
         artifact_files=uploaded,
         structured_result=sanitize_for_manifest(structured_result),
-        summary="SS Monitor analysis completed.",
+        summary=final_message,
     )
     return uploaded
 
@@ -257,7 +258,7 @@ def run_health_turn(worker: WorkerClient, output_dir: Path, mode: str, turn_inpu
         worker,
         artifact_files=uploaded,
         structured_result=sanitize_for_manifest(structured_result),
-        summary="SS Monitor health check completed.",
+        summary=result_markdown,
     )
     return uploaded
 
@@ -626,14 +627,25 @@ def current_turn_input(task_input: dict[str, Any], context: dict[str, Any]) -> d
         return task_input
     current_turn = context.get("currentTurn")
     if not isinstance(current_turn, dict):
-        return task_input
+        return with_invocation_mode(task_input, task_input)
     turn_input = current_turn.get("input")
     if not isinstance(turn_input, dict):
-        return task_input
+        return with_invocation_mode(task_input, current_turn)
     nested = turn_input.get("input")
     if isinstance(nested, dict):
-        return nested
-    return turn_input
+        return with_invocation_mode(nested, current_turn)
+    return with_invocation_mode(turn_input, current_turn)
+
+
+def with_invocation_mode(payload: dict[str, Any], source: dict[str, Any]) -> dict[str, Any]:
+    if payload.get("mode"):
+        return payload
+    invocation_action = str(source.get("invocationAction") or source.get("actionId") or "").strip()
+    if invocation_action not in BUSINESS_MODES:
+        return payload
+    enriched = dict(payload)
+    enriched["mode"] = invocation_action
+    return enriched
 
 
 def bundle_webview(bundle_path: Path, log) -> None:

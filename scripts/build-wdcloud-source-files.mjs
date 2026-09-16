@@ -23,7 +23,7 @@ function walk(dir) {
     const rel = relative(repoRoot, absolute).replaceAll("\\", "/");
     sourceFiles.push({
       path: rel,
-      content: readFileSync(absolute, "utf8")
+      content: readFileSync(absolute, "utf8").replace(/\r\n?/g, "\n")
     });
   }
 }

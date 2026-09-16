@@ -492,14 +492,30 @@
         await input.onPoll?.(detail);
         assertSubmittedTurnStillRunning(detail, input);
         const results = Array.isArray(detail && detail.results) ? detail.results : [];
-        const candidates = results.slice(afterResultCount).reverse();
-        for (const result of candidates) {
-          if (!resultMatches(result, input)) continue;
-          return {
-            detail,
-            result,
-            structuredResult: structuredResultOf(result),
-          };
+        const targetTurnId = textValue(input.turnId);
+        const targetTaskRunId = textValue(input.taskRunId);
+        if (targetTurnId || targetTaskRunId) {
+          // 身份匹配:快照 results 是投影(最近 20 条), 位置游标在长会话下 slice 恒空 → 永久卡死。
+          for (const result of results.slice().reverse()) {
+            if ((targetTurnId && resultTurnIdOf(result) === targetTurnId)
+              || (targetTaskRunId && resultTaskRunIdOf(result) === targetTaskRunId)) {
+              return {
+                detail,
+                result,
+                structuredResult: structuredResultOf(result),
+              };
+            }
+          }
+        } else {
+          const candidates = results.slice(afterResultCount).reverse();
+          for (const result of candidates) {
+            if (!resultMatches(result, input)) continue;
+            return {
+              detail,
+              result,
+              structuredResult: structuredResultOf(result),
+            };
+          }
         }
         await sleep(intervalMs, input.signal);
       }
