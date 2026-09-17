@@ -48,11 +48,11 @@ try {
     makeItem("tieba:medium", "medium", "2026-06-11T01:59:00.000Z"),
     makeItem("tieba:at-send-time", "high", "2026-06-11T02:00:00.000Z"),
     makeItem("tieba:ss2-risk", "high", "2026-06-10T02:30:00.000Z", "ss2"),
-    makeWaterItem("forum4399:water-slogan", "2026-06-10T04:00:00.000Z", {
+    makeForumItem("forum4399:water-slogan", "2026-06-10T04:00:00.000Z", {
       title: "重振生坛荣光",
       replies: 315
     }),
-    makeWaterItem("forum4399:water-activity", "2026-06-10T04:10:00.000Z", {
+    makeForumItem("forum4399:water-activity", "2026-06-10T04:10:00.000Z", {
       riskLevel: "medium",
       sentiment: "negative",
       sentimentScore: -0.42,
@@ -60,26 +60,55 @@ try {
       title: "活跃：2",
       description: "没救了"
     }),
-    makeWaterItem("forum4399:water-recruit", "2026-06-10T04:15:00.000Z", {
+    makeForumItem("forum4399:water-recruit", "2026-06-10T04:15:00.000Z", {
       riskLevel: "medium",
       riskReasons: ["命中治理类风险词"],
       title: "水军势力招人",
       description: "水军势力招人111"
     }),
-    makeWaterItem("forum4399:real-complaint", "2026-06-10T04:20:00.000Z", {
+    makeForumItem("forum4399:real-complaint", "2026-06-10T04:20:00.000Z", {
       riskLevel: "medium",
       sentiment: "negative",
       sentimentScore: -0.5,
       riskReasons: ["负面表达集中"],
       title: "副本好几万的币都没用",
       description: "副本好几万的币都没用，换了装备也打不动，希望官方看看这个掉落设计"
+    }),
+    makeForumItem("tieba:account-sale", "2026-06-10T05:00:00.000Z", {
+      source: "tieba",
+      riskLevel: "medium",
+      sentiment: "negative",
+      sentimentScore: -0.72,
+      riskReasons: ["新回复带来风险", "负面表达集中"],
+      topics: ["当前版本重点", "氪金付费"],
+      title: "走⚡出个浩，感谢理解",
+      description: "基本全传说彩金2，可⚡3000，奇珍币可回本600，千元翅膀＋星珀千元皮"
+    }),
+    makeForumItem("forum4399:buy-talk", "2026-06-10T05:10:00.000Z", {
+      riskLevel: "medium",
+      sentiment: "negative",
+      sentimentScore: -0.62,
+      riskReasons: ["账号租赁/交易导流", "当前版本重点负反馈"],
+      topics: ["氪金付费", "匹配平衡"],
+      title: "削弱蝶梦！",
+      description: "蝶梦这个版本太弱了，氪了皮肤也没用，希望官方平衡一下",
+      comments: ["买号划算", "氪金不如买号或者租号"]
+    }),
+    makeForumItem("forum4399:account-quote", "2026-06-10T05:20:00.000Z", {
+      riskLevel: "medium",
+      sentiment: "positive",
+      sentimentScore: 0.83,
+      riskReasons: ["账号租赁/交易导流"],
+      topics: ["当前版本重点", "氪金付费"],
+      title: "断罪终焉残辉贰太一贰瑶光传承的黄火V6",
+      description: "如题，500搞个断罪终焉，残辉贰，太一贰，瑶光传承的新氪V6有没有搞头"
     })
   ]);
   const result = await sendDingTalkDailyReport(response, "ss1", new Date("2026-06-11T10:00:00+08:00"));
 
   assert.equal(result.ok, true);
   assert.equal(result.mode, "daily");
-  assert.equal(result.sent, 8);
+  assert.equal(result.sent, 11);
   assert.equal(result.existing, 2);
   assert.equal(payloads.length, 3);
 
@@ -95,6 +124,9 @@ try {
     assert.equal(text.includes("活跃：2"), false);
     assert.equal(text.includes("水军势力招人"), false);
     assert.equal(text.includes("副本好几万的币都没用"), true);
+    assert.equal(text.includes("走⚡出个浩"), false);
+    assert.equal(text.includes("断罪终焉残辉贰太一贰"), false);
+    assert.equal(text.includes("削弱蝶梦！"), true);
     assert.equal(text.includes("已剔除近 72 小时内推送过的 2 条重点舆情"), true);
     assert.equal(text.includes("tieba:before-window"), false);
     assert.equal(text.includes("tieba:at-send-time"), false);
@@ -118,6 +150,9 @@ try {
   assert.equal(state.seen?.["ss1:forum4399:water-slogan"], undefined);
   assert.equal(state.seen?.["ss1:forum4399:water-activity"], undefined);
   assert.equal(state.seen?.["ss1:forum4399:water-recruit"], undefined);
+  assert.equal(state.seen?.["ss1:forum4399:buy-talk"]?.startsWith("2026-06-11T02:00:00.000Z|"), true);
+  assert.equal(state.seen?.["ss1:tieba:account-sale"], undefined);
+  assert.equal(state.seen?.["ss1:forum4399:account-quote"], undefined);
   assert.equal(state.seen?.["ss1:forum4399:real-complaint"]?.startsWith("2026-06-11T02:00:00.000Z|"), true);
 
   payloads.length = 0;
@@ -231,16 +266,19 @@ function makeItem(
   };
 }
 
-function makeWaterItem(
+function makeForumItem(
   id: string,
   publishedAt: string,
   overrides: Partial<{
+    source: MonitorItem["source"];
     riskLevel: MonitorItem["riskLevel"];
     sentiment: MonitorItem["sentiment"];
     sentimentScore: number;
     riskReasons: string[];
+    topics: string[];
     title: string;
     description: string;
+    comments: string[];
     replies: number;
   }> = {}
 ): MonitorItem {
@@ -248,16 +286,17 @@ function makeWaterItem(
   const title = overrides.title || id;
   const description = overrides.description || title;
   const replies = overrides.replies ?? 1;
+  const source = overrides.source || "forum4399";
   return {
     id,
     gameId: "ss1",
     gameName: "生死狙击1",
-    source: "forum4399",
-    sourceLabel: "4399论坛",
+    source,
+    sourceLabel: source === "tieba" ? "百度贴吧" : "4399论坛",
     sourceItemId,
     title,
     author: "tester",
-    url: `https://my.4399.com/forums/thread-${sourceItemId}`,
+    url: source === "tieba" ? `https://tieba.baidu.com/p/${sourceItemId}` : `https://my.4399.com/forums/thread-${sourceItemId}`,
     publishedAt,
     collectedAt: "2026-06-11T01:00:00.000Z",
     freshnessHours: 3,
@@ -265,15 +304,17 @@ function makeWaterItem(
     contentParts: [
       { type: "title", text: title, count: 1 },
       { type: "tag", text: "[玩家交流]", count: 1 },
-      { type: "description", text: description, count: 1 }
+      { type: "description", text: description, count: 1 },
+      ...(overrides.comments || []).map((comment) => ({ type: "post" as const, text: comment, count: 1 }))
     ],
     parsedContentCount: 3,
     summary: `主题暂不集中，情绪相对中性。${title}`,
     keywords: [],
-    topics: ["综合讨论"],
+    topics: overrides.topics || ["综合讨论"],
     sentiment: overrides.sentiment || "neutral",
     sentimentScore: overrides.sentimentScore ?? 0,
     riskLevel: overrides.riskLevel || "low",
     riskReasons: overrides.riskReasons || []
   };
 }
+

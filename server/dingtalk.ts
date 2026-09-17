@@ -43,6 +43,9 @@ const routinePlayerTopics = new Set(["个人技术分享", "玩家求助咨询",
 const generalDiscussionTopic = "综合讨论";
 const genericRiskReasons = new Set(["负面表达集中", "评论区负反馈集中", "命中敏感风险词", "命中治理类风险词"]);
 const waterPostMaxTextLength = 40;
+const accountTradingPattern = /(出|卖|售|收|买|求|蹲|换|租)[个一]?(号|浩|號|账号|帐号)|(账号|帐号)(出|卖|售|收|买|租|交易|转让)|(号|浩|號)(出售|转让|交易)|交易猫|淘手游/;
+const accountTradingComplaintPattern = /(被骗|骗了|骗人|骗子|诈骗|找回|举报|避雷|封号)/;
+const accountTradingReason = "账号租赁/交易导流";
 
 export function queueDingTalkNotification(_response: MonitorResponse, _gameIds: GameId[]) {
   return;
@@ -255,7 +258,7 @@ function gameItemsForTimeRange(response: MonitorResponse, gameId: GameId, start:
 }
 
 function isDingTalkRelevantItem(item: MonitorItem) {
-  if (isRoutinePlayerContent(item) || isWaterPost(item)) return false;
+  if (isRoutinePlayerContent(item) || isSuppressedPost(item)) return false;
   return Boolean(dingTalkPushReason(item));
 }
 
@@ -300,6 +303,23 @@ function isWaterPost(item: MonitorItem) {
 
 function analyzableTextLength(item: MonitorItem) {
   return item.contentParts.map((part) => part.text).join(" ").replace(/\s+/g, " ").trim().length;
+}
+
+// 卖号/账号交易信息：分析器只给出交易导流理由，或帖子自身标题/描述出现交易词，都算交易帖；
+// 只看标题与描述，避免把评论区“不如买号”这类闲聊误判成交易帖；高风险与投诉曝光类仍然保留。
+function isAccountTradingPost(item: MonitorItem) {
+  if (item.riskLevel === "high") return false;
+  const ownText = [item.title, ...item.contentParts
+    .filter((part) => part.type === "description" || part.type === "tag")
+    .map((part) => part.text)].join(" ");
+  const text = ownText.replace(/[^\p{Script=Han}0-9A-Za-z]+/gu, "");
+  if (accountTradingComplaintPattern.test(text)) return false;
+  if (item.riskReasons.length > 0 && item.riskReasons.every((reason) => reason === accountTradingReason)) return true;
+  return accountTradingPattern.test(text);
+}
+
+function isSuppressedPost(item: MonitorItem) {
+  return isWaterPost(item) || isAccountTradingPost(item);
 }
 
 function isContextualDiscussion(item: MonitorItem) {
@@ -539,7 +559,7 @@ function weekendFloorForMondayReport(start: Date, reportEnd: Date) {
 }
 
 function isDailyFocusItem(item: MonitorItem) {
-  if (isRoutinePlayerContent(item) || isWaterPost(item)) return false;
+  if (isRoutinePlayerContent(item) || isSuppressedPost(item)) return false;
   return item.riskLevel !== "low" || Boolean(dingTalkPushReason(item));
 }
 
