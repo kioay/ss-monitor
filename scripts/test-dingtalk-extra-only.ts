@@ -41,8 +41,10 @@ try {
 
   assert.equal(ss1Result.ok, true);
   assert.equal(ss1Result.mode, "daily");
+  assert.equal(ss1Result.sent, 1);
   assert.equal(ss2Result.ok, true);
   assert.equal(ss2Result.mode, "daily");
+  assert.equal(ss2Result.sent, 1);
   assert.equal(payloads.length, 2);
   assert.equal(payloads.some((payload) => payload.url.includes("ss1-extra")), true);
   assert.equal(payloads.some((payload) => payload.url.includes("ss2-extra")), true);
