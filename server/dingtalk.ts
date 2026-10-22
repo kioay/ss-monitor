@@ -699,8 +699,10 @@ function safeCell(value: string) {
 function sourceName(source: SourceType) {
   if (source === "bilibili") return "B站";
   if (source === "tieba") return "贴吧";
+  if (source === "douyin") return "抖音";
+  if (source === "forum4399") return "4399论坛";
   if (source === "bettafish") return "BettaFish";
-  return "抖音";
+  return source;
 }
 
 function riskName(risk: RiskLevel) {

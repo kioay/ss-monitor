@@ -48,6 +48,17 @@ try {
     makeItem("tieba:medium", "medium", "2026-06-11T01:59:00.000Z"),
     makeItem("tieba:at-send-time", "high", "2026-06-11T02:00:00.000Z"),
     makeItem("tieba:ss2-risk", "high", "2026-06-10T02:30:00.000Z", "ss2"),
+    makeForumItem("bilibili:source-label", "2026-06-10T05:30:00.000Z", {
+      source: "bilibili",
+      title: "B站来源标签"
+    }),
+    makeForumItem("douyin:source-label", "2026-06-10T05:40:00.000Z", {
+      source: "douyin",
+      title: "抖音来源标签"
+    }),
+    makeForumItem("forum4399:source-label", "2026-06-10T05:50:00.000Z", {
+      title: "4399来源标签"
+    }),
     makeForumItem("forum4399:water-slogan", "2026-06-10T04:00:00.000Z", {
       title: "重振生坛荣光",
       replies: 315
@@ -108,7 +119,7 @@ try {
 
   assert.equal(result.ok, true);
   assert.equal(result.mode, "daily");
-  assert.equal(result.sent, 11);
+  assert.equal(result.sent, 14);
   assert.equal(result.existing, 2);
   assert.equal(payloads.length, 3);
 
@@ -117,6 +128,9 @@ try {
     assert.equal(payload.markdown?.title?.includes("昨日舆情日报"), false);
     assert.equal(text.includes("本期概况"), true);
     assert.equal(text.includes("统计范围"), true);
+    assert.equal(text.includes("B站 1"), true);
+    assert.equal(text.includes("抖音 1"), true);
+    assert.equal(text.includes("4399论坛 7"), true);
     assert.equal(text.includes("tieba:risk"), true);
     assert.equal(text.includes("tieba:medium"), true);
     assert.equal(text.includes("tieba:previously-pushed"), false);
