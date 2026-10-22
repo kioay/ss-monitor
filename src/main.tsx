@@ -3716,22 +3716,22 @@ function Thumbnail({ item }: { item: MonitorItem }) {
     </div>
   );
 
-  if (!imageUrl || status === "failed") return fallback;
-
   return (
-    <>
+    <div className="thumbnail">
       {fallback}
-      <img
-        className={status === "loaded" ? "is-loaded" : ""}
-        src={imageUrl}
-        alt=""
-        width={320}
-        height={180}
-        loading="lazy"
-        onLoad={(event) => setStatus(event.currentTarget.naturalWidth > 0 ? "loaded" : "failed")}
-        onError={() => setStatus("failed")}
-      />
-    </>
+      {imageUrl && status !== "failed" ? (
+        <img
+          className={status === "loaded" ? "is-loaded" : ""}
+          src={imageUrl}
+          alt=""
+          width={320}
+          height={180}
+          loading="lazy"
+          onLoad={(event) => setStatus(event.currentTarget.naturalWidth > 0 ? "loaded" : "failed")}
+          onError={() => setStatus("failed")}
+        />
+      ) : null}
+    </div>
   );
 }
 
