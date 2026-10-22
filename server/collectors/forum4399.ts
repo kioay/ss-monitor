@@ -407,7 +407,7 @@ export function parseForum4399Date(raw: string, now = new Date()) {
 
   const full = text.match(/(20\d{2})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
   if (full) {
-    return new Date(
+    const date = new Date(
       Number(full[1]),
       Number(full[2]) - 1,
       Number(full[3]),
@@ -415,6 +415,7 @@ export function parseForum4399Date(raw: string, now = new Date()) {
       Number(full[5]),
       Number(full[6] || 0)
     );
+    return date.getTime() > now.getTime() + 5 * 60_000 ? undefined : date;
   }
 
   if (/刚刚|刚才/.test(text)) return new Date(now);

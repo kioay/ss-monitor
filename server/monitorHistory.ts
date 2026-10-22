@@ -44,11 +44,12 @@ export async function readMonitorHistoryItems(gameIds: GameId[], now: Date, rete
 
 export function mergeHistoryItems(existingItems: MonitorItem[], currentItems: MonitorItem[], options: HistoryMergeOptions) {
   const cutoffMs = options.now.getTime() - options.retentionHours * 3_600_000;
+  const latestAllowedMs = options.now.getTime() + 5 * 60_000;
   const byId = new Map<string, MonitorItem>();
 
   for (const item of [...existingItems, ...currentItems]) {
     const publishedMs = publishedTime(item);
-    if (publishedMs === undefined || publishedMs < cutoffMs) continue;
+    if (publishedMs === undefined || publishedMs < cutoffMs || publishedMs > latestAllowedMs) continue;
     if (!isDouyinMonitorItemGameConsistent(item)) continue;
     byId.set(historyKey(item), item);
   }
@@ -60,11 +61,12 @@ export function mergeHistoryItems(existingItems: MonitorItem[], currentItems: Mo
 
 function filterHistoryItems(items: MonitorItem[], gameIds: GameId[], now: Date, retentionHours: number) {
   const cutoffMs = now.getTime() - retentionHours * 3_600_000;
+  const latestAllowedMs = now.getTime() + 5 * 60_000;
   return items
     .filter((item) => gameIds.includes(item.gameId))
     .filter((item) => {
       const publishedMs = publishedTime(item);
-      return publishedMs !== undefined && publishedMs >= cutoffMs;
+      return publishedMs !== undefined && publishedMs >= cutoffMs && publishedMs <= latestAllowedMs;
     })
     .sort((a, b) => (publishedTime(b) || 0) - (publishedTime(a) || 0));
 }

@@ -238,7 +238,7 @@ function startDailyReportScheduler() {
   const run = async () => {
     try {
       const gameIds = games.map((game) => game.id);
-      const data = await getMonitorResponse({ games: gameIds.join(","), windowHours: "72", limit: "300", force: "1", notify: "0" });
+      const data = await getMonitorResponse({ games: gameIds.join(","), windowHours: "72", limit: "1000", force: "1", notify: "0" });
       await Promise.all(gameIds.map((gameId) => sendDingTalkDailyReport(data, gameId)));
     } catch (error) {
       console.error("Daily DingTalk report failed", error);

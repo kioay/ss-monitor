@@ -249,6 +249,7 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
   const generatedAt = new Date();
   const updatePolicy = getUpdatePolicy(generatedAt, generatedAt);
   const cutoff = new Date(generatedAt.getTime() - query.windowHours * 3_600_000);
+  const latestAllowedMs = generatedAt.getTime() + 5 * 60_000;
   const collection = await getCollection(query.selectedGames, query.force, generatedAt, query.extraKeywords, query.scopeKey);
   const collectionAgeSeconds = Math.max(0, Math.round((generatedAt.getTime() - collection.createdAt) / 1000));
   const collectionIsStale = collectionAgeSeconds > updatePolicy.intervalSeconds;
@@ -257,7 +258,10 @@ export async function getMonitorResponse(rawQuery: unknown): Promise<MonitorResp
     : updatePolicy;
   const windowItems = collection.items
     .filter((item) => gameIds.includes(item.gameId))
-    .filter((item) => new Date(item.publishedAt) >= cutoff)
+    .filter((item) => {
+      const publishedMs = new Date(item.publishedAt).getTime();
+      return publishedMs >= cutoff.getTime() && publishedMs <= latestAllowedMs;
+    })
     .map(normalizeMonitorItemLabel)
     .sort((a, b) => +new Date(b.publishedAt) - +new Date(a.publishedAt));
   const freshItems = windowItems.slice(0, query.limit);

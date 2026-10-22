@@ -126,6 +126,7 @@ assert.equal(posts[2]?.text.includes("强烈要求削弱破鸿"), true);
 
 assert.equal(parseForum4399Date("刚刚", now)?.getTime(), now.getTime());
 assert.equal(parseForum4399Date("昨天 12:00", now)?.getDate(), 15);
+assert.equal(parseForum4399Date("2027-02-10 23:59", now), undefined);
 assert.equal(forum4399TextMatchesKeywords("逆战吧里提到生死狙击", ["生死狙击"]), true);
 assert.equal(forum4399TextMatchesKeywords("普通论坛日常", ["生死狙击"]), false);
 assert.equal(

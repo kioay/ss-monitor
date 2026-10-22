@@ -7,9 +7,10 @@ const now = new Date("2026-06-08T12:00:00.000Z");
 const retainedBilibili = makeItem("bilibili:retained", "bilibili", "ss1", 10, "retained old title");
 const staleTieba = makeItem("tieba:stale", "tieba", "ss1", 31, "stale title");
 const currentTieba = makeItem("tieba:current", "tieba", "ss1", 1, "current title");
+const futureForum = makeItem("forum4399:future", "forum4399", "ss1", -30, "future title");
 const refreshedBilibili = makeItem("bilibili:retained", "bilibili", "ss1", 10, "refreshed title");
 
-const merged = mergeHistoryItems([retainedBilibili, staleTieba], [currentTieba, refreshedBilibili], {
+const merged = mergeHistoryItems([retainedBilibili, staleTieba, futureForum], [currentTieba, refreshedBilibili], {
   now,
   retentionHours: 24 * 30,
   maxItems: 5000
@@ -21,7 +22,7 @@ assert.deepEqual(
 );
 assert.equal(merged.find((item) => item.id === "bilibili:retained")?.title, "refreshed title");
 
-const capped = mergeHistoryItems([retainedBilibili], [currentTieba], {
+const capped = mergeHistoryItems([retainedBilibili, futureForum], [currentTieba], {
   now,
   retentionHours: 24 * 30,
   maxItems: 1
